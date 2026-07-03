@@ -1,4 +1,5 @@
 import type { CardSearchResult } from "./types";
+import { resolveRarityStyle } from "@/lib/rarity/resolve-rarity";
 import {
   buildYgoImageUrl,
   buildYgoProDeckUrl,
@@ -117,21 +118,88 @@ export function getSearchResultVariants(
   ];
 }
 
+function rarityCodesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  gameSlug?: string
+): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  if (a.trim().toLowerCase() === b.trim().toLowerCase()) return true;
+  const slug = gameSlug === "yugioh" ? "yugioh" : undefined;
+  return resolveRarityStyle(a, slug).code === resolveRarityStyle(b, slug).code;
+}
+
+function setCodesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  const left = a.trim().toUpperCase();
+  const right = b.trim().toUpperCase();
+  return left === right || right.startsWith(`${left}-`) || left.startsWith(`${right}-`);
+}
+
+export function variantMatchesOwnedCard(
+  variant: CardPrintVariant,
+  owned: {
+    rarity?: string | null;
+    setCode?: string | null;
+    setName?: string | null;
+    collectorNumber?: string | null;
+  },
+  gameSlug?: string
+): boolean {
+  if (!rarityCodesMatch(variant.rarity, owned.rarity, gameSlug)) return false;
+
+  const ownedCode = owned.setCode ?? owned.collectorNumber;
+  if (ownedCode && variant.setCode && setCodesMatch(ownedCode, variant.setCode)) {
+    return true;
+  }
+  if (owned.setName && variant.setName && owned.setName === variant.setName) {
+    return true;
+  }
+  return !ownedCode && !owned.setName;
+}
+
 export function findVariantForSelection(
   variants: CardPrintVariant[],
   rarity: string,
   setCode?: string | null,
-  setName?: string | null
+  setName?: string | null,
+  collectorNumber?: string | null,
+  gameSlug?: string
 ): CardPrintVariant | undefined {
-  if (setCode) {
-    const exact = variants.find((v) => v.rarity === rarity && v.setCode === setCode);
-    if (exact) return exact;
+  if (variants.length === 0) return undefined;
+
+  const ownedCode = setCode ?? collectorNumber;
+
+  if (ownedCode) {
+    const byCode = variants.find(
+      (v) => rarityCodesMatch(v.rarity, rarity, gameSlug) && setCodesMatch(ownedCode, v.setCode)
+    );
+    if (byCode) return byCode;
   }
+
   if (setName) {
-    const bySet = variants.find((v) => v.rarity === rarity && v.setName === setName);
+    const bySet = variants.find(
+      (v) => rarityCodesMatch(v.rarity, rarity, gameSlug) && v.setName === setName
+    );
     if (bySet) return bySet;
   }
-  return variants.find((v) => v.rarity === rarity);
+
+  const byRarity = variants.filter((v) => rarityCodesMatch(v.rarity, rarity, gameSlug));
+  if (byRarity.length === 1) return byRarity[0];
+
+  if (setName && byRarity.length > 1) {
+    const partial = byRarity.find((v) => {
+      if (!v.setName) return false;
+      const prefix = v.setName.split(":")[0]?.trim() ?? v.setName;
+      return setName.includes(prefix);
+    });
+    if (partial) return partial;
+  }
+
+  return undefined;
 }
 
 export function applyVariant(

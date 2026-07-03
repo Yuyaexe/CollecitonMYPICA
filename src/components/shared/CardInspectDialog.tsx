@@ -28,6 +28,7 @@ import { isApiSupported } from "@/features/catalog/services/card-api";
 import {
   findVariantForSelection,
   getSearchResultVariants,
+  variantMatchesOwnedCard,
   type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -112,15 +113,14 @@ export function CardInspectDialog({
   );
 
   const activeVariant = useMemo(() => {
-    if (!card) return undefined;
-    if (printVariants.length === 0) return undefined;
-    return (
-      findVariantForSelection(
-        printVariants,
-        card.card.rarity ?? "",
-        card.card.setCode,
-        card.card.setName
-      ) ?? printVariants[0]
+    if (!card || printVariants.length === 0) return undefined;
+    return findVariantForSelection(
+      printVariants,
+      card.card.rarity ?? "",
+      card.card.setCode,
+      card.card.setName,
+      card.card.collectorNumber,
+      card.card.gameSlug
     );
   }, [printVariants, card]);
 
@@ -204,9 +204,13 @@ export function CardInspectDialog({
             <h2 className="mt-4 text-center text-lg font-semibold leading-tight">
               {card.card.name}
             </h2>
-            {activeVariant && (
+            {card.card.rarity && (
               <div className="mt-2">
-                <RarityBadge rarity={activeVariant.rarity} gameSlug={card.card.gameSlug} size="md" />
+                <RarityBadge
+                  rarity={activeVariant?.rarity ?? card.card.rarity}
+                  gameSlug={card.card.gameSlug}
+                  size="md"
+                />
               </div>
             )}
             <dl className="mt-4 w-full space-y-2 text-sm">
@@ -281,7 +285,10 @@ export function CardInspectDialog({
                   <ScrollArea className="h-[180px] rounded-lg border border-border/60">
                     <div className="space-y-1 p-1">
                       {printVariants.map((variant) => {
-                        const isActive = activeVariant?.key === variant.key;
+                        const isActive =
+                          activeVariant?.key === variant.key ||
+                          (!activeVariant &&
+                            variantMatchesOwnedCard(variant, card.card, card.card.gameSlug));
                         return (
                           <button
                             key={variant.key}
