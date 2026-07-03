@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
@@ -47,6 +47,8 @@ export const CollectionRow = memo(function CollectionRow({
     marketPrice && item.purchasePrice
       ? (marketPrice - item.purchasePrice) * item.quantity
       : null;
+
+  const shiftKeyRef = useRef(false);
 
   const handleQuantityChange = useCallback(
     (quantity: number) => {
@@ -95,15 +97,14 @@ export const CollectionRow = memo(function CollectionRow({
       <div
         data-row-action
         className="flex shrink-0 items-center justify-center rounded-md p-1 transition-colors hover:bg-muted/60"
+        onPointerDown={(e) => {
+          shiftKeyRef.current = e.shiftKey;
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <Checkbox
           checked={selected}
-          onCheckedChange={() => onCheckboxChange(item.id, false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheckboxChange(item.id, e.shiftKey);
-          }}
+          onCheckedChange={() => onCheckboxChange(item.id, shiftKeyRef.current)}
           aria-label={`Select ${item.card.name}`}
         />
       </div>
