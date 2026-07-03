@@ -246,7 +246,30 @@ export function useAppData() {
       });
       if (!res.ok) throw new Error("Failed to update card");
     },
-    onSuccess: invalidate,
+    onMutate: async ({ id, updates }) => {
+      if (!isServerMode) return;
+      await queryClient.cancelQueries({ queryKey: ["app-state"] });
+      const previous = queryClient.getQueryData<AppState>(["app-state"]);
+      if (previous) {
+        queryClient.setQueryData<AppState>(["app-state"], {
+          ...previous,
+          ownedCards: previous.ownedCards.map((oc) =>
+            oc.id === id ? { ...oc, ...updates } : oc
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["app-state"], context.previous);
+      }
+    },
+    onSettled: () => {
+      if (isServerMode) {
+        queryClient.invalidateQueries({ queryKey: ["app-state"] });
+      }
+    },
   });
 
   const deleteCardsMutation = useMutation({

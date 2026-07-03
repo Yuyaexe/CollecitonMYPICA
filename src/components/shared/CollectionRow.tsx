@@ -1,9 +1,11 @@
 "use client";
 
+import { memo, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
+import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -16,6 +18,7 @@ interface CollectionRowProps {
   onDoubleClick: (item: DemoOwnedCard) => void;
   onMiddleClick: (item: DemoOwnedCard) => void;
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
+  onQuantityChange: (id: string, quantity: number) => void;
   currency: Currency;
   isWishlisted: boolean;
   peerPresence?: { color: string; name: string };
@@ -23,7 +26,7 @@ interface CollectionRowProps {
   style?: React.CSSProperties;
 }
 
-export function CollectionRow({
+export const CollectionRow = memo(function CollectionRow({
   item,
   selected,
   focused,
@@ -31,6 +34,7 @@ export function CollectionRow({
   onDoubleClick,
   onMiddleClick,
   onCheckboxChange,
+  onQuantityChange,
   currency,
   isWishlisted,
   peerPresence,
@@ -43,6 +47,15 @@ export function CollectionRow({
       ? (marketPrice - item.purchasePrice) * item.quantity
       : null;
 
+  const handleQuantityChange = useCallback(
+    (quantity: number) => {
+      if (quantity !== item.quantity) {
+        onQuantityChange(item.id, quantity);
+      }
+    },
+    [item.id, item.quantity, onQuantityChange]
+  );
+
   return (
     <div
       role="row"
@@ -53,13 +66,14 @@ export function CollectionRow({
       }}
       title={peerPresence ? `${peerPresence.name} is viewing this card` : undefined}
       className={cn(
-        "group flex cursor-pointer items-center gap-3 border-b border-border/50 px-4 py-2 transition-all duration-150 hover:bg-muted/50",
-        selected && "bg-primary/5",
-        focused && "ring-1 ring-inset ring-primary/30",
+        "group flex cursor-pointer items-center gap-3 border-b border-border/40 px-4 py-2 transition-colors duration-100 hover:bg-muted/40",
+        selected && "border-l-2 border-l-primary bg-primary/[0.07]",
+        !selected && "border-l-2 border-l-transparent",
+        focused && "ring-1 ring-inset ring-primary/25",
         className
       )}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+        if ((e.target as HTMLElement).closest("[data-row-action]")) return;
         onClick(item, e.shiftKey);
       }}
       onDoubleClick={(e) => {
@@ -73,7 +87,11 @@ export function CollectionRow({
         }
       }}
     >
-      <div onClick={(e) => e.stopPropagation()}>
+      <div
+        data-row-action
+        className="flex shrink-0 items-center justify-center rounded-md p-1 transition-colors hover:bg-muted/60"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Checkbox
           checked={selected}
           onCheckedChange={() => onCheckboxChange(item.id, false)}
@@ -85,13 +103,13 @@ export function CollectionRow({
         />
       </div>
 
-      <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded">
+      <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded shadow-sm ring-1 ring-border/30">
         <CardImage
           src={item.card.imageUrl}
           alt={item.card.name}
           fill
           sizes="28px"
-          className="rounded"
+          className="rounded object-cover"
         />
       </div>
 
@@ -108,7 +126,9 @@ export function CollectionRow({
         {item.card.collectorNumber ?? "—"}
       </div>
 
-      <div className="w-10 text-center text-sm font-medium tabular-nums">{item.quantity}</div>
+      <div data-row-action className="flex w-[88px] shrink-0 justify-center">
+        <QuantityStepper value={item.quantity} onChange={handleQuantityChange} />
+      </div>
 
       <div className="hidden w-12 text-center text-xs md:block">
         <Badge variant="outline" className="font-normal">
@@ -146,4 +166,4 @@ export function CollectionRow({
       </div>
     </div>
   );
-}
+});

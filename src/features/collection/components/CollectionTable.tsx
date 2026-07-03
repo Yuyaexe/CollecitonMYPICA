@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, useEffect } from "react";
 import { Layers } from "lucide-react";
 import {
   ContextMenu,
@@ -21,7 +20,7 @@ import { usePresenceContext } from "@/features/collection/context/presence-conte
 import { Skeleton } from "@/components/ui/skeleton";
 import { openMarketplaceInNewTab } from "@/features/market/services/marketplace";
 
-const ROW_HEIGHT = 52;
+const ROW_HEIGHT = 56;
 
 export function CollectionTable() {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -32,6 +31,7 @@ export function CollectionTable() {
     profile,
     deleteOwnedCards,
     toggleWishlist,
+    updateOwnedCard,
     isLoading,
     isError,
   } = useAppData();
@@ -57,6 +57,13 @@ export function CollectionTable() {
   const allIds = filtered.map((oc) => oc.id);
 
   const { peerByCardId } = usePresenceContext();
+
+  const handleQuantityChange = useCallback(
+    (id: string, quantity: number) => {
+      void updateOwnedCard(id, { quantity });
+    },
+    [updateOwnedCard]
+  );
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -131,21 +138,24 @@ export function CollectionTable() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-border bg-card/50 px-4 py-2 text-xs font-medium text-muted-foreground">
-        <Checkbox
-          checked={
-            headerChecked === "indeterminate"
-              ? "indeterminate"
-              : headerChecked
-          }
-          onCheckedChange={(c) =>
-            c ? selectAll(allIds) : useCollectionUIStore.getState().clearSelection()
-          }
-        />
+      <div className="flex items-center gap-3 border-b border-border bg-card/50 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+        <div className="flex shrink-0 items-center p-1">
+          <Checkbox
+            checked={
+              headerChecked === "indeterminate"
+                ? "indeterminate"
+                : headerChecked
+            }
+            onCheckedChange={(c) =>
+              c ? selectAll(allIds) : useCollectionUIStore.getState().clearSelection()
+            }
+            aria-label="Select all cards"
+          />
+        </div>
         <span className="flex-[2]">Name</span>
         <span className="hidden flex-1 md:block">Set</span>
         <span className="hidden w-12 lg:block">#</span>
-        <span className="w-10 text-center">Qty</span>
+        <span className="w-[88px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>
         <span className="hidden w-10 text-center sm:block">Lang</span>
         <span className="hidden w-20 lg:block">Market</span>
@@ -181,6 +191,7 @@ export function CollectionTable() {
                       onCheckboxChange={(id, shift) =>
                         toggleSelect(id, shift, allIds, virtualRow.index)
                       }
+                      onQuantityChange={handleQuantityChange}
                       currency={profile.currency}
                       isWishlisted={wishlistCardIds.includes(item.card.id)}
                       peerPresence={
