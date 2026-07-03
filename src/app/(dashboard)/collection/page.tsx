@@ -16,7 +16,6 @@ import { filterOwnedCards } from "@/features/collection/utils/filters";
 export default function CollectionPage() {
   const inspectCardId = useCollectionUIStore((s) => s.detailCardId);
   const inspectTab = useCollectionUIStore((s) => s.inspectTab);
-  const setInspectTab = useCollectionUIStore((s) => s.setInspectTab);
   const closeCardInspect = useCollectionUIStore((s) => s.closeCardInspect);
   const quickAddOpen = useCollectionUIStore((s) => s.quickAddOpen);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -71,7 +70,6 @@ export default function CollectionPage() {
           card={inspectCard}
           open={!!inspectCardId && !!inspectCard}
           tab={inspectTab}
-          onTabChange={setInspectTab}
           onOpenChange={(open) => !open && closeCardInspect()}
           currency={profile.currency}
         />

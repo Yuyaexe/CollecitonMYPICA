@@ -10,6 +10,7 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:sql": "node scripts/run-sql.mjs",
     "db:studio": "drizzle-kit studio",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

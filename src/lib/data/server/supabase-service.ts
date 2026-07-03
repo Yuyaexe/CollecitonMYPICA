@@ -203,11 +203,17 @@ export async function createSupabaseCollection(
     rpcError?.code === "PGRST202" ||
     rpcError?.message?.includes("create_collection");
 
-  if (!rpcMissing) {
-    throw rpcError ?? new Error("Failed to create collection");
+  if (rpcMissing) {
+    throw new Error(
+      "Sem permissão para criar coleção. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel ou rode a migration 0004_create_collection_rpc.sql no Supabase."
+    );
   }
 
-  // 3) Direct insert (requires valid session JWT)
+  if (rpcError) {
+    throw rpcError;
+  }
+
+  // 3) Direct insert (requires valid session JWT on the server client)
   const { data, error } = await supabase
     .from("collections")
     .insert({ user_id: userId, name: trimmed, is_default: false })

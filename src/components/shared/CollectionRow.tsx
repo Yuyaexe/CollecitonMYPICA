@@ -22,6 +22,7 @@ interface CollectionRowProps {
     item: DemoOwnedCard,
     modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
   ) => void;
+  onNameClick?: (item: DemoOwnedCard) => void;
   onMiddleClick: (item: DemoOwnedCard) => void;
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   onQuantityChange: (id: string, quantity: number) => void;
@@ -36,6 +37,7 @@ export const CollectionRow = memo(function CollectionRow({
   selected,
   focused,
   onClick,
+  onNameClick,
   onMiddleClick,
   onCheckboxChange,
   onQuantityChange,
@@ -123,17 +125,27 @@ export const CollectionRow = memo(function CollectionRow({
       <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
 
       <div className="min-w-0 flex-[2]">
-        <TruncatedTooltip
-          text={item.card.name}
-          className="text-sm font-medium"
-        />
+        <button
+          type="button"
+          data-row-action
+          className="block w-full min-w-0 text-left transition-colors hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNameClick?.(item);
+          }}
+        >
+          <TruncatedTooltip
+            text={item.card.name}
+            className="text-sm font-medium underline-offset-2 hover:underline"
+          />
+        </button>
         <TruncatedTooltip
           text={item.card.gameName}
           className="text-xs text-muted-foreground"
         />
       </div>
 
-      <div className="hidden min-w-0 flex-1 md:block">
+      <div className="hidden min-w-[9rem] flex-[1.5] md:block">
         <TruncatedTooltip
           text={item.card.setName}
           className="text-sm text-muted-foreground"
