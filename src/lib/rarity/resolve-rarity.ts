@@ -146,12 +146,53 @@ function isYugiohRarityName(rarity: string): boolean {
   );
 }
 
+const YGO_CARD_TYPE_HINT =
+  /\b(monster|spell|trap|skill|token|equip|continuous|quick-play|counter|field|ritual|fusion|synchro|xyz|xys|link|pendulum|flip|tuner|union|gemini|spirit|toon)\b/i;
+
+export const NIL_RARITY_STYLE: RarityStyle = {
+  code: "NIL",
+  label: "No rarity",
+  backgroundColor: "#64748b",
+  color: "#f8fafc",
+};
+
+export function isKnownRarity(
+  rarity: string | null | undefined,
+  gameSlug?: string
+): boolean {
+  if (!rarity?.trim()) return false;
+  const trimmed = rarity.trim();
+  if (/^\d+$/.test(trimmed)) return false;
+
+  if (gameSlug === "yugioh") {
+    if (isYugiohRarityName(trimmed)) return true;
+    if (YGO_CARD_TYPE_HINT.test(trimmed)) return false;
+    if (trimmed.length <= 6 && /^[A-Z0-9]+$/i.test(trimmed)) return true;
+    return false;
+  }
+
+  const n = trimmed.toLowerCase();
+  if (
+    n.includes("rare") ||
+    n.includes("common") ||
+    n.includes("uncommon") ||
+    n.includes("promo") ||
+    n.includes("holo") ||
+    n.includes("secret") ||
+    n.includes("ultra")
+  ) {
+    return true;
+  }
+  if (trimmed.length <= 6 && /^[A-Za-z0-9]+$/.test(trimmed)) return true;
+  return false;
+}
+
 export function resolveRarityStyle(
   rarity: string | null | undefined,
   gameSlug?: string
-): RarityStyle | null {
-  if (!rarity?.trim()) return null;
-  const trimmed = rarity.trim();
+): RarityStyle {
+  if (!isKnownRarity(rarity, gameSlug)) return NIL_RARITY_STYLE;
+  const trimmed = rarity!.trim();
 
   if (gameSlug === "yugioh" || isYugiohRarityName(trimmed)) {
     return resolveYugiohRarity(trimmed);

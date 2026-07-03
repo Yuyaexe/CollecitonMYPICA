@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { CardPriceInput } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -19,28 +20,27 @@ export function cardPriceKey(card: DemoOwnedCard): string {
   return `${card.card.gameSlug}|${card.card.externalId ?? card.card.name}|${card.card.setName ?? ""}`;
 }
 
-async function fetchPriceBatch(
-  cards: DemoOwnedCard[],
+export function variantPriceKey(
+  gameSlug: string,
+  name: string,
+  setName?: string | null,
+  setCode?: string | null
+): string {
+  return `${gameSlug}|${name}|${setName ?? ""}|${setCode ?? ""}`;
+}
+
+async function fetchPriceBatchByInput(
+  inputs: CardPriceInput[],
+  keys: string[],
   currency: Currency
 ): Promise<Map<string, CardTraderQuote>> {
   const map = new Map<string, CardTraderQuote>();
-  if (cards.length === 0) return map;
+  if (inputs.length === 0) return map;
 
   const res = await fetch("/api/cards/prices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      currency,
-      cards: cards.map((item) => ({
-        gameSlug: item.card.gameSlug,
-        name: item.card.name,
-        setName: item.card.setName,
-        setCode: item.card.setCode,
-        condition: item.condition,
-        language: item.language,
-        isFoil: item.isFoil,
-      })),
-    }),
+    body: JSON.stringify({ currency, cards: inputs }),
   });
 
   if (!res.ok) return map;
@@ -50,12 +50,70 @@ async function fetchPriceBatch(
   };
   if (!json.configured) return map;
 
-  cards.forEach((item, index) => {
+  inputs.forEach((_input, index) => {
     const quote = json.prices[index];
-    if (quote) map.set(cardPriceKey(item), quote);
+    if (quote) map.set(keys[index], quote);
   });
 
   return map;
+}
+
+async function fetchPriceBatch(
+  cards: DemoOwnedCard[],
+  currency: Currency
+): Promise<Map<string, CardTraderQuote>> {
+  const keys = cards.map((item) => cardPriceKey(item));
+  const inputs: CardPriceInput[] = cards.map((item) => ({
+    gameSlug: item.card.gameSlug,
+    name: item.card.name,
+    setName: item.card.setName,
+    setCode: item.card.setCode,
+    condition: item.condition,
+    language: item.language,
+    isFoil: item.isFoil,
+  }));
+  return fetchPriceBatchByInput(inputs, keys, currency);
+}
+
+export function useCardTraderVariantPrices(
+  cardName: string,
+  gameSlug: string,
+  variants: Array<{ key: string; setName: string | null; setCode: string | null }>,
+  currency: Currency,
+  enabled: boolean
+) {
+  const queryKey = useMemo(
+    () => [
+      "cardtrader-variant-prices",
+      gameSlug,
+      cardName,
+      currency,
+      variants.map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}`).join(","),
+    ],
+    [gameSlug, cardName, currency, variants]
+  );
+
+  return useQuery({
+    queryKey,
+    enabled: enabled && variants.length > 0,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const merged = new Map<string, CardTraderQuote>();
+      for (let i = 0; i < variants.length; i += BATCH_SIZE) {
+        const batch = variants.slice(i, i + BATCH_SIZE);
+        const keys = batch.map((v) => v.key);
+        const inputs: CardPriceInput[] = batch.map((v) => ({
+          gameSlug,
+          name: cardName,
+          setName: v.setName,
+          setCode: v.setCode,
+        }));
+        const batchMap = await fetchPriceBatchByInput(inputs, keys, currency);
+        batchMap.forEach((value, key) => merged.set(key, value));
+      }
+      return merged;
+    },
+  });
 }
 
 export function useCardTraderPrices(

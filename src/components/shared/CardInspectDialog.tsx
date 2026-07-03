@@ -38,6 +38,7 @@ import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency } from "@/lib/utils";
+import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
@@ -73,7 +74,7 @@ export function CardInspectDialog({
   onOpenChange,
   currency,
 }: CardInspectDialogProps) {
-  const { ownedCards, activeCollectionId, updateOwnedCard } = useAppData();
+  const { updateOwnedCard } = useAppData();
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
   const { data: cardTraderPrices } = useCardTraderPrices(
@@ -110,20 +111,13 @@ export function CardInspectDialog({
     );
   }, [printVariants, card]);
 
-  const collectionRarities = useMemo(() => {
-    if (!activeCollectionId) return [];
+  const apiRarities = useMemo(() => {
     return [
       ...new Set(
-        ownedCards
-          .filter((oc) => oc.collectionId === activeCollectionId && oc.card.rarity)
-          .map((oc) => oc.card.rarity!)
+        printVariants.map((v) => v.rarity).filter((r) => isKnownRarity(r, card?.card.gameSlug))
       ),
-    ].sort();
-  }, [ownedCards, activeCollectionId]);
-
-  const apiRarities = useMemo(() => {
-    return [...new Set(printVariants.map((v) => v.rarity).filter(Boolean))] as string[];
-  }, [printVariants]);
+    ] as string[];
+  }, [printVariants, card?.card.gameSlug]);
 
   useEffect(() => {
     if (open && tab === "marketplace") {
@@ -156,7 +150,10 @@ export function CardInspectDialog({
   });
 
   const rarityOptions = [
-    ...new Set([...apiRarities, ...collectionRarities, card.card.rarity].filter(Boolean)),
+    ...new Set([
+      ...apiRarities,
+      ...(isKnownRarity(card.card.rarity, card.card.gameSlug) ? [card.card.rarity] : []),
+    ]),
   ] as string[];
 
   const handleRarityChange = (rarity: string) => {

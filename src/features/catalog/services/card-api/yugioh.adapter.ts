@@ -37,7 +37,7 @@ function mapYgoCard(card: YgoCard): CardSearchResult {
     setCode: primarySet?.set_code ?? null,
     setName: primarySet?.set_name ?? null,
     collectorNumber: primarySet?.set_code ?? null,
-    rarity: primarySet?.set_rarity ?? card.type,
+    rarity: primarySet?.set_rarity ?? null,
     edition: primarySet?.set_rarity_code ?? null,
     imageUrl: image,
     price: tcgPrice,

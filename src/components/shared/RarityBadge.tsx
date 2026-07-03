@@ -22,7 +22,6 @@ export function RarityBadge({
   className,
 }: RarityBadgeProps) {
   const style = resolveRarityStyle(rarity, gameSlug);
-  if (!style) return null;
 
   const badge = (
     <span

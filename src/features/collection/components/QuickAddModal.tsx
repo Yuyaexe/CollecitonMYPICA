@@ -26,6 +26,7 @@ import {
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 
 interface QuickAddModalProps {
   open: boolean;
@@ -88,6 +89,18 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     [variants, rarityFilter]
   );
 
+  const { data: variantPrices, isLoading: pricesLoading } = useCardTraderVariantPrices(
+    pendingCard?.name ?? "",
+    game.slug,
+    variants.map((v) => ({
+      key: v.key,
+      setName: v.setName,
+      setCode: v.setCode,
+    })),
+    profile.currency,
+    open && !!pendingCard
+  );
+
   const handleAdd = async (result: CardSearchResult) => {
     await addCardFromSearch(result, game.id, game.slug, game.name);
     toast.success(`Added ${result.name}`);
@@ -110,7 +123,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     if (!pendingCard) return;
     const variant = variants.find((v) => v.key === variantKey);
     if (!variant) return;
-    void handleAdd(applyVariant(pendingCard, variant));
+    const cardTraderPrice = variantPrices?.get(variantKey)?.price;
+    const result = applyVariant(pendingCard, variant);
+    void handleAdd({
+      ...result,
+      price: cardTraderPrice ?? result.price ?? null,
+    });
   };
 
   return (
@@ -141,7 +159,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               Back to search
             </Button>
 
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
               <CardImage
                 src={pendingCard.imageUrl}
                 alt={pendingCard.name}
@@ -149,6 +167,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 height={168}
                 className="rounded-lg shadow-md"
               />
+              <p className="max-w-xs text-center text-sm font-semibold leading-tight">
+                {pendingCard.name}
+              </p>
             </div>
 
             {rarityOptions.length > 1 && (
@@ -169,29 +190,41 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
             <ScrollArea className="h-[320px] pr-2">
               <div className="space-y-1">
-                {filteredVariants.map((variant) => (
+                {filteredVariants.map((variant) => {
+                  const cardTraderPrice = variantPrices?.get(variant.key)?.price;
+                  return (
                   <button
                     key={variant.key}
                     type="button"
                     onClick={() => handleVariantPick(variant.key)}
                     className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                   >
-                    <RarityBadge rarity={variant.rarity} gameSlug={game.slug} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{variant.setName ?? "Unknown set"}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {variant.rarity ?? "—"}
-                        {variant.setCode ? ` · ${variant.setCode}` : ""}
-                      </p>
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex shrink-0 flex-col items-center gap-1.5">
+                        <RarityBadge rarity={variant.rarity} gameSlug={game.slug} size="md" />
+                        <p className="max-w-[5.5rem] truncate text-center text-[10px] font-medium leading-tight">
+                          {variant.setName ?? "Unknown set"}
+                        </p>
+                      </div>
+                      {variant.setCode && (
+                        <p className="truncate text-xs text-muted-foreground">{variant.setCode}</p>
+                      )}
                     </div>
-                    {variant.price != null && (
-                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                        {formatCurrency(variant.price, profile.currency)}
-                      </span>
-                    )}
-                    <Plus className="h-4 w-4 shrink-0 text-primary" />
+                    <div className="flex shrink-0 items-center gap-2">
+                      {pricesLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      ) : cardTraderPrice != null ? (
+                        <span className="text-sm tabular-nums text-muted-foreground">
+                          {formatCurrency(cardTraderPrice, profile.currency)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
                   </button>
-                ))}
+                  );
+                })}
                 {filteredVariants.length === 0 && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     No prints for this rarity
@@ -247,11 +280,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                       <p className="mt-1.5 line-clamp-2 text-center text-[11px] font-medium leading-tight text-foreground">
                         {result.name}
                       </p>
-                      {result.rarity && (
-                        <div className="mt-1 flex justify-center">
-                          <RarityBadge rarity={result.rarity} gameSlug={game.slug} />
-                        </div>
-                      )}
+                      <div className="mt-1 flex justify-center">
+                        <RarityBadge rarity={result.rarity} gameSlug={game.slug} />
+                      </div>
                     </button>
                   ))}
                 </div>

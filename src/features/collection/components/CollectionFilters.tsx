@@ -17,6 +17,7 @@ import { useCollectionUIStore } from "@/features/collection/stores/collection-ui
 import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
+import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 
 export function CollectionFilters() {
   const filters = useCollectionUIStore((s) => s.filters);
@@ -26,7 +27,13 @@ export function CollectionFilters() {
 
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
   const sets = [...new Set(collectionCards.map((oc) => oc.card.setCode).filter(Boolean))];
-  const rarities = [...new Set(collectionCards.map((oc) => oc.card.rarity).filter(Boolean))];
+  const rarities = [
+    ...new Set(
+      collectionCards
+        .filter((oc) => isKnownRarity(oc.card.rarity, oc.card.gameSlug))
+        .map((oc) => oc.card.rarity!)
+    ),
+  ];
 
   return (
     <ScrollArea className="h-full">
