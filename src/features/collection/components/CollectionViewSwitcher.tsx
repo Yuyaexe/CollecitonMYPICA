@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, LayoutList, Rows3 } from "lucide-react";
+import { LayoutGrid, LayoutList, Rows3, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -12,6 +12,7 @@ const MODES: { id: CollectionViewMode; label: string; icon: typeof LayoutList }[
   { id: "table", label: "List", icon: LayoutList },
   { id: "grid", label: "Grid", icon: LayoutGrid },
   { id: "compact", label: "Cards", icon: Rows3 },
+  { id: "binder", label: "Binder", icon: BookOpen },
 ];
 
 export function CollectionViewSwitcher({ className }: { className?: string }) {
@@ -21,7 +22,7 @@ export function CollectionViewSwitcher({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5",
+        "inline-flex max-w-full items-center overflow-x-auto rounded-lg border border-border/60 bg-muted/30 p-0.5",
         className
       )}
       role="group"

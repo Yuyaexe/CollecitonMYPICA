@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CollectionTable } from "@/features/collection/components/CollectionTable";
 import { CollectionGridView } from "@/features/collection/components/CollectionGridView";
 import { CollectionCompactView } from "@/features/collection/components/CollectionCompactView";
+import { CollectionBinderView } from "@/features/collection/components/CollectionBinderView";
 import { useCollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -81,6 +82,8 @@ export function CollectionContent() {
       return <CollectionGridView data={data} />;
     case "compact":
       return <CollectionCompactView data={data} />;
+    case "binder":
+      return <CollectionBinderView data={data} />;
     default:
       return <CollectionTable data={data} />;
   }

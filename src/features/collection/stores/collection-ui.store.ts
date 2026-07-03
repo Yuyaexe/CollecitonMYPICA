@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { DEFAULT_FILTERS, type CollectionFilters } from "@/types/tcg";
 
-export type CollectionViewMode = "table" | "grid" | "compact";
+export type CollectionViewMode = "table" | "grid" | "compact" | "binder";
 
 interface CollectionUIState {
   selectedIds: Set<string>;
