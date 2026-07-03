@@ -9,7 +9,7 @@ import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
-import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { getCardHoverPreviewUrl, getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -103,7 +103,7 @@ export const CollectionRow = memo(function CollectionRow({
       <CardHoverPreview
         className="shrink-0"
         src={getCardPreviewImageUrl(item.card) ?? item.card.imageUrl}
-        previewSrc={getCardPreviewImageUrl(item.card)}
+        previewSrc={getCardHoverPreviewUrl(item.card)}
         alt={item.card.name}
       >
         <div className="relative h-11 w-[1.875rem] shrink-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">

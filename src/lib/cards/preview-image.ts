@@ -49,6 +49,22 @@ function storedPreviewUrl(card: CardImageFields, preferLarge: boolean): string |
   return null;
 }
 
+/** Full framed card for hover popover (never cropped Yu-Gi-Oh! art-only). */
+export function getCardHoverPreviewUrl(card: CardImageFields): string | null {
+  if (card.gameSlug === "yugioh") {
+    if (card.externalId) {
+      return buildYgoImageUrl(card.externalId, "full");
+    }
+    if (card.imageUrl?.includes("cards_cropped")) {
+      return card.imageUrl.replace("/cards_cropped/", "/cards/").replace("cards_cropped", "cards");
+    }
+  }
+  if (card.gameSlug === "pokemon") {
+    return storedPreviewUrl(card, true);
+  }
+  return storedPreviewUrl(card, false);
+}
+
 /** Prefer full-resolution card art for grid / binder thumbnails. */
 export function getCardPreviewImageUrl(card: CardImageFields): string | null {
   return storedPreviewUrl(card, false);

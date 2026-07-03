@@ -5,9 +5,10 @@ import { createPortal } from "react-dom";
 import { CardImage } from "@/components/shared/CardImage";
 import { cn } from "@/lib/utils";
 
-const PREVIEW_WIDTH = 220;
-const PREVIEW_HEIGHT = 308;
-const GAP = 14;
+const PREVIEW_WIDTH = 200;
+const PREVIEW_HEIGHT = 280;
+const GAP = 12;
+const VIEWPORT_MARGIN = 12;
 const SHOW_DELAY_MS = 180;
 
 interface CardHoverPreviewProps {
@@ -19,17 +20,22 @@ interface CardHoverPreviewProps {
 }
 
 function computePosition(anchor: DOMRect): { top: number; left: number } {
+  // Align with the row top so the preview does not cover rows above/below.
+  let top = anchor.top;
   let left = anchor.right + GAP;
-  let top = anchor.top + anchor.height / 2 - PREVIEW_HEIGHT / 2;
 
-  if (left + PREVIEW_WIDTH > window.innerWidth - 12) {
+  if (left + PREVIEW_WIDTH > window.innerWidth - VIEWPORT_MARGIN) {
     left = anchor.left - PREVIEW_WIDTH - GAP;
   }
-  if (left < 12) {
-    left = Math.min(anchor.right + GAP, window.innerWidth - PREVIEW_WIDTH - 12);
+
+  if (left < VIEWPORT_MARGIN) {
+    left = window.innerWidth - PREVIEW_WIDTH - VIEWPORT_MARGIN;
   }
 
-  top = Math.max(12, Math.min(top, window.innerHeight - PREVIEW_HEIGHT - 12));
+  if (top + PREVIEW_HEIGHT > window.innerHeight - VIEWPORT_MARGIN) {
+    top = window.innerHeight - PREVIEW_HEIGHT - VIEWPORT_MARGIN;
+  }
+  top = Math.max(VIEWPORT_MARGIN, top);
 
   return { top, left };
 }
@@ -47,6 +53,12 @@ export function CardHoverPreview({
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const imageSrc = previewSrc ?? src;
 
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    setPosition(computePosition(anchor.getBoundingClientRect()));
+  }, []);
+
   const hide = useCallback(() => {
     if (showTimerRef.current) {
       clearTimeout(showTimerRef.current);
@@ -59,23 +71,21 @@ export function CardHoverPreview({
     if (!imageSrc) return;
     if (showTimerRef.current) clearTimeout(showTimerRef.current);
     showTimerRef.current = setTimeout(() => {
-      const anchor = anchorRef.current;
-      if (!anchor) return;
-      setPosition(computePosition(anchor.getBoundingClientRect()));
+      updatePosition();
       setVisible(true);
     }, SHOW_DELAY_MS);
-  }, [imageSrc]);
+  }, [imageSrc, updatePosition]);
 
   useEffect(() => {
     if (!visible) return;
-    const onScroll = () => hide();
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", hide);
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
     return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", hide);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
     };
-  }, [visible, hide]);
+  }, [visible, updatePosition]);
 
   useEffect(() => () => hide(), [hide]);
 
@@ -100,13 +110,13 @@ export function CardHoverPreview({
             style={{ top: position.top, left: position.left, width: PREVIEW_WIDTH }}
             role="presentation"
           >
-            <div className="overflow-hidden rounded-xl bg-card shadow-2xl ring-1 ring-border/60">
+            <div className="overflow-hidden rounded-xl bg-zinc-950/95 shadow-2xl ring-1 ring-border/60 backdrop-blur-sm">
               <CardImage
                 src={imageSrc}
                 alt={alt}
                 width={PREVIEW_WIDTH}
                 height={PREVIEW_HEIGHT}
-                className="object-contain"
+                className="object-contain bg-zinc-950"
               />
             </div>
           </div>,
