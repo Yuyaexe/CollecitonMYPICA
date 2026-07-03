@@ -41,8 +41,7 @@ export function CollectionTable() {
   const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
   const selectRow = useCollectionUIStore((s) => s.selectRow);
   const selectAll = useCollectionUIStore((s) => s.selectAll);
-  const setDetailCardId = useCollectionUIStore((s) => s.setDetailCardId);
-  const setMarketplaceCardId = useCollectionUIStore((s) => s.setMarketplaceCardId);
+  const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -88,12 +87,12 @@ export function CollectionTable() {
         setFocusedRowIndex(Math.max(focusedRowIndex - 1, 0));
       }
       if (e.key === "Enter" && filtered[focusedRowIndex]) {
-        setDetailCardId(filtered[focusedRowIndex].id);
+        openCardInspect(filtered[focusedRowIndex].id, "details");
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [filtered, focusedRowIndex, setDetailCardId, setFocusedRowIndex]);
+  }, [filtered, focusedRowIndex, openCardInspect, setFocusedRowIndex]);
 
   if (isLoading) {
     return (
@@ -110,7 +109,7 @@ export function CollectionTable() {
       <EmptyState
         icon={Layers}
         title="Could not load collection"
-        description="Check that Docker Postgres is running and DATABASE_URL is set in .env.local."
+        description="Sign in to load your cloud collection, or use offline Demo mode."
       />
     );
   }
@@ -203,15 +202,14 @@ export function CollectionTable() {
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  <ContextMenuItem onClick={() => setMarketplaceCardId(item.id)}>
-                    Open marketplace
+                  <ContextMenuItem onClick={() => openCardInspect(item.id, "details")}>
+                    View card
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => openCardInspect(item.id, "marketplace")}>
+                    Marketplace
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => openMarketplaceInNewTab(item.card)}>
                     Open marketplace in new tab
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => setDetailCardId(item.id)}>
-                    View card details
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem

@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataContext, requireUserId } from "@/lib/data/server/data-context";
 import {
-  addCardFromSearch,
-  deleteOwnedCards,
-  importRows,
-  updateOwnedCard,
-} from "@/lib/data/server/collection-service";
+  getDataContext,
+  requireSupabase,
+  requireUserId,
+} from "@/lib/data/server/data-context";
 import {
   addSupabaseCardFromSearch,
   deleteSupabaseOwnedCards,
@@ -24,21 +22,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const action = body.action as string;
-    const userId = requireUserId(ctx);
+    const supabase = requireSupabase(ctx);
+    requireUserId(ctx);
 
     if (action === "add-from-search") {
-      const { collectionId, result, gameId, gameSlug, gameName } = body as {
+      const { collectionId, result, gameId } = body as {
         collectionId: string;
         result: CardSearchResult;
         gameId: string;
-        gameSlug: string;
-        gameName: string;
       };
-      if (ctx.mode === "supabase" && ctx.supabase) {
-        await addSupabaseCardFromSearch(ctx.supabase, collectionId, result, gameId);
-      } else {
-        await addCardFromSearch(userId, collectionId, result, gameId, gameSlug, gameName);
-      }
+      await addSupabaseCardFromSearch(supabase, collectionId, result, gameId);
       return NextResponse.json({ ok: true });
     }
 
@@ -59,17 +52,21 @@ export async function POST(request: NextRequest) {
         }>;
         mergeDuplicates: boolean;
       };
-      const count =
-        ctx.mode === "supabase" && ctx.supabase
-          ? await importSupabaseRows(ctx.supabase, collectionId, rows, mergeDuplicates)
-          : await importRows(userId, collectionId, rows, mergeDuplicates);
+      const count = await importSupabaseRows(
+        supabase,
+        collectionId,
+        rows,
+        mergeDuplicates
+      );
       return NextResponse.json({ imported: count });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error("POST /api/app/owned-cards", error);
-    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Operation failed";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -82,17 +79,16 @@ export async function PATCH(request: NextRequest) {
   try {
     const { id, updates } = (await request.json()) as {
       id: string;
-      updates: Parameters<typeof updateOwnedCard>[2];
+      updates: Parameters<typeof updateSupabaseOwnedCard>[2];
     };
-    if (ctx.mode === "supabase" && ctx.supabase) {
-      await updateSupabaseOwnedCard(ctx.supabase, id, updates);
-    } else {
-      await updateOwnedCard(requireUserId(ctx), id, updates);
-    }
+    const supabase = requireSupabase(ctx);
+    await updateSupabaseOwnedCard(supabase, id, updates);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/owned-cards", error);
-    return NextResponse.json({ error: "Failed to update card" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to update card";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -104,14 +100,13 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const { ids } = (await request.json()) as { ids: string[] };
-    if (ctx.mode === "supabase" && ctx.supabase) {
-      await deleteSupabaseOwnedCards(ctx.supabase, ids);
-    } else {
-      await deleteOwnedCards(requireUserId(ctx), ids);
-    }
+    const supabase = requireSupabase(ctx);
+    await deleteSupabaseOwnedCards(supabase, ids);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/app/owned-cards", error);
-    return NextResponse.json({ error: "Failed to delete cards" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to delete cards";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

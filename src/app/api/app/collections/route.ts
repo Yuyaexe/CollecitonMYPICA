@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataContext, requireUserId } from "@/lib/data/server/data-context";
 import {
-  createCollection,
-  toggleCollectionFavorite,
-} from "@/lib/data/server/collection-service";
+  getDataContext,
+  requireSupabase,
+  requireUserId,
+} from "@/lib/data/server/data-context";
 import {
   createSupabaseCollection,
   toggleSupabaseCollectionFavorite,
@@ -21,11 +21,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    const userId = requireUserId(ctx);
-    const collection =
-      ctx.mode === "supabase" && ctx.supabase
-        ? await createSupabaseCollection(ctx.supabase, userId, name.trim())
-        : await createCollection(userId, name.trim());
+    const supabase = requireSupabase(ctx);
+    const collection = await createSupabaseCollection(
+      supabase,
+      requireUserId(ctx),
+      name.trim()
+    );
 
     const response = NextResponse.json(collection);
     return ctx.applySessionCookies?.(response) ?? response;
@@ -57,14 +58,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Collection id required" }, { status: 400 });
     }
 
-    if (ctx.mode === "supabase" && ctx.supabase) {
-      await toggleSupabaseCollectionFavorite(ctx.supabase, id);
-    } else {
-      await toggleCollectionFavorite(id, requireUserId(ctx));
-    }
+    const supabase = requireSupabase(ctx);
+    await toggleSupabaseCollectionFavorite(supabase, id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/collections", error);
-    return NextResponse.json({ error: "Failed to update collection" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to update collection";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

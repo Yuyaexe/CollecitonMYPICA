@@ -37,7 +37,6 @@ export function CollectionTopBar() {
     setActiveCollection,
     profile,
     isSupabaseMode,
-    isServerMode,
   } = useAppData();
 
   const activeCollection = collections.find((c) => c.id === activeCollectionId);
@@ -76,11 +75,6 @@ export function CollectionTopBar() {
               {isSupabaseMode && (
                 <span className="rounded-md bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-400">
                   Live
-                </span>
-              )}
-              {isServerMode && !isSupabaseMode && (
-                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
-                  Postgres
                 </span>
               )}
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>

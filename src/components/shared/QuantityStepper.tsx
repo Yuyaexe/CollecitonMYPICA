@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface QuantityStepperProps {
@@ -15,41 +15,80 @@ export function QuantityStepper({
   value,
   onChange,
   min = 1,
-  max = 999,
+  max = 99999,
   className,
 }: QuantityStepperProps) {
-  const clamp = (n: number) => Math.max(min, Math.min(max, n));
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const clamp = useCallback((n: number) => Math.max(min, Math.min(max, n)), [min, max]);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const parsed = parseInt(draft, 10);
+    if (!Number.isNaN(parsed)) {
+      onChange(clamp(parsed));
+    }
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(String(value));
+    setEditing(false);
+  };
 
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-md border border-border/60 bg-background/80",
+        "inline-flex h-7 min-w-[3rem] items-center justify-center rounded-md border border-border/60 bg-background/80 px-1",
+        !editing && "cursor-text hover:border-primary/40 hover:bg-muted/30",
         className
       )}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <button
-        type="button"
-        aria-label="Decrease quantity"
-        disabled={value <= min}
-        onClick={() => onChange(clamp(value - 1))}
-        className="flex h-7 w-7 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-      >
-        <Minus className="h-3 w-3" />
-      </button>
-      <span className="min-w-[1.75rem] select-none px-0.5 text-center text-sm font-medium tabular-nums">
-        {value}
-      </span>
-      <button
-        type="button"
-        aria-label="Increase quantity"
-        disabled={value >= max}
-        onClick={() => onChange(clamp(value + 1))}
-        className="flex h-7 w-7 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-      >
-        <Plus className="h-3 w-3" />
-      </button>
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          className="w-full bg-transparent text-center text-sm font-medium tabular-nums outline-none"
+          aria-label="Edit quantity"
+        />
+      ) : (
+        <button
+          type="button"
+          className="w-full px-1 text-center text-sm font-medium tabular-nums"
+          onClick={() => setEditing(true)}
+          aria-label={`Quantity ${value}, click to edit`}
+        >
+          {value}
+        </button>
+      )}
     </div>
   );
 }

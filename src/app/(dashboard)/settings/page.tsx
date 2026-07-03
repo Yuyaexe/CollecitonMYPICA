@@ -42,8 +42,6 @@ export default function SettingsPage() {
     tags,
     updateProfile,
     isSupabaseMode,
-    isDatabaseMode,
-    isServerMode,
   } = useAppData();
   const queryClient = useQueryClient();
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +63,7 @@ export default function SettingsPage() {
   const handleBackup = async () => {
     setBackingUp(true);
     try {
-      const backup = isServerMode
+      const backup = isSupabaseMode
         ? await fetchBackupFromServer()
         : buildBackupPayload({
             profile,
@@ -93,7 +91,7 @@ export default function SettingsPage() {
     setRestoring(true);
     try {
       const backup = await readBackupFile(file);
-      if (isServerMode) {
+      if (isSupabaseMode) {
         const result = await restoreBackupOnServer(backup);
         await queryClient.invalidateQueries({ queryKey: ["app-state"] });
         toast.success(
@@ -211,9 +209,9 @@ export default function SettingsPage() {
             Data syncs via Supabase cloud. Invite friends from the Share button on Collection.
           </p>
         )}
-        {isDatabaseMode && !isSupabaseMode && (
+        {!isSupabaseMode && (
           <p className="text-sm text-muted-foreground">
-            Data is stored in local PostgreSQL (Docker).
+            Offline mode — data is stored in this browser. Use Backup to save a copy.
           </p>
         )}
 

@@ -10,7 +10,7 @@ import type { DemoOwnedCard, DemoProfile, DemoCollection, DemoTag } from "@/lib/
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 
-type AppMode = "supabase" | "database" | "demo";
+type AppMode = "supabase" | "demo";
 
 async function fetchConfig(): Promise<{ mode: AppMode }> {
   const res = await fetch("/api/app/config");
@@ -45,9 +45,7 @@ export function useAppData() {
   });
 
   const mode = config?.mode ?? "demo";
-  const isServerMode = mode === "supabase" || mode === "database";
   const isSupabaseMode = mode === "supabase";
-  const isDatabaseMode = isServerMode;
 
   const {
     data: serverState,
@@ -56,25 +54,25 @@ export function useAppData() {
   } = useQuery({
     queryKey: ["app-state"],
     queryFn: fetchAppState,
-    enabled: isServerMode,
+    enabled: isSupabaseMode,
   });
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["app-state"] });
   }, [queryClient]);
 
-  const profile = isServerMode ? (serverState?.profile ?? demo.profile) : demo.profile;
+  const profile = isSupabaseMode ? (serverState?.profile ?? demo.profile) : demo.profile;
   const collections = useMemo(
-    () => (isServerMode ? (serverState?.collections ?? []) : demo.collections),
-    [isServerMode, serverState?.collections, demo.collections]
+    () => (isSupabaseMode ? (serverState?.collections ?? []) : demo.collections),
+    [isSupabaseMode, serverState?.collections, demo.collections]
   );
   const ownedCards = useMemo(
-    () => (isServerMode ? (serverState?.ownedCards ?? []) : demo.ownedCards),
-    [isServerMode, serverState?.ownedCards, demo.ownedCards]
+    () => (isSupabaseMode ? (serverState?.ownedCards ?? []) : demo.ownedCards),
+    [isSupabaseMode, serverState?.ownedCards, demo.ownedCards]
   );
   const tags = useMemo(
-    () => (isServerMode ? (serverState?.tags ?? []) : demo.tags),
-    [isServerMode, serverState?.tags, demo.tags]
+    () => (isSupabaseMode ? (serverState?.tags ?? []) : demo.tags),
+    [isSupabaseMode, serverState?.tags, demo.tags]
   );
 
   const resolvedActiveId = useMemo(() => {
@@ -83,18 +81,18 @@ export function useAppData() {
     }
     const defaultCol = collections.find((c) => c.isDefault) ?? collections[0];
     if (defaultCol?.id) return defaultCol.id;
-    return isServerMode ? null : DEFAULT_COLLECTION_ID;
-  }, [activeCollectionId, collections, isServerMode]);
+    return isSupabaseMode ? null : DEFAULT_COLLECTION_ID;
+  }, [activeCollectionId, collections, isSupabaseMode]);
 
   useEffect(() => {
-    if (!isServerMode && !activeCollectionId && demo.activeCollectionId) {
+    if (!isSupabaseMode && !activeCollectionId && demo.activeCollectionId) {
       setActiveCollectionId(demo.activeCollectionId);
     }
-  }, [isServerMode, activeCollectionId, demo.activeCollectionId, setActiveCollectionId]);
+  }, [isSupabaseMode, activeCollectionId, demo.activeCollectionId, setActiveCollectionId]);
 
   useEffect(() => {
     if (
-      isServerMode &&
+      isSupabaseMode &&
       serverState &&
       resolvedActiveId &&
       activeCollectionId !== resolvedActiveId &&
@@ -103,7 +101,7 @@ export function useAppData() {
       setActiveCollectionId(resolvedActiveId);
     }
   }, [
-    isServerMode,
+    isSupabaseMode,
     serverState,
     resolvedActiveId,
     activeCollectionId,
@@ -148,14 +146,14 @@ export function useAppData() {
   const setActiveCollection = useCallback(
     (id: string) => {
       setActiveCollectionId(id);
-      if (!isServerMode) demo.setActiveCollection(id);
+      if (!isSupabaseMode) demo.setActiveCollection(id);
     },
-    [setActiveCollectionId, isServerMode, demo]
+    [setActiveCollectionId, isSupabaseMode, demo]
   );
 
   const profileMutation = useMutation({
     mutationFn: async (updates: Partial<DemoProfile>) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         demo.updateProfile(updates);
         return;
       }
@@ -171,7 +169,7 @@ export function useAppData() {
 
   const addCollectionMutation = useMutation({
     mutationFn: async (name: string): Promise<DemoCollection> => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         return demo.addCollection(name);
       }
       const res = await fetch("/api/app/collections", {
@@ -188,7 +186,7 @@ export function useAppData() {
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         demo.toggleCollectionFavorite(id);
         return;
       }
@@ -209,7 +207,7 @@ export function useAppData() {
       gameSlug: string;
       gameName: string;
     }) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         demo.addCardFromSearch(args.result, args.gameId, args.gameSlug, args.gameName);
         return;
       }
@@ -235,7 +233,7 @@ export function useAppData() {
       id: string;
       updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> };
     }) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         demo.updateOwnedCard(id, updates);
         return;
       }
@@ -247,7 +245,7 @@ export function useAppData() {
       if (!res.ok) throw new Error("Failed to update card");
     },
     onMutate: async ({ id, updates }) => {
-      if (!isServerMode) return;
+      if (!isSupabaseMode) return;
       await queryClient.cancelQueries({ queryKey: ["app-state"] });
       const previous = queryClient.getQueryData<AppState>(["app-state"]);
       if (previous) {
@@ -272,7 +270,7 @@ export function useAppData() {
       }
     },
     onSettled: () => {
-      if (isServerMode) {
+      if (isSupabaseMode) {
         queryClient.invalidateQueries({ queryKey: ["app-state"] });
       }
     },
@@ -280,7 +278,7 @@ export function useAppData() {
 
   const deleteCardsMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         demo.deleteOwnedCards(ids);
         return;
       }
@@ -302,7 +300,7 @@ export function useAppData() {
       rows: Parameters<typeof demo.importRows>[0];
       mergeDuplicates: boolean;
     }) => {
-      if (!isServerMode) {
+      if (!isSupabaseMode) {
         return demo.importRows(rows, mergeDuplicates);
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -324,11 +322,9 @@ export function useAppData() {
 
   return {
     mode,
-    isServerMode,
     isSupabaseMode,
-    isDatabaseMode,
-    isLoading: configLoading || (isServerMode && stateLoading),
-    isError: isServerMode && stateError,
+    isLoading: configLoading || (isSupabaseMode && stateLoading),
+    isError: isSupabaseMode && stateError,
     profile,
     collections,
     ownedCards,

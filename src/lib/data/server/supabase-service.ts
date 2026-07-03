@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { toDemoCard, toDemoCollection, toDemoOwnedCard, toDemoProfile, marketPriceMetadata } from "@/lib/data/mappers";
 import type { DemoCollection, DemoOwnedCard, DemoProfile } from "@/lib/demo/types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -149,7 +150,7 @@ export async function updateSupabaseProfile(
 
 export async function createSupabaseCollection(
   supabase: SupabaseClient,
-  _userId: string,
+  userId: string,
   name: string
 ) {
   type CollectionRow = {
@@ -163,21 +164,38 @@ export async function createSupabaseCollection(
 
   const trimmed = name.trim();
 
+  function mapRow(data: CollectionRow) {
+    return toDemoCollection({
+      id: data.id,
+      userId: data.user_id,
+      name: data.name,
+      isDefault: data.is_default,
+      isFavorite: false,
+      coverImageUrl: null,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+    });
+  }
+
+  // 1) Service role (reliable on Vercel — set SUPABASE_SERVICE_ROLE_KEY)
+  const admin = getSupabaseAdmin();
+  if (admin) {
+    const { data, error } = await admin
+      .from("collections")
+      .insert({ user_id: userId, name: trimmed, is_default: false })
+      .select("id, user_id, name, is_default, created_at, updated_at")
+      .single();
+    if (error) throw error;
+    return mapRow(data);
+  }
+
+  // 2) RPC with user JWT (run migration 0004)
   const { data: rpcRow, error: rpcError } = await supabase
     .rpc("create_collection", { p_name: trimmed })
     .maybeSingle<CollectionRow>();
 
   if (!rpcError && rpcRow) {
-    return toDemoCollection({
-      id: rpcRow.id,
-      userId: rpcRow.user_id,
-      name: rpcRow.name,
-      isDefault: rpcRow.is_default,
-      isFavorite: false,
-      coverImageUrl: null,
-      createdAt: new Date(rpcRow.created_at),
-      updatedAt: new Date(rpcRow.updated_at),
-    });
+    return mapRow(rpcRow);
   }
 
   const rpcMissing =
@@ -189,23 +207,22 @@ export async function createSupabaseCollection(
     throw rpcError ?? new Error("Failed to create collection");
   }
 
+  // 3) Direct insert (requires valid session JWT)
   const { data, error } = await supabase
     .from("collections")
-    .insert({ user_id: _userId, name: trimmed, is_default: false })
+    .insert({ user_id: userId, name: trimmed, is_default: false })
     .select("id, user_id, name, is_default, created_at, updated_at")
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.message.includes("row-level security")) {
+      throw new Error(
+        "Sem permissão para criar coleção. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel ou rode a migration 0004_create_collection_rpc.sql no Supabase."
+      );
+    }
+    throw error;
+  }
 
-  return toDemoCollection({
-    id: data.id,
-    userId: data.user_id,
-    name: data.name,
-    isDefault: data.is_default,
-    isFavorite: false,
-    coverImageUrl: null,
-    createdAt: new Date(data.created_at),
-    updatedAt: new Date(data.updated_at),
-  });
+  return mapRow(data);
 }
 
 export async function toggleSupabaseCollectionFavorite(

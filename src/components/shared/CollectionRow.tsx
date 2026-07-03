@@ -4,9 +4,12 @@ import { memo, useCallback, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
+import { CardHoverPreview } from "@/components/shared/CardHoverPreview";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
+import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -100,25 +103,42 @@ export const CollectionRow = memo(function CollectionRow({
         />
       </div>
 
-      <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded shadow-sm ring-1 ring-border/30">
-        <CardImage
-          src={item.card.imageUrl}
-          alt={item.card.name}
-          fill
-          sizes="28px"
-          className="rounded object-cover"
-        />
-      </div>
+      <CardHoverPreview
+        className="shrink-0"
+        src={item.card.imageUrl}
+        previewSrc={getCardPreviewImageUrl(item.card)}
+        alt={item.card.name}
+      >
+        <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded shadow-sm ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">
+          <CardImage
+            src={item.card.imageUrl}
+            alt={item.card.name}
+            fill
+            sizes="28px"
+            className="rounded object-cover"
+          />
+        </div>
+      </CardHoverPreview>
 
       <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
 
       <div className="min-w-0 flex-[2]">
-        <p className="truncate text-sm font-medium">{item.card.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{item.card.gameName}</p>
+        <TruncatedTooltip
+          text={item.card.name}
+          className="text-sm font-medium"
+        />
+        <TruncatedTooltip
+          text={item.card.gameName}
+          className="text-xs text-muted-foreground"
+        />
       </div>
 
-      <div className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground md:block">
-        {item.card.setName ?? "—"}
+      <div className="hidden min-w-0 flex-1 md:block">
+        <TruncatedTooltip
+          text={item.card.setName}
+          className="text-sm text-muted-foreground"
+          side="top"
+        />
       </div>
 
       <div className="hidden w-12 text-sm text-muted-foreground xl:block">

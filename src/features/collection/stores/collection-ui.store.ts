@@ -9,6 +9,7 @@ interface CollectionUIState {
   sidebarCollapsed: boolean;
   detailCardId: string | null;
   marketplaceCardId: string | null;
+  inspectTab: "details" | "marketplace";
   quickAddOpen: boolean;
   importOpen: boolean;
   focusedRowIndex: number;
@@ -29,6 +30,9 @@ interface CollectionUIState {
   toggleSidebar: () => void;
   setDetailCardId: (id: string | null) => void;
   setMarketplaceCardId: (id: string | null) => void;
+  openCardInspect: (id: string, tab?: "details" | "marketplace") => void;
+  setInspectTab: (tab: "details" | "marketplace") => void;
+  closeCardInspect: () => void;
   setQuickAddOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
   setFocusedRowIndex: (index: number) => void;
@@ -42,6 +46,7 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   sidebarCollapsed: false,
   detailCardId: null,
   marketplaceCardId: null,
+  inspectTab: "details",
   quickAddOpen: false,
   importOpen: false,
   focusedRowIndex: 0,
@@ -112,8 +117,18 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
       sortDir: dir ?? (s.sortField === field && s.sortDir === "asc" ? "desc" : "asc"),
     })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  setDetailCardId: (id) => set({ detailCardId: id, marketplaceCardId: null }),
-  setMarketplaceCardId: (id) => set({ marketplaceCardId: id, detailCardId: null }),
+  openCardInspect: (id, tab = "details") =>
+    set({ detailCardId: id, marketplaceCardId: id, inspectTab: tab }),
+  setInspectTab: (tab) => set({ inspectTab: tab }),
+  closeCardInspect: () => set({ detailCardId: null, marketplaceCardId: null }),
+  setDetailCardId: (id) =>
+    id === null
+      ? set({ detailCardId: null, marketplaceCardId: null })
+      : set({ detailCardId: id, marketplaceCardId: id, inspectTab: "details" }),
+  setMarketplaceCardId: (id) =>
+    id === null
+      ? set({ detailCardId: null, marketplaceCardId: null })
+      : set({ detailCardId: id, marketplaceCardId: id, inspectTab: "marketplace" }),
   setQuickAddOpen: (open) => set({ quickAddOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setFocusedRowIndex: (index) => set({ focusedRowIndex: index }),

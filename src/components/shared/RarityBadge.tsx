@@ -26,10 +26,14 @@ export function RarityBadge({
 
   const badge = (
     <span
+      title={style.label}
+      style={{
+        backgroundColor: style.backgroundColor,
+        color: style.color,
+      }}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-[3px] font-bold uppercase leading-none tracking-tight shadow-sm",
+        "inline-flex shrink-0 items-center justify-center rounded-[3px] font-bold uppercase leading-none tracking-tight shadow-sm ring-1 ring-black/10",
         size === "sm" ? "min-w-[1.85rem] px-1 py-[3px] text-[9px]" : "min-w-[2.25rem] px-1.5 py-1 text-[10px]",
-        style.className,
         className
       )}
     >

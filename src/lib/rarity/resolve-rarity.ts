@@ -1,104 +1,92 @@
 export interface RarityStyle {
   code: string;
   label: string;
-  className: string;
+  backgroundColor: string;
+  color: string;
 }
 
-/** Yu-Gi-Oh! rarity tag colors inspired by Cardmarket / YGOProDeck conventions */
+/** Cardmarket-style Yu-Gi-Oh! rarity colors (inline styles — always render correctly) */
+const CODE_COLORS: Record<string, { backgroundColor: string; color: string }> = {
+  SCR: { backgroundColor: "#7c3aed", color: "#ffffff" },
+  UR: { backgroundColor: "#eab308", color: "#422006" },
+  SR: { backgroundColor: "#f97316", color: "#ffffff" },
+  R: { backgroundColor: "#737373", color: "#ffffff" },
+  C: { backgroundColor: "#d4d4d4", color: "#404040" },
+  QSCR: { backgroundColor: "#0ea5e9", color: "#ffffff" },
+  PMSCR: { backgroundColor: "#9333ea", color: "#ffffff" },
+  PLSCR: { backgroundColor: "#c4b5fd", color: "#2e1065" },
+  GHR: { backgroundColor: "#0a0a0a", color: "#ffffff" },
+  SLR: { backgroundColor: "#0a0a0a", color: "#ffffff" },
+  PHRU: { backgroundColor: "#0a0a0a", color: "#ffffff" },
+  PHRS: { backgroundColor: "#0a0a0a", color: "#ffffff" },
+  GSCR: { backgroundColor: "#92400e", color: "#fef3c7" },
+  GHGR: { backgroundColor: "#78350f", color: "#fde68a" },
+  GR: { backgroundColor: "#a16207", color: "#ffffff" },
+  PGR: { backgroundColor: "#a16207", color: "#ffffff" },
+  PLR: { backgroundColor: "#94a3b8", color: "#ffffff" },
+  CR: { backgroundColor: "#14b8a6", color: "#ffffff" },
+  PCR: { backgroundColor: "#22d3ee", color: "#083344" },
+  UMR: { backgroundColor: "#06b6d4", color: "#ffffff" },
+  PMUR: { backgroundColor: "#0891b2", color: "#ffffff" },
+  PUR: { backgroundColor: "#eab308", color: "#422006" },
+  PSR: { backgroundColor: "#f97316", color: "#ffffff" },
+  PC: { backgroundColor: "#e5e5e5", color: "#525252" },
+  DTSCR: { backgroundColor: "#6d28d9", color: "#ffffff" },
+  DTUR: { backgroundColor: "#ca8a04", color: "#422006" },
+  DTSR: { backgroundColor: "#ea580c", color: "#ffffff" },
+  DTR: { backgroundColor: "#737373", color: "#ffffff" },
+  "10K": { backgroundColor: "#b91c1c", color: "#ffffff" },
+  EXSCR: { backgroundColor: "#dc2626", color: "#ffffff" },
+  GMR: { backgroundColor: "#991b1b", color: "#ffffff" },
+  SFR: { backgroundColor: "#881337", color: "#fce7f3" },
+  MSR: { backgroundColor: "#57534e", color: "#ffffff" },
+  SHR: { backgroundColor: "#78716c", color: "#ffffff" },
+  DSUR: { backgroundColor: "#eab308", color: "#422006" },
+};
+
+function withCode(code: string, label: string): RarityStyle {
+  const palette = CODE_COLORS[code] ?? { backgroundColor: "#525252", color: "#ffffff" };
+  return { code, label, ...palette };
+}
+
 function resolveYugiohRarity(rarity: string): RarityStyle {
   const n = rarity.toLowerCase();
   const label = rarity;
 
-  if (n.includes("quarter century secret")) {
-    return { code: "QSCR", label, className: "bg-sky-500 text-white" };
-  }
-  if (n.includes("prismatic secret")) {
-    return { code: "PMSCR", label, className: "bg-purple-600 text-white" };
-  }
-  if (n.includes("platinum secret")) {
-    return { code: "PLSCR", label, className: "bg-violet-300 text-violet-950" };
-  }
-  if (n.includes("ghost") || n.includes("ghr")) {
-    return { code: "GHR", label, className: "bg-black text-white ring-1 ring-white/20" };
-  }
-  if (n.includes("starlight")) {
-    return { code: "SLR", label, className: "bg-black text-white ring-1 ring-white/20" };
-  }
-  if (n.includes("pharaoh") || n.includes("phru")) {
-    return { code: "PHRU", label, className: "bg-black text-white ring-1 ring-white/20" };
-  }
-  if (n.includes("gold secret") || n.includes("gscr")) {
-    return { code: "GSCR", label, className: "bg-amber-800 text-amber-50" };
-  }
-  if (n.includes("ghost gold") || n.includes("ghgr")) {
-    return { code: "GHGR", label, className: "bg-amber-900 text-amber-100" };
-  }
-  if (n.includes("gold rare") || (n.includes("gold") && n.includes("rare"))) {
-    return { code: "GR", label, className: "bg-yellow-700 text-white" };
-  }
-  if (n.includes("platinum")) {
-    return { code: "PLR", label, className: "bg-slate-400 text-white" };
-  }
-  if (n.includes("prismatic collector") || n.includes("pcr")) {
-    return { code: "PCR", label, className: "bg-cyan-400 text-cyan-950" };
-  }
-  if (n.includes("collector")) {
-    return { code: "CR", label, className: "bg-teal-500 text-white" };
-  }
-  if (n.includes("ultimate")) {
-    return { code: "UMR", label, className: "bg-cyan-500 text-white" };
-  }
-  if (n.includes("premium") && n.includes("ultra")) {
-    return { code: "PMUR", label, className: "bg-cyan-600 text-white" };
-  }
-  if (n.includes("parallel") && n.includes("ultra")) {
-    return { code: "PUR", label, className: "bg-yellow-500 text-yellow-950" };
-  }
-  if (n.includes("parallel") && n.includes("super")) {
-    return { code: "PSR", label, className: "bg-orange-500 text-white" };
-  }
-  if (n.includes("parallel") && n.includes("common")) {
-    return { code: "PC", label, className: "bg-neutral-200 text-neutral-700" };
-  }
+  if (n.includes("quarter century secret")) return withCode("QSCR", label);
+  if (n.includes("prismatic secret")) return withCode("PMSCR", label);
+  if (n.includes("platinum secret")) return withCode("PLSCR", label);
+  if (n.includes("ghost") || n.includes("ghr")) return withCode("GHR", label);
+  if (n.includes("starlight")) return withCode("SLR", label);
+  if (n.includes("pharaoh")) return withCode("PHRU", label);
+  if (n.includes("gold secret")) return withCode("GSCR", label);
+  if (n.includes("ghost gold")) return withCode("GHGR", label);
+  if (n.includes("gold rare") || (n.includes("gold") && n.includes("rare"))) return withCode("GR", label);
+  if (n.includes("platinum")) return withCode("PLR", label);
+  if (n.includes("prismatic collector")) return withCode("PCR", label);
+  if (n.includes("collector")) return withCode("CR", label);
+  if (n.includes("ultimate")) return withCode("UMR", label);
+  if (n.includes("premium") && n.includes("ultra")) return withCode("PMUR", label);
+  if (n.includes("parallel") && n.includes("ultra")) return withCode("PUR", label);
+  if (n.includes("parallel") && n.includes("super")) return withCode("PSR", label);
+  if (n.includes("parallel") && n.includes("common")) return withCode("PC", label);
   if (n.includes("duel terminal") || n.startsWith("dt")) {
-    if (n.includes("secret")) return { code: "DTSCR", label, className: "bg-purple-700 text-white" };
-    if (n.includes("ultra")) return { code: "DTUR", label, className: "bg-yellow-600 text-yellow-950" };
-    if (n.includes("super")) return { code: "DTSR", label, className: "bg-orange-600 text-white" };
-    return { code: "DTR", label, className: "bg-neutral-500 text-white" };
+    if (n.includes("secret")) return withCode("DTSCR", label);
+    if (n.includes("ultra")) return withCode("DTUR", label);
+    if (n.includes("super")) return withCode("DTSR", label);
+    return withCode("DTR", label);
   }
-  if (n.includes("10000") || n.includes("10k")) {
-    return { code: "10K", label, className: "bg-red-700 text-white" };
-  }
-  if (n.includes("extr") && n.includes("secret")) {
-    return { code: "EXSCR", label, className: "bg-red-600 text-white" };
-  }
-  if (n.includes("gimmick") || n.includes("gmr")) {
-    return { code: "GMR", label, className: "bg-red-800 text-white" };
-  }
-  if (n.includes("shatterfoil") || n.includes("sfr")) {
-    return { code: "SFR", label, className: "bg-rose-900/80 text-rose-100" };
-  }
-  if (n.includes("mosaic") || n.includes("msr")) {
-    return { code: "MSR", label, className: "bg-stone-600 text-white" };
-  }
-  if (n.includes("short print") || n.includes("shr")) {
-    return { code: "SHR", label, className: "bg-stone-500 text-white" };
-  }
-  if (n.includes("secret")) {
-    return { code: "SCR", label, className: "bg-purple-600 text-white" };
-  }
-  if (n.includes("ultra")) {
-    return { code: "UR", label, className: "bg-yellow-500 text-yellow-950" };
-  }
-  if (n.includes("super")) {
-    return { code: "SR", label, className: "bg-orange-500 text-white" };
-  }
-  if (n.includes("rare")) {
-    return { code: "R", label, className: "bg-neutral-500 text-white" };
-  }
-  if (n.includes("common")) {
-    return { code: "C", label, className: "bg-neutral-300 text-neutral-700" };
-  }
+  if (n.includes("10000") || n.includes("10k")) return withCode("10K", label);
+  if (n.includes("extr") && n.includes("secret")) return withCode("EXSCR", label);
+  if (n.includes("gimmick")) return withCode("GMR", label);
+  if (n.includes("shatterfoil")) return withCode("SFR", label);
+  if (n.includes("mosaic")) return withCode("MSR", label);
+  if (n.includes("short print")) return withCode("SHR", label);
+  if (n.includes("secret")) return withCode("SCR", label);
+  if (n.includes("ultra")) return withCode("UR", label);
+  if (n.includes("super")) return withCode("SR", label);
+  if (n.includes("rare")) return withCode("R", label);
+  if (n.includes("common")) return withCode("C", label);
 
   const code = rarity
     .split(/\s+/)
@@ -106,7 +94,7 @@ function resolveYugiohRarity(rarity: string): RarityStyle {
     .join("")
     .slice(0, 4)
     .toUpperCase();
-  return { code: code || "?", label, className: "bg-muted text-muted-foreground" };
+  return withCode(code || "?", label);
 }
 
 function resolveGenericRarity(rarity: string): RarityStyle {
@@ -114,26 +102,22 @@ function resolveGenericRarity(rarity: string): RarityStyle {
   const label = rarity;
 
   if (n.includes("secret") || n.includes("hyper") || n.includes("illustration")) {
-    return { code: abbreviate(rarity, 4), label, className: "bg-purple-600 text-white" };
+    return withCode(abbreviate(rarity, 4), label);
   }
-  if (n.includes("ultra") || n.includes("holo") || n.includes("ex ") || n.endsWith(" ex")) {
-    return { code: abbreviate(rarity, 3), label, className: "bg-yellow-500 text-yellow-950" };
+  if (n.includes("ultra") || n.includes("holo")) {
+    return withCode("UR", label);
   }
-  if (n.includes("super") || n.includes("rare holo")) {
-    return { code: abbreviate(rarity, 3), label, className: "bg-orange-500 text-white" };
+  if (n.includes("super")) {
+    return withCode("SR", label);
   }
   if (n.includes("rare") || n.includes("uncommon")) {
-    return { code: abbreviate(rarity, 2), label, className: "bg-neutral-500 text-white" };
+    return withCode("R", label);
   }
   if (n.includes("common") || n.includes("promo")) {
-    return { code: abbreviate(rarity, 2), label, className: "bg-neutral-300 text-neutral-700" };
+    return withCode("C", label);
   }
 
-  return {
-    code: abbreviate(rarity, 4),
-    label,
-    className: "bg-muted text-muted-foreground",
-  };
+  return withCode(abbreviate(rarity, 4), label);
 }
 
 function abbreviate(text: string, maxLen: number): string {
@@ -148,15 +132,35 @@ function abbreviate(text: string, maxLen: number): string {
   return text.slice(0, maxLen).toUpperCase();
 }
 
+function isYugiohRarityName(rarity: string): boolean {
+  const n = rarity.toLowerCase();
+  return (
+    n.includes("rare") ||
+    n.includes("common") ||
+    n.includes("secret") ||
+    n.includes("ultra") ||
+    n.includes("super") ||
+    n.includes("collector") ||
+    n.includes("prismatic") ||
+    n.includes("quarter century")
+  );
+}
+
 export function resolveRarityStyle(
   rarity: string | null | undefined,
   gameSlug?: string
 ): RarityStyle | null {
   if (!rarity?.trim()) return null;
+  const trimmed = rarity.trim();
 
-  if (gameSlug === "yugioh") {
-    return resolveYugiohRarity(rarity.trim());
+  if (gameSlug === "yugioh" || isYugiohRarityName(trimmed)) {
+    return resolveYugiohRarity(trimmed);
   }
 
-  return resolveGenericRarity(rarity.trim());
+  return resolveGenericRarity(trimmed);
+}
+
+/** Resolve colors directly from badge code (e.g. stored abbreviations) */
+export function resolveRarityStyleByCode(code: string, label?: string): RarityStyle {
+  return withCode(code.toUpperCase(), label ?? code);
 }

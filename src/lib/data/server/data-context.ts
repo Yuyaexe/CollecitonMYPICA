@@ -1,11 +1,10 @@
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { isDatabaseConfigured, getLocalUserId } from "@/lib/db/constants";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 
-export type DataMode = "supabase" | "database" | "demo";
+export type DataMode = "supabase" | "demo";
 
 export interface DataContext {
   mode: DataMode;
@@ -38,14 +37,17 @@ export async function getDataContext(request?: NextRequest): Promise<DataContext
     }
   }
 
-  if (isDatabaseConfigured()) {
-    return { mode: "database", userId: getLocalUserId(), supabase: null };
-  }
-
   return { mode: "demo", userId: null, supabase: null };
 }
 
 export function requireUserId(ctx: DataContext): string {
   if (!ctx.userId) throw new Error("Authentication required");
   return ctx.userId;
+}
+
+export function requireSupabase(ctx: DataContext): SupabaseClient {
+  if (ctx.mode !== "supabase" || !ctx.supabase) {
+    throw new Error("Authentication required");
+  }
+  return ctx.supabase;
 }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataContext, requireUserId } from "@/lib/data/server/data-context";
-import { updateProfile } from "@/lib/data/server/collection-service";
+import {
+  getDataContext,
+  requireSupabase,
+  requireUserId,
+} from "@/lib/data/server/data-context";
 import { updateSupabaseProfile } from "@/lib/data/server/supabase-service";
 import type { DemoProfile } from "@/lib/demo/types";
 
@@ -12,16 +15,13 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = (await request.json()) as Partial<DemoProfile>;
-    const userId = requireUserId(ctx);
-
-    if (ctx.mode === "supabase" && ctx.supabase) {
-      await updateSupabaseProfile(ctx.supabase, userId, body);
-    } else {
-      await updateProfile(userId, body);
-    }
+    const supabase = requireSupabase(ctx);
+    await updateSupabaseProfile(supabase, requireUserId(ctx), body);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/profile", error);
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to update profile";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

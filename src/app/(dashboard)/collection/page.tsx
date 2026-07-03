@@ -1,24 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CollectionTopBar } from "@/features/collection/components/CollectionTopBar";
 import { CollectionFilters } from "@/features/collection/components/CollectionFilters";
 import { CollectionTable } from "@/features/collection/components/CollectionTable";
 import { BulkActionsBar } from "@/features/collection/components/BulkActionsBar";
 import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
 import { ImportModal } from "@/features/import/components/ImportModal";
-import { CardDetailSheet } from "@/components/shared/CardDetailSheet";
-import { MarketplaceSheet } from "@/features/market/components/MarketplaceSheet";
+import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { CollectionPresenceProvider } from "@/features/collection/context/presence-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { filterOwnedCards } from "@/features/collection/utils/filters";
 
 export default function CollectionPage() {
-  const detailCardId = useCollectionUIStore((s) => s.detailCardId);
-  const marketplaceCardId = useCollectionUIStore((s) => s.marketplaceCardId);
-  const setDetailCardId = useCollectionUIStore((s) => s.setDetailCardId);
-  const setMarketplaceCardId = useCollectionUIStore((s) => s.setMarketplaceCardId);
+  const inspectCardId = useCollectionUIStore((s) => s.detailCardId);
+  const inspectTab = useCollectionUIStore((s) => s.inspectTab);
+  const setInspectTab = useCollectionUIStore((s) => s.setInspectTab);
+  const closeCardInspect = useCollectionUIStore((s) => s.closeCardInspect);
   const quickAddOpen = useCollectionUIStore((s) => s.quickAddOpen);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const importOpen = useCollectionUIStore((s) => s.importOpen);
@@ -42,13 +41,10 @@ export default function CollectionPage() {
   }
 
   const presenceCardId =
-    detailCardId ?? filtered[focusedRowIndex]?.id ?? null;
+    inspectCardId ?? filtered[focusedRowIndex]?.id ?? null;
 
-  const detailCard = detailCardId
-    ? ownedCards.find((oc) => oc.id === detailCardId) ?? null
-    : null;
-  const marketplaceCard = marketplaceCardId
-    ? ownedCards.find((oc) => oc.id === marketplaceCardId) ?? null
+  const inspectCard = inspectCardId
+    ? (ownedCards.find((oc) => oc.id === inspectCardId) ?? null)
     : null;
 
   return (
@@ -71,29 +67,13 @@ export default function CollectionPage() {
         <BulkActionsBar />
         <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
         <ImportModal open={importOpen} onOpenChange={setImportOpen} />
-        <CardDetailSheet
-          ownedCardId={detailCardId}
-          open={!!detailCardId && !!detailCard}
-          onOpenChange={(open) => !open && setDetailCardId(null)}
+        <CardInspectDialog
+          card={inspectCard}
+          open={!!inspectCardId && !!inspectCard}
+          tab={inspectTab}
+          onTabChange={setInspectTab}
+          onOpenChange={(open) => !open && closeCardInspect()}
           currency={profile.currency}
-          onOpenMarketplace={() => {
-            if (detailCardId) {
-              setDetailCardId(null);
-              setMarketplaceCardId(detailCardId);
-            }
-          }}
-        />
-        <MarketplaceSheet
-          card={marketplaceCard}
-          open={!!marketplaceCardId && !!marketplaceCard}
-          onOpenChange={(open) => !open && setMarketplaceCardId(null)}
-          currency={profile.currency}
-          onViewDetails={() => {
-            if (marketplaceCardId) {
-              setMarketplaceCardId(null);
-              setDetailCardId(marketplaceCardId);
-            }
-          }}
         />
       </div>
     </CollectionPresenceProvider>

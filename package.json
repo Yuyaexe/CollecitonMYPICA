@@ -11,10 +11,6 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "docker:up": "docker compose up -d postgres adminer",
-    "docker:down": "docker compose down",
-    "docker:setup": "node scripts/docker-setup.mjs",
-    "docker:seed": "node scripts/seed-demo-data.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
