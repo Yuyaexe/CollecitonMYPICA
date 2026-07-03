@@ -192,7 +192,7 @@ export function CardInspectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl gap-0 overflow-y-auto p-0 sm:max-w-4xl">
+      <DialogContent className="max-h-[min(90dvh,100%)] w-[calc(100%-1rem)] max-w-3xl gap-0 overflow-y-auto p-0 sm:max-w-4xl">
         <DialogTitle className="sr-only">{card.card.name}</DialogTitle>
 
         <div className="flex flex-col md:flex-row">

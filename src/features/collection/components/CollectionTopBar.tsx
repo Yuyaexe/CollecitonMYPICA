@@ -84,15 +84,15 @@ export function CollectionTopBar() {
   return (
     <>
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="flex flex-wrap items-center gap-4 px-6 py-4">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-6">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
+            <div className="flex min-w-0 items-center gap-2">
               {sortedCollections.length > 0 ? (
                 <Select
                   value={activeCollectionId ?? sortedCollections[0].id}
                   onValueChange={setActiveCollection}
                 >
-                  <SelectTrigger className="w-[200px] border-0 bg-transparent text-lg font-semibold shadow-none focus:ring-0">
+                  <SelectTrigger className="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -131,7 +131,7 @@ export function CollectionTopBar() {
 
             {isSupabaseMode && <CollaboratorPresence peers={peers} />}
 
-            <div className="flex flex-wrap gap-6 text-sm">
+            <div className="grid grid-cols-3 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
               <div>
                 <p className="text-xs text-muted-foreground">Total Cards</p>
                 <p className="font-semibold tabular-nums">{formatNumber(stats.totalCards)}</p>
@@ -149,13 +149,13 @@ export function CollectionTopBar() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <CollectionViewSwitcher className="hidden sm:inline-flex" />
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <CollectionViewSwitcher className="col-span-2 hidden sm:inline-flex" />
             <MobileFilters />
             <SearchBar
               value={filters.search}
               onChange={(v) => setFilters({ search: v })}
-              className="w-full min-w-0 sm:w-48 md:w-64"
+              className="col-span-2 w-full min-w-0 sm:col-span-1 sm:w-48 md:w-64"
             />
             <Button
               size="sm"
@@ -170,11 +170,11 @@ export function CollectionTopBar() {
             </Button>
             <Button size="sm" onClick={() => setQuickAddOpen(true)}>
               <Plus className="h-4 w-4" />
-              Quick Add
+              <span className="hidden sm:inline">Quick Add</span>
             </Button>
             <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
-              Import
+              <span className="hidden sm:inline">Import</span>
             </Button>
             <Button size="sm" variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function CollectionTopBar() {
           <CollectionViewSwitcher className="flex-1" />
         </div>
         {hasActiveSearch && (
-          <div className="flex items-center gap-2 border-t border-border/60 px-6 py-2">
+          <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 sm:px-6">
             <span className="text-xs text-muted-foreground">
               Showing {visibleCount} of {stats.totalCards} cards matching &quot;{filters.search.trim()}&quot;
             </span>

@@ -2,27 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Layers,
-  LayoutGrid,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppData } from "@/hooks/useAppData";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/collections", label: "Collection Manager", icon: LayoutGrid },
-  { href: "/collection", label: "Collection", icon: Layers },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+import { dashboardNavItems } from "@/lib/navigation";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -56,8 +42,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        {navItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        {dashboardNavItems.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const content = (
             <Link
               href={item.href}
@@ -89,7 +75,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="border-t border-border p-3">
         <div className={cn("flex items-center gap-3 rounded-lg px-2 py-2", collapsed && "justify-center")}>
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+            <AvatarFallback className="bg-primary/20 text-xs text-primary">
               {profile.displayName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>

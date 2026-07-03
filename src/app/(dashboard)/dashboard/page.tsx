@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const stats = computeCollectionStats(collectionCards);
 
   return (
-    <div className="flex-1 overflow-auto p-8">
+    <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
       <PageHeader title="Dashboard" description="Overview of your TCG collection">
         <Button asChild>
           <Link href="/collection">

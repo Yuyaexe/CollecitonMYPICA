@@ -5,7 +5,7 @@ import { CollectionManager } from "@/features/collection/components/CollectionMa
 
 export default function CollectionsPage() {
   return (
-    <div className="flex-1 overflow-auto p-8">
+    <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
       <PageHeader
         title="Collection Manager"
         description="Select a collection to browse cards, or create a new one"

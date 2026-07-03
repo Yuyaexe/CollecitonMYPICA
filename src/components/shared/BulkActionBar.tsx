@@ -30,7 +30,8 @@ export function BulkActionBar({
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.15 }}
           className={cn(
-            "fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl border bg-card px-6 py-3 shadow-lg",
+            "fixed left-1/2 z-50 flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-xl border bg-card px-4 py-3 shadow-lg sm:max-w-none sm:gap-4 sm:px-6",
+            "bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6",
             className
           )}
         >
