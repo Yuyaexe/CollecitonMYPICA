@@ -1,11 +1,15 @@
 import { create } from "zustand";
 import { DEFAULT_FILTERS, type CollectionFilters } from "@/types/tcg";
 
+export type CollectionViewMode = "table" | "grid" | "compact";
+
 interface CollectionUIState {
   selectedIds: Set<string>;
   filters: CollectionFilters;
   sortField: string;
   sortDir: "asc" | "desc";
+  viewMode: CollectionViewMode;
+  priceRefreshKey: number;
   sidebarCollapsed: boolean;
   detailCardId: string | null;
   marketplaceCardId: string | null;
@@ -27,6 +31,8 @@ interface CollectionUIState {
   setFilters: (filters: Partial<CollectionFilters>) => void;
   resetFilters: () => void;
   setSort: (field: string, dir?: "asc" | "desc") => void;
+  setViewMode: (mode: CollectionViewMode) => void;
+  refreshPrices: () => void;
   toggleSidebar: () => void;
   setDetailCardId: (id: string | null) => void;
   setMarketplaceCardId: (id: string | null) => void;
@@ -43,6 +49,8 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   filters: { ...DEFAULT_FILTERS },
   sortField: "name",
   sortDir: "asc",
+  viewMode: "table",
+  priceRefreshKey: 0,
   sidebarCollapsed: false,
   detailCardId: null,
   marketplaceCardId: null,
@@ -116,6 +124,8 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
       sortField: field,
       sortDir: dir ?? (s.sortField === field && s.sortDir === "asc" ? "desc" : "asc"),
     })),
+  setViewMode: (mode) => set({ viewMode: mode }),
+  refreshPrices: () => set((s) => ({ priceRefreshKey: s.priceRefreshKey + 1 })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   openCardInspect: (id, tab = "details") =>
     set({ detailCardId: id, marketplaceCardId: id, inspectTab: tab }),

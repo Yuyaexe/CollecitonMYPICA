@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
+import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 
 interface CardTraderQuote {
   price: number;
@@ -18,7 +19,7 @@ const PARALLEL_BATCHES = 2;
 const MAX_CARDS = 48;
 
 export function cardPriceKey(card: DemoOwnedCard): string {
-  return `${card.card.gameSlug}|${card.card.externalId ?? card.card.name}|${card.card.setName ?? ""}`;
+  return `${card.card.gameSlug}|${card.card.externalId ?? card.card.name}|${card.card.setName ?? ""}|${card.card.setCode ?? ""}|${card.card.rarity ?? ""}`;
 }
 
 export function variantPriceKey(
@@ -69,6 +70,7 @@ async function fetchPriceBatch(
     name: item.card.name,
     setName: item.card.setName,
     setCode: item.card.setCode,
+    rarity: item.card.rarity,
     condition: item.condition,
     language: item.language,
     isFoil: item.isFoil,
@@ -79,19 +81,28 @@ async function fetchPriceBatch(
 export function useCardTraderVariantPrices(
   cardName: string,
   gameSlug: string,
-  variants: Array<{ key: string; setName: string | null; setCode: string | null }>,
+  variants: Array<{
+    key: string;
+    setName: string | null;
+    setCode: string | null;
+    rarity?: string | null;
+    blueprintId?: number | null;
+  }>,
   currency: Currency,
   enabled: boolean
 ) {
+  const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
+
   const queryKey = useMemo(
     () => [
       "cardtrader-variant-prices",
+      priceRefreshKey,
       gameSlug,
       cardName,
       currency,
-      variants.map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}`).join(","),
+      variants.map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}|${v.rarity ?? ""}|${v.blueprintId ?? ""}`).join(","),
     ],
-    [gameSlug, cardName, currency, variants]
+    [priceRefreshKey, gameSlug, cardName, currency, variants]
   );
 
   return useQuery({
@@ -115,6 +126,8 @@ export function useCardTraderVariantPrices(
               name: cardName,
               setName: v.setName,
               setCode: v.setCode,
+              rarity: v.rarity,
+              blueprintId: v.blueprintId,
             }));
             return fetchPriceBatchByInput(inputs, keys, currency);
           })
@@ -133,6 +146,8 @@ export function useCardTraderPrices(
   currency: Currency,
   enabled = true
 ) {
+  const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
+
   const targets = useMemo(() => {
     const seen = new Set<string>();
     const list: DemoOwnedCard[] = [];
@@ -151,6 +166,7 @@ export function useCardTraderPrices(
   const queryKey = useMemo(
     () => [
       "cardtrader-prices",
+      priceRefreshKey,
       currency,
       targets
         .map(
@@ -159,7 +175,7 @@ export function useCardTraderPrices(
         )
         .join(","),
     ],
-    [currency, targets]
+    [priceRefreshKey, currency, targets]
   );
 
   return useQuery({

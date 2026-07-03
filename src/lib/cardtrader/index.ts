@@ -1,5 +1,12 @@
 export { isCardTraderConfigured, cardTraderFetch } from "./client";
-export { resolveBlueprintId, resolveCardTraderGameId, buildCardTraderSearchUrl } from "./catalog";
+export {
+  resolveBlueprintId,
+  resolveCardTraderGameId,
+  buildCardTraderSearchUrl,
+  searchCardTraderCatalog,
+  parseCardTraderBlueprintId,
+} from "./catalog";
+export { isCardTraderGameSupported, CARDTRADER_GAME_SLUGS } from "./games";
 export {
   getCardTraderPrice,
   getCardTraderPriceForProfile,

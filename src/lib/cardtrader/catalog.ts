@@ -1,5 +1,10 @@
 import { cardTraderFetch, unwrapCardTraderList } from "./client";
 import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTraderGame } from "./types";
+import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+
+const SEARCH_RESULT_LIMIT = 24;
+const MAX_EXPANSIONS_SCAN = 8;
+const PARALLEL_EXPANSION_BATCH = 3;
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -14,6 +19,7 @@ const gameSlugPatterns: Record<string, RegExp[]> = {
   digimon: [/digimon/i],
   onepiece: [/one piece/i],
   lorcana: [/lorcana/i, /disney lorcana/i],
+  magic: [/magic/i, /mtg/i, /gathering/i],
 };
 
 let gamesCache: CacheEntry<CardTraderGame[]> | null = null;
@@ -113,7 +119,8 @@ function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null,
 function scoreBlueprint(
   blueprint: CardTraderBlueprint,
   cardName: string,
-  setCode?: string | null
+  setCode?: string | null,
+  rarity?: string | null
 ): number {
   const a = normalize(blueprint.name);
   const b = normalize(cardName);
@@ -126,13 +133,21 @@ function scoreBlueprint(
     if (a.includes(code)) score += 90;
   }
 
+  if (rarity) {
+    const r = normalize(rarity);
+    if (a.includes(r)) score += 55;
+    for (const token of r.split(" ").filter((t) => t.length > 3)) {
+      if (a.includes(token)) score += 12;
+    }
+  }
+
   return score;
 }
 
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
   if (input.blueprintId) return input.blueprintId;
 
-  const cacheKey = `${input.gameSlug}|${input.setName ?? ""}|${input.setCode ?? ""}|${input.name}`;
+  const cacheKey = `${input.gameSlug}|${input.setName ?? ""}|${input.setCode ?? ""}|${input.rarity ?? ""}|${input.name}`;
   const cached = blueprintLookup.get(cacheKey);
   if (cached) return cached;
 
@@ -159,7 +174,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
     const best = blueprints
       .map((blueprint) => ({
         blueprint,
-        score: scoreBlueprint(blueprint, input.name, input.setCode),
+        score: scoreBlueprint(blueprint, input.name, input.setCode, input.rarity),
       }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)[0];
@@ -194,4 +209,87 @@ export function buildCardTraderUrl(gameSlug: string, blueprintId: number): strin
         ? "one-piece"
         : gameSlug;
   return `https://www.cardtrader.com/en/${gamePath}/cards/${blueprintId}`;
+}
+
+function blueprintToSearchResult(
+  blueprint: CardTraderBlueprint,
+  expansion: CardTraderExpansion
+): CardSearchResult {
+  if (blueprint.image_url) {
+    blueprintImageCache.set(blueprint.id, blueprint.image_url);
+  }
+
+  return {
+    externalId: String(blueprint.id),
+    name: blueprint.name,
+    setCode: expansion.code ?? null,
+    setName: expansion.name,
+    collectorNumber: expansion.code ?? null,
+    rarity: blueprint.version ?? null,
+    edition: null,
+    imageUrl: blueprint.image_url ?? null,
+    price: null,
+    metadata: {
+      priceSource: "cardtrader",
+      catalogSource: "cardtrader",
+    },
+  };
+}
+
+function matchesQuery(name: string, terms: string[]): boolean {
+  const normalized = normalize(name);
+  return terms.every((term) => normalized.includes(term));
+}
+
+/** Search CardTrader blueprints by name (scans recent expansions, cached). */
+export async function searchCardTraderCatalog(
+  gameSlug: string,
+  query: string,
+  limit = SEARCH_RESULT_LIMIT
+): Promise<CardSearchResult[]> {
+  const gameId = await resolveCardTraderGameId(gameSlug);
+  if (!gameId) return [];
+
+  const terms = normalize(query)
+    .split(" ")
+    .filter((t) => t.length > 1);
+  if (terms.length === 0) return [];
+
+  const expansions = await getExpansions(gameId);
+  const ranked = [...expansions].sort((a, b) => b.id - a.id).slice(0, MAX_EXPANSIONS_SCAN);
+
+  const results: CardSearchResult[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < ranked.length; i += PARALLEL_EXPANSION_BATCH) {
+    if (results.length >= limit) break;
+
+    const batch = ranked.slice(i, i + PARALLEL_EXPANSION_BATCH);
+    const blueprintLists = await Promise.all(batch.map((exp) => getBlueprints(exp.id)));
+
+    for (let j = 0; j < batch.length; j++) {
+      const expansion = batch[j];
+      const blueprints = blueprintLists[j];
+
+      for (const blueprint of blueprints) {
+        if (!matchesQuery(blueprint.name, terms)) continue;
+
+        const dedupeKey = `${blueprint.id}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+
+        results.push(blueprintToSearchResult(blueprint, expansion));
+        if (results.length >= limit) break;
+      }
+      if (results.length >= limit) break;
+    }
+  }
+
+  return results;
+}
+
+export function parseCardTraderBlueprintId(externalId: string | null | undefined): number | null {
+  if (!externalId || !/^\d+$/.test(externalId)) return null;
+  const id = Number(externalId);
+  return Number.isFinite(id) ? id : null;
 }

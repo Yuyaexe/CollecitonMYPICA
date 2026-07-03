@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { CollectionTopBar } from "@/features/collection/components/CollectionTopBar";
 import { CollectionFilters } from "@/features/collection/components/CollectionFilters";
-import { CollectionTable } from "@/features/collection/components/CollectionTable";
+import { CollectionContent } from "@/features/collection/components/CollectionContent";
 import { BulkActionsBar } from "@/features/collection/components/BulkActionsBar";
 import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
 import { ImportModal } from "@/features/import/components/ImportModal";
@@ -60,7 +60,7 @@ export default function CollectionPage() {
             <CollectionFilters />
           </aside>
           <div className="flex flex-1 flex-col overflow-hidden">
-            <CollectionTable />
+            <CollectionContent />
           </div>
         </div>
         <BulkActionsBar />

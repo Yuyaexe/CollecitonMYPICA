@@ -20,6 +20,8 @@ export interface CardTraderBlueprint {
   expansion_id: number | null;
   tcg_player_id: string | null;
   image_url?: string | null;
+  /** Card variant / rarity label from CardTrader (e.g. "Rare", "Secret Rare"). */
+  version?: string | null;
 }
 
 export interface CardTraderProduct {
@@ -38,6 +40,7 @@ export interface CardPriceInput {
   name: string;
   setName?: string | null;
   setCode?: string | null;
+  rarity?: string | null;
   condition?: CardCondition;
   language?: CardLanguage;
   isFoil?: boolean;

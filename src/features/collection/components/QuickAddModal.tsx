@@ -9,10 +9,18 @@ import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
-import { isApiSupported } from "@/features/catalog/services/card-api";
+import { isQuickAddSupported } from "@/features/catalog/services/card-api";
+import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
+import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
 import {
   applyVariant,
   getSearchResultVariants,
@@ -28,15 +36,19 @@ interface QuickAddModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const MAX_VARIANT_PRICE_FETCH = 16;
+
 export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [pendingCard, setPendingCard] = useState<CardSearchResult | null>(null);
   const [rarityFilter, setRarityFilter] = useState("all");
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
+    QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
+  );
   const { addCardFromSearch, profile } = useAppData();
-  const defaultGameId = profile.defaultGameId;
-  const game = DEMO_GAMES.find((g) => g.id === defaultGameId) ?? DEMO_GAMES[0];
+  const game = getQuickAddGame(selectedGameSlug);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
@@ -52,7 +64,15 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     }
   }, [open]);
 
-  const { data, isLoading, isError } = useQuery({
+  useEffect(() => {
+    setPendingCard(null);
+    setQuery("");
+    setDebouncedQuery("");
+    setRarityFilter("all");
+    setPreviewKey(null);
+  }, [selectedGameSlug]);
+
+  const { data, isLoading, isError, isFetching } = useQuery({
     queryKey: ["card-search", debouncedQuery, game.slug, profile.currency],
     queryFn: async () => {
       const res = await fetch(
@@ -60,11 +80,11 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       );
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error ?? "Search failed");
+        throw new Error(json.error ?? json.message ?? "Search failed");
       }
       return (json.results ?? []) as CardSearchResult[];
     },
-    enabled: debouncedQuery.length >= 2 && isApiSupported(game.slug),
+    enabled: debouncedQuery.length >= 2 && isQuickAddSupported(game.slug),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -75,10 +95,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   const variantInputs = useMemo(
     () =>
-      variants.map((v) => ({
+      variants.slice(0, MAX_VARIANT_PRICE_FETCH).map((v) => ({
         key: v.key,
         setName: v.setName,
         setCode: v.setCode,
+        rarity: v.rarity,
+        blueprintId: parseCardTraderBlueprintId(v.externalId),
       })),
     [variants]
   );
@@ -139,12 +161,21 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   };
 
   const handleCardClick = (result: CardSearchResult) => {
-    const prints = getSearchResultVariants(result, game.slug);
+    const siblings = data?.filter((r) => r.name === result.name) ?? [];
+    const cardForVariants =
+      siblings.length > 1
+        ? {
+            ...result,
+            metadata: { ...result.metadata, cardtraderPrints: siblings },
+          }
+        : result;
+
+    const prints = getSearchResultVariants(cardForVariants, game.slug);
     if (prints.length <= 1) {
-      void handleAdd(applyVariant(result, prints[0]));
+      void handleAdd(applyVariant(cardForVariants, prints[0]));
       return;
     }
-    setPendingCard(result);
+    setPendingCard(cardForVariants);
     setRarityFilter("all");
   };
 
@@ -304,23 +335,45 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           </>
         ) : (
           <>
-            <SearchBar
-              value={query}
-              onChange={setQuery}
-              placeholder={`Search ${game.name} cards...`}
-              enableShortcut={false}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Select
+                value={selectedGameSlug}
+                onValueChange={(slug) => {
+                  const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
+                  if (next) setSelectedGameSlug(next.slug);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Game" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUICK_ADD_GAMES.map((g) => (
+                    <SelectItem key={g.slug} value={g.slug}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                placeholder={`Search ${game.name} cards...`}
+                enableShortcut={false}
+                className="flex-1"
+              />
+            </div>
 
-            {!isApiSupported(game.slug) && (
+            {!isQuickAddSupported(game.slug) && (
               <p className="text-sm text-muted-foreground">
-                API not available for {game.name}. Use CSV Import instead.
+                Search not available for {game.name}. Use CSV Import instead.
               </p>
             )}
 
             <ScrollArea className="h-[420px] pr-3">
-              {isLoading && (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              {(isLoading || isFetching) && debouncedQuery.length >= 2 && (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Searching {game.name}…
                 </div>
               )}
 
@@ -360,7 +413,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 </p>
               )}
 
-              {debouncedQuery.length >= 2 && !isLoading && !isError && data?.length === 0 && (
+              {debouncedQuery.length >= 2 && !isLoading && !isFetching && !isError && data?.length === 0 && (
                 <p className="py-12 text-center text-sm text-muted-foreground">No cards found</p>
               )}
             </ScrollArea>

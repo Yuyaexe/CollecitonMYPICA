@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -19,26 +20,21 @@ import {
 } from "@/components/ui/select";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
+import { RarityBadge } from "@/components/shared/RarityBadge";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
-import {
-  resolveDisplayPrice,
-  resolveCardTraderUrl,
-  resolveCardTraderImage,
-  cardPriceKey,
-  useCardTraderPrices,
-} from "@/features/market/hooks/useCardTraderPrices";
+import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 import { isApiSupported } from "@/features/catalog/services/card-api";
 import {
   findVariantForSelection,
   getSearchResultVariants,
+  type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
-import { formatCurrency } from "@/lib/utils";
-import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
+import { formatCurrency, cn } from "@/lib/utils";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
@@ -77,12 +73,6 @@ export function CardInspectDialog({
   const { updateOwnedCard } = useAppData();
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
-  const { data: cardTraderPrices } = useCardTraderPrices(
-    card ? [card] : [],
-    currency,
-    open
-  );
-
   const { data: cardDetailData } = useQuery({
     queryKey: ["card-detail", card?.card.externalId, card?.card.gameSlug],
     queryFn: () => fetchCardDetail(card!.card.externalId!, card!.card.gameSlug),
@@ -101,23 +91,39 @@ export function CardInspectDialog({
     return getSearchResultVariants(cardDetail, card.card.gameSlug, relatedPrints);
   }, [cardDetail, card, cardDetailData?.relatedPrints]);
 
+  const variantInputs = useMemo(
+    () =>
+      printVariants.map((v) => ({
+        key: v.key,
+        setName: v.setName,
+        setCode: v.setCode,
+        rarity: v.rarity,
+      })),
+    [printVariants]
+  );
+
+  const { data: variantPrices, isFetching: pricesFetching } = useCardTraderVariantPrices(
+    card?.card.name ?? "",
+    card?.card.gameSlug ?? "yugioh",
+    variantInputs,
+    currency,
+    open && printVariants.length > 0
+  );
+
   const activeVariant = useMemo(() => {
     if (!card) return undefined;
-    return findVariantForSelection(
-      printVariants,
-      card.card.rarity ?? "",
-      card.card.setCode,
-      card.card.setName
+    if (printVariants.length === 0) return undefined;
+    return (
+      findVariantForSelection(
+        printVariants,
+        card.card.rarity ?? "",
+        card.card.setCode,
+        card.card.setName
+      ) ?? printVariants[0]
     );
   }, [printVariants, card]);
 
-  const apiRarities = useMemo(() => {
-    return [
-      ...new Set(
-        printVariants.map((v) => v.rarity).filter((r) => isKnownRarity(r, card?.card.gameSlug))
-      ),
-    ] as string[];
-  }, [printVariants, card?.card.gameSlug]);
+  const activeQuote = activeVariant ? variantPrices?.get(activeVariant.key) : undefined;
 
   useEffect(() => {
     if (open && tab === "marketplace") {
@@ -127,13 +133,11 @@ export function CardInspectDialog({
 
   if (!card) return null;
 
-  const cardTraderQuote = cardTraderPrices?.get(cardPriceKey(card));
-  const displayPrice = cardTraderQuote?.price ?? resolveDisplayPrice(card, cardTraderPrices);
+  const displayPrice = activeQuote?.price ?? card.card.marketPrice;
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
   const displayImage =
-    cardTraderQuote?.imageUrl ??
-    resolveCardTraderImage(card, cardTraderPrices) ??
+    activeQuote?.imageUrl ??
     activeVariant?.imageUrl ??
     buildYgoImageUrl(
       activeVariant?.externalId ?? card.card.externalId,
@@ -144,44 +148,45 @@ export function CardInspectDialog({
   const listings = buildMarketplaceListings(card.card, {
     cardTraderPrice: displayPrice,
     cardTraderCurrency: currency,
-    cardTraderUrl: resolveCardTraderUrl(card, cardTraderPrices),
+    cardTraderUrl: activeQuote?.url ?? null,
     ygoProDeckPrice: ygoSecondaryPrice,
     ygoProDeckUrl: activeVariant?.ygoProDeckUrl,
   });
 
-  const rarityOptions = [
-    ...new Set([
-      ...apiRarities,
-      ...(isKnownRarity(card.card.rarity, card.card.gameSlug) ? [card.card.rarity] : []),
-    ]),
-  ] as string[];
-
-  const handleRarityChange = (rarity: string) => {
-    const variant = findVariantForSelection(
-      printVariants,
-      rarity,
-      card.card.setCode,
-      card.card.setName
-    );
-
+  const handleVariantSelect = (variant: CardPrintVariant) => {
+    const quote = variantPrices?.get(variant.key);
     const imageUrl =
-      variant?.imageUrl ??
-      buildYgoImageUrl(
-        variant?.externalId ?? card.card.externalId,
-        pickYgoImageSizeForRarity(rarity)
-      ) ??
+      quote?.imageUrl ??
+      variant.imageUrl ??
+      buildYgoImageUrl(variant.externalId ?? card.card.externalId, pickYgoImageSizeForRarity(variant.rarity)) ??
       card.card.imageUrl;
 
     updateOwnedCard(card.id, {
       card: {
-        rarity: rarity || null,
-        setName: variant?.setName ?? card.card.setName,
-        setCode: variant?.setCode ?? card.card.setCode,
-        collectorNumber: variant?.setCode ?? card.card.collectorNumber,
-        externalId: variant?.externalId ?? card.card.externalId,
+        rarity: variant.rarity,
+        setName: variant.setName,
+        setCode: variant.setCode,
+        collectorNumber: variant.setCode ?? card.card.collectorNumber,
+        externalId: variant.externalId ?? card.card.externalId,
         imageUrl,
+        marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },
     });
+  };
+
+  const renderVariantPrice = (variantKey: string) => {
+    const quote = variantPrices?.get(variantKey);
+    if (quote?.price != null) {
+      return (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {formatCurrency(quote.price, currency)}
+        </span>
+      );
+    }
+    if (pricesFetching) {
+      return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
+    }
+    return <span className="text-xs text-muted-foreground">—</span>;
   };
 
   return (
@@ -196,27 +201,36 @@ export function CardInspectDialog({
               alt={card.card.name}
               width={160}
               height={224}
-              className="rounded-lg shadow-lg ring-1 ring-border/40"
+              className="rounded-lg shadow-lg ring-1 ring-border/40 transition-opacity duration-200"
             />
             <h2 className="mt-4 text-center text-lg font-semibold leading-tight">
               {card.card.name}
             </h2>
+            {activeVariant && (
+              <div className="mt-2">
+                <RarityBadge rarity={activeVariant.rarity} gameSlug={card.card.gameSlug} size="md" />
+              </div>
+            )}
             <dl className="mt-4 w-full space-y-2 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Set</dt>
-                <dd className="text-right font-medium">{card.card.setName ?? "—"}</dd>
+                <dd className="text-right font-medium">{activeVariant?.setName ?? card.card.setName ?? "—"}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Number</dt>
-                <dd className="font-medium">{card.card.collectorNumber ?? "—"}</dd>
+                <dd className="font-medium">{activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">CardTrader</dt>
                 <dd>
-                  <PriceBadge price={displayPrice} currency={currency} />
+                  {pricesFetching && activeQuote?.price == null ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <PriceBadge price={displayPrice} currency={currency} />
+                  )}
                 </dd>
               </div>
-              {ygoSecondaryPrice != null && (
+              {ygoSecondaryPrice != null && ygoSecondaryPrice > 0 && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">YGOPRODeck</dt>
                   <dd>
@@ -263,32 +277,42 @@ export function CardInspectDialog({
             </div>
 
             <div className="space-y-4 border-t border-border/60 pt-4">
-              <div className="space-y-2">
-                <Label>Rarity</Label>
-                {rarityOptions.length > 0 ? (
-                  <Select
-                    value={card.card.rarity ?? ""}
-                    onValueChange={handleRarityChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select rarity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rarityOptions.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    value={card.card.rarity ?? ""}
-                    placeholder="e.g. Ultra Rare"
-                    onChange={(e) => handleRarityChange(e.target.value || "")}
-                  />
-                )}
-              </div>
+              {printVariants.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Print</Label>
+                  <ScrollArea className="h-[180px] rounded-lg border border-border/60">
+                    <div className="space-y-1 p-1">
+                      {printVariants.map((variant) => {
+                        const isActive = activeVariant?.key === variant.key;
+                        return (
+                          <button
+                            key={variant.key}
+                            type="button"
+                            onClick={() => handleVariantSelect(variant)}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50",
+                              isActive && "bg-primary/10 ring-1 ring-primary/30"
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                              <RarityBadge rarity={variant.rarity} gameSlug={card.card.gameSlug} size="md" />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {variant.setName ?? "Unknown set"}
+                                </p>
+                                {variant.setCode && (
+                                  <p className="truncate text-xs text-muted-foreground">{variant.setCode}</p>
+                                )}
+                              </div>
+                            </div>
+                            {renderVariantPrice(variant.key)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Quantity</Label>

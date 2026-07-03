@@ -2,6 +2,7 @@ import type { CardApiAdapter } from "./types";
 import { yugiohAdapter } from "./yugioh.adapter";
 import { pokemonAdapter } from "./pokemon.adapter";
 import { digimonAdapter } from "./digimon.adapter";
+import { isCardTraderGameSupported } from "@/lib/cardtrader/games";
 
 const stubAdapter = (slug: string): CardApiAdapter => ({
   gameSlug: slug,
@@ -30,4 +31,8 @@ export function getCardAdapter(gameSlug: string): CardApiAdapter | null {
 
 export function isApiSupported(gameSlug: string): boolean {
   return SUPPORTED_GAMES.includes(gameSlug as (typeof SUPPORTED_GAMES)[number]);
+}
+
+export function isQuickAddSupported(gameSlug: string): boolean {
+  return isApiSupported(gameSlug) || isCardTraderGameSupported(gameSlug);
 }

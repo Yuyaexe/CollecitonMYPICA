@@ -40,11 +40,38 @@ function findPrintForSet(
   });
 }
 
+type CardTraderPrint = CardSearchResult;
+
+function cardtraderPrintsFromResult(result: CardSearchResult): CardTraderPrint[] {
+  const prints = result.metadata?.cardtraderPrints as CardSearchResult[] | undefined;
+  if (prints?.length) return prints;
+  if (result.metadata?.catalogSource === "cardtrader") return [result];
+  return [];
+}
+
+function cardtraderPrintToVariant(print: CardSearchResult): CardPrintVariant {
+  return {
+    key: `${print.setCode ?? "set"}-${print.externalId}`,
+    setCode: print.setCode,
+    setName: print.setName,
+    rarity: print.rarity,
+    price: print.price,
+    externalId: print.externalId,
+    imageUrl: print.imageUrl,
+    ygoProDeckUrl: "#",
+  };
+}
+
 export function getSearchResultVariants(
   result: CardSearchResult,
   gameSlug: string,
   relatedPrints: CardSearchResult[] = []
 ): CardPrintVariant[] {
+  const cardtraderPrints = cardtraderPrintsFromResult(result);
+  if (cardtraderPrints.length > 0) {
+    return cardtraderPrints.map(cardtraderPrintToVariant);
+  }
+
   if (gameSlug === "yugioh") {
     const sets = ygoSetsFromResult(result);
     const allPrints = [result, ...relatedPrints.filter((p) => p.externalId !== result.externalId)];

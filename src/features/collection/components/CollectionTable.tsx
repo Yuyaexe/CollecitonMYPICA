@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Layers } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,81 +11,34 @@ import {
 } from "@/components/ui/context-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CollectionRow } from "@/components/shared/CollectionRow";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
-import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
-import {
-  resolveDisplayPrice,
-  useCardTraderPrices,
-} from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
-import { Skeleton } from "@/components/ui/skeleton";
 import { openMarketplaceInNewTab } from "@/features/market/services/marketplace";
+import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 
 const ROW_HEIGHT = 56;
 
-export function CollectionTable() {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const {
-    ownedCards,
-    activeCollectionId,
-    profile,
-    deleteOwnedCards,
-    updateOwnedCard,
-    isLoading,
-    isError,
-  } = useAppData();
+interface CollectionTableProps {
+  data: CollectionViewData;
+}
 
-  const filters = useCollectionUIStore((s) => s.filters);
+export function CollectionTable({ data }: CollectionTableProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const { deleteOwnedCards } = useAppData();
+
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
-  const sortField = useCollectionUIStore((s) => s.sortField);
-  const sortDir = useCollectionUIStore((s) => s.sortDir);
   const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
   const selectRow = useCollectionUIStore((s) => s.selectRow);
   const selectAll = useCollectionUIStore((s) => s.selectAll);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
-  const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
 
-  const filtered = useMemo(() => {
-    const f = filterOwnedCards(ownedCards, filters, activeCollectionId);
-    return sortOwnedCards(f, sortField, sortDir);
-  }, [ownedCards, filters, activeCollectionId, sortField, sortDir]);
-
-  const collectionCards = useMemo(
-    () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
-    [ownedCards, activeCollectionId]
-  );
-
-  const { data: cardTraderPrices } = useCardTraderPrices(
-    collectionCards,
-    profile.currency,
-    !isLoading && !isError
-  );
-
-  const allIds = filtered.map((oc) => oc.id);
+  const { filtered, allIds, profileCurrency, resolvePrice, handleQuantityChange, handleRemove } =
+    data;
 
   const { peerByCardId } = usePresenceContext();
-
-  const handleQuantityChange = useCallback(
-    (id: string, quantity: number) => {
-      if (quantity < 1) {
-        void deleteOwnedCards([id]);
-        return;
-      }
-      void updateOwnedCard(id, { quantity });
-    },
-    [updateOwnedCard, deleteOwnedCards]
-  );
-
-  const handleRemove = useCallback(
-    (id: string) => {
-      void deleteOwnedCards([id]);
-    },
-    [deleteOwnedCards]
-  );
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -94,12 +46,6 @@ export function CollectionTable() {
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   });
-
-  useEffect(() => {
-    if (focusedRowIndex >= filtered.length) {
-      setFocusedRowIndex(Math.max(0, filtered.length - 1));
-    }
-  }, [filtered.length, focusedRowIndex, setFocusedRowIndex]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -120,38 +66,6 @@ export function CollectionTable() {
     return () => window.removeEventListener("keydown", handler);
   }, [filtered, focusedRowIndex, openCardInspect, setFocusedRowIndex]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-2 p-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        icon={Layers}
-        title="Could not load collection"
-        description="Sign in to load your cloud collection, or use offline Demo mode."
-      />
-    );
-  }
-
-  if (filtered.length === 0) {
-    return (
-      <EmptyState
-        icon={Layers}
-        title="No cards yet"
-        description="Import your collection or use Quick Add to search Yu-Gi-Oh, Pokemon, or Digimon cards."
-        actionLabel="Quick Add"
-        onAction={() => setQuickAddOpen(true)}
-      />
-    );
-  }
-
   const headerChecked =
     selectedIds.size === filtered.length && filtered.length > 0
       ? true
@@ -161,7 +75,7 @@ export function CollectionTable() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground shadow-sm">
+      <div className="sticky top-0 z-20 hidden items-center gap-3 border-b border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground shadow-sm md:flex">
         <div className="flex shrink-0 items-center p-1">
           <Checkbox
             checked={
@@ -207,7 +121,7 @@ export function CollectionTable() {
                       item={item}
                       selected={selectedIds.has(item.id)}
                       focused={focusedRowIndex === virtualRow.index}
-                      marketPrice={resolveDisplayPrice(item, cardTraderPrices)}
+                      marketPrice={resolvePrice(item)}
                       onClick={(row, modifiers) =>
                         selectRow(row.id, modifiers, allIds, virtualRow.index)
                       }
@@ -218,7 +132,7 @@ export function CollectionTable() {
                       }
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemove}
-                      currency={profile.currency}
+                      currency={profileCurrency}
                       peerPresence={
                         peerByCardId.has(item.id)
                           ? {

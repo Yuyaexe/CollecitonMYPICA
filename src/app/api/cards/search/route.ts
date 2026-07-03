@@ -1,8 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
-import { getCardTraderPriceForProfile, isCardTraderConfigured } from "@/lib/cardtrader";
+import {
+  getCardTraderPriceForProfile,
+  isCardTraderConfigured,
+  isCardTraderGameSupported,
+  parseCardTraderBlueprintId,
+  searchCardTraderCatalog,
+} from "@/lib/cardtrader";
 
 const ENRICH_LIMIT = 8;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function enrichWithCardTraderPrices(
+  results: Awaited<ReturnType<NonNullable<ReturnType<typeof getCardAdapter>>["search"]>>,
+  game: string,
+  currency: "USD" | "BRL"
+) {
+  const enriched = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (i >= ENRICH_LIMIT) {
+      enriched.push(result);
+      continue;
+    }
+    try {
+      const blueprintId = parseCardTraderBlueprintId(result.externalId);
+      const cardTrader = await getCardTraderPriceForProfile(
+        {
+          gameSlug: game,
+          name: result.name,
+          setName: result.setName,
+          setCode: result.setCode,
+          rarity: result.rarity,
+          blueprintId,
+        },
+        currency
+      );
+      if (!cardTrader) {
+        enriched.push(result);
+        continue;
+      }
+      enriched.push({
+        ...result,
+        price: cardTrader.price,
+        imageUrl: cardTrader.imageUrl ?? result.imageUrl,
+        metadata: {
+          ...result.metadata,
+          priceSource: "cardtrader",
+        },
+      });
+    } catch {
+      enriched.push(result);
+    }
+    if (i < Math.min(results.length, ENRICH_LIMIT) - 1) {
+      await sleep(40);
+    }
+  }
+  return enriched;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,53 +72,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  if (!isApiSupported(game)) {
+  const cardTraderReady = isCardTraderConfigured() && isCardTraderGameSupported(game);
+
+  if (!isApiSupported(game) && !cardTraderReady) {
     return NextResponse.json({
       results: [],
-      message: `API not yet implemented for ${game}. Use CSV import.`,
+      message: `Search not available for ${game}. Use CSV import.`,
     });
   }
 
-  const adapter = getCardAdapter(game);
-  if (!adapter) {
-    return NextResponse.json({ error: "Unknown game" }, { status: 400 });
-  }
-
   try {
-    let results = await adapter.search(query);
+    let results;
+    let source: "catalog" | "cardtrader" = "catalog";
 
-    if (isCardTraderConfigured()) {
-      results = await Promise.all(
-        results.map(async (result, index) => {
-          if (index >= ENRICH_LIMIT) return result;
-          try {
-            const cardTrader = await getCardTraderPriceForProfile(
-              {
-                gameSlug: game,
-                name: result.name,
-                setName: result.setName,
-                setCode: result.setCode,
-              },
-              currency
-            );
-            if (!cardTrader) return result;
-            return {
-              ...result,
-              price: cardTrader.price,
-              metadata: {
-                ...result.metadata,
-                priceSource: "cardtrader",
-              },
-            };
-          } catch {
-            return result;
-          }
-        })
-      );
+    if (isApiSupported(game)) {
+      const adapter = getCardAdapter(game);
+      if (!adapter) {
+        return NextResponse.json({ error: "Unknown game" }, { status: 400 });
+      }
+      results = await adapter.search(query);
+    } else {
+      results = await searchCardTraderCatalog(game, query);
+      source = "cardtrader";
     }
 
-    return NextResponse.json({ results, priceSource: isCardTraderConfigured() ? "cardtrader" : "catalog" });
-  } catch {
+    if (cardTraderReady) {
+      results = await enrichWithCardTraderPrices(results, game, currency);
+    }
+
+    return NextResponse.json({
+      results,
+      priceSource: cardTraderReady ? "cardtrader" : source,
+    });
+  } catch (error) {
+    console.error("GET /api/cards/search", error);
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

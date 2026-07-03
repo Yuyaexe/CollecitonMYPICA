@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, UserPlus } from "lucide-react";
+import { Plus, Upload, Download, LayoutGrid, UserPlus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CollaboratorPresence } from "@/components/shared/CollaboratorPresence";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
 import { ShareCollectionModal } from "@/features/collection/components/ShareCollectionModal";
+import { CollectionViewSwitcher } from "@/features/collection/components/CollectionViewSwitcher";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
 import {
   Select,
@@ -18,9 +19,12 @@ import {
 } from "@/components/ui/select";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
-import { computeCollectionStats } from "@/features/collection/utils/filters";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { exportCollectionCsv } from "@/features/import/services/export-csv";
+import {
+  resolveDisplayPrice,
+  useCardTraderPrices,
+} from "@/features/market/hooks/useCardTraderPrices";
 
 export function CollectionTopBar() {
   const [shareOpen, setShareOpen] = useState(false);
@@ -28,6 +32,7 @@ export function CollectionTopBar() {
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
+  const refreshPrices = useCollectionUIStore((s) => s.refreshPrices);
   const { peers } = usePresenceContext();
 
   const {
@@ -41,7 +46,22 @@ export function CollectionTopBar() {
 
   const activeCollection = collections.find((c) => c.id === activeCollectionId);
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
-  const stats = computeCollectionStats(collectionCards);
+
+  const { data: cardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
+    collectionCards,
+    profile.currency,
+    !!activeCollectionId
+  );
+
+  const stats = useMemo(() => {
+    const totalCards = collectionCards.reduce((sum, oc) => sum + oc.quantity, 0);
+    const totalValue = collectionCards.reduce((sum, oc) => {
+      const price = resolveDisplayPrice(oc, cardTraderPrices) ?? oc.card.marketPrice ?? 0;
+      return sum + price * oc.quantity;
+    }, 0);
+    const uniqueSets = new Set(collectionCards.map((oc) => oc.card.setName).filter(Boolean)).size;
+    return { totalCards, totalValue, uniqueSets };
+  }, [collectionCards, cardTraderPrices]);
 
   const handleExport = () => {
     exportCollectionCsv(collectionCards, activeCollection?.name ?? "collection");
@@ -115,13 +135,25 @@ export function CollectionTopBar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CollectionViewSwitcher className="hidden sm:inline-flex" />
             <MobileFilters />
             <SearchBar
               value={filters.search}
               onChange={(v) => setFilters({ search: v })}
-              className="w-48 sm:w-64"
+              className="w-full min-w-0 sm:w-48 md:w-64"
             />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={refreshPrices}
+              disabled={pricesFetching}
+              title="Refresh CardTrader prices"
+              aria-label="Refresh prices"
+            >
+              <RefreshCw className={cn("h-4 w-4", pricesFetching && "animate-spin")} />
+              <span className="hidden md:inline">Prices</span>
+            </Button>
             <Button size="sm" onClick={() => setQuickAddOpen(true)}>
               <Plus className="h-4 w-4" />
               Quick Add
@@ -132,9 +164,12 @@ export function CollectionTopBar() {
             </Button>
             <Button size="sm" variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              Export
+              <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 sm:hidden">
+          <CollectionViewSwitcher className="flex-1" />
         </div>
       </div>
 
