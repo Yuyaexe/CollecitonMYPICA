@@ -239,7 +239,13 @@ export async function updateOwnedCard(
     isFoil?: boolean;
     purchasePrice?: number | null;
     notes?: string | null;
-    card?: { marketPrice?: number | null };
+    card?: {
+      marketPrice?: number | null;
+      rarity?: string | null;
+      setName?: string | null;
+      setCode?: string | null;
+      collectorNumber?: string | null;
+    };
   }
 ) {
   const database = requireDb();
@@ -275,6 +281,25 @@ export async function updateOwnedCard(
         metadata: marketPriceMetadata(updates.card.marketPrice),
         updatedAt: new Date(),
       })
+      .where(eq(cards.id, row.owned.cardId));
+  }
+
+  const cardFields: Partial<{
+    rarity: string | null;
+    setName: string | null;
+    setCode: string | null;
+    collectorNumber: string | null;
+  }> = {};
+  if (updates.card?.rarity !== undefined) cardFields.rarity = updates.card.rarity;
+  if (updates.card?.setName !== undefined) cardFields.setName = updates.card.setName;
+  if (updates.card?.setCode !== undefined) cardFields.setCode = updates.card.setCode;
+  if (updates.card?.collectorNumber !== undefined) {
+    cardFields.collectorNumber = updates.card.collectorNumber;
+  }
+  if (Object.keys(cardFields).length > 0) {
+    await database
+      .update(cards)
+      .set({ ...cardFields, updatedAt: new Date() })
       .where(eq(cards.id, row.owned.cardId));
   }
 }

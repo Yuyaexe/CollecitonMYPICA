@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -18,7 +18,6 @@ interface CollectionRowProps {
     item: DemoOwnedCard,
     modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
   ) => void;
-  onDoubleClick: (item: DemoOwnedCard) => void;
   onMiddleClick: (item: DemoOwnedCard) => void;
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   onQuantityChange: (id: string, quantity: number) => void;
@@ -33,7 +32,6 @@ export const CollectionRow = memo(function CollectionRow({
   selected,
   focused,
   onClick,
-  onDoubleClick,
   onMiddleClick,
   onCheckboxChange,
   onQuantityChange,
@@ -43,10 +41,6 @@ export const CollectionRow = memo(function CollectionRow({
   style,
 }: CollectionRowProps) {
   const marketPrice = item.card.marketPrice;
-  const profit =
-    marketPrice && item.purchasePrice
-      ? (marketPrice - item.purchasePrice) * item.quantity
-      : null;
 
   const shiftKeyRef = useRef(false);
 
@@ -82,10 +76,6 @@ export const CollectionRow = memo(function CollectionRow({
           ctrlKey: e.ctrlKey,
           metaKey: e.metaKey,
         });
-      }}
-      onDoubleClick={(e) => {
-        e.preventDefault();
-        onDoubleClick(item);
       }}
       onMouseDown={(e) => {
         if (e.button === 1) {
@@ -128,7 +118,11 @@ export const CollectionRow = memo(function CollectionRow({
         {item.card.setName ?? "—"}
       </div>
 
-      <div className="hidden w-12 text-sm text-muted-foreground lg:block">
+      <div className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block">
+        {item.card.rarity ?? "—"}
+      </div>
+
+      <div className="hidden w-12 text-sm text-muted-foreground xl:block">
         {item.card.collectorNumber ?? "—"}
       </div>
 
@@ -146,27 +140,15 @@ export const CollectionRow = memo(function CollectionRow({
         {item.language}
       </div>
 
-      <div className="hidden w-20 lg:block">
+      <div className="hidden w-20 shrink-0 lg:flex lg:justify-end">
         <PriceBadge price={marketPrice} currency={currency} />
       </div>
 
-      <div className="hidden w-12 text-center text-sm text-muted-foreground xl:block">—</div>
-
-      <div className="hidden w-20 text-right text-sm xl:block">
-        {profit !== null ? (
-          <span className={cn("tabular-nums", profit >= 0 ? "text-emerald-400" : "text-red-400")}>
-            {formatCurrency(profit, currency)}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </div>
-
-      <div className="hidden w-16 gap-1 xl:flex">
-        {item.isFoil && (
-          <Badge className="border-0 bg-amber-500/15 text-[10px] text-amber-400">Foil</Badge>
-        )}
-      </div>
+      {item.isFoil && (
+        <Badge className="hidden border-0 bg-amber-500/15 text-[10px] text-amber-400 md:inline-flex">
+          Foil
+        </Badge>
+      )}
     </div>
   );
 });

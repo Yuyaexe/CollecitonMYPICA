@@ -149,12 +149,49 @@ export async function updateSupabaseProfile(
 
 export async function createSupabaseCollection(
   supabase: SupabaseClient,
-  userId: string,
+  _userId: string,
   name: string
 ) {
+  type CollectionRow = {
+    id: string;
+    user_id: string;
+    name: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+
+  const trimmed = name.trim();
+
+  const { data: rpcRow, error: rpcError } = await supabase
+    .rpc("create_collection", { p_name: trimmed })
+    .maybeSingle<CollectionRow>();
+
+  if (!rpcError && rpcRow) {
+    return toDemoCollection({
+      id: rpcRow.id,
+      userId: rpcRow.user_id,
+      name: rpcRow.name,
+      isDefault: rpcRow.is_default,
+      isFavorite: false,
+      coverImageUrl: null,
+      createdAt: new Date(rpcRow.created_at),
+      updatedAt: new Date(rpcRow.updated_at),
+    });
+  }
+
+  const rpcMissing =
+    rpcError?.code === "42883" ||
+    rpcError?.code === "PGRST202" ||
+    rpcError?.message?.includes("create_collection");
+
+  if (!rpcMissing) {
+    throw rpcError ?? new Error("Failed to create collection");
+  }
+
   const { data, error } = await supabase
     .from("collections")
-    .insert({ user_id: userId, name, is_default: false })
+    .insert({ user_id: _userId, name: trimmed, is_default: false })
     .select("id, user_id, name, is_default, created_at, updated_at")
     .single();
   if (error) throw error;
@@ -327,7 +364,13 @@ export async function updateSupabaseOwnedCard(
     isFoil?: boolean;
     purchasePrice?: number | null;
     notes?: string | null;
-    card?: { marketPrice?: number | null };
+    card?: {
+      marketPrice?: number | null;
+      rarity?: string | null;
+      setName?: string | null;
+      setCode?: string | null;
+      collectorNumber?: string | null;
+    };
   }
 ) {
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -354,6 +397,17 @@ export async function updateSupabaseOwnedCard(
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.card_id);
+  }
+
+  const cardPayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.card?.rarity !== undefined) cardPayload.rarity = updates.card.rarity;
+  if (updates.card?.setName !== undefined) cardPayload.set_name = updates.card.setName;
+  if (updates.card?.setCode !== undefined) cardPayload.set_code = updates.card.setCode;
+  if (updates.card?.collectorNumber !== undefined) {
+    cardPayload.collector_number = updates.card.collectorNumber;
+  }
+  if (Object.keys(cardPayload).length > 1 && row?.card_id) {
+    await supabase.from("cards").update(cardPayload).eq("id", row.card_id);
   }
 }
 

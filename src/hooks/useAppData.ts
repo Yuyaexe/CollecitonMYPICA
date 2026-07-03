@@ -233,7 +233,7 @@ export function useAppData() {
       updates,
     }: {
       id: string;
-      updates: Partial<DemoOwnedCard> & { card?: Partial<DemoOwnedCard["card"]> };
+      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> };
     }) => {
       if (!isServerMode) {
         demo.updateOwnedCard(id, updates);
@@ -253,9 +253,15 @@ export function useAppData() {
       if (previous) {
         queryClient.setQueryData<AppState>(["app-state"], {
           ...previous,
-          ownedCards: previous.ownedCards.map((oc) =>
-            oc.id === id ? { ...oc, ...updates } : oc
-          ),
+          ownedCards: previous.ownedCards.map((oc) => {
+            if (oc.id !== id) return oc;
+            const { card: cardUpdates, ...ownedUpdates } = updates;
+            const next: DemoOwnedCard = { ...oc, ...ownedUpdates };
+            if (cardUpdates) {
+              next.card = { ...oc.card, ...cardUpdates };
+            }
+            return next;
+          }),
         });
       }
       return { previous };
@@ -342,7 +348,7 @@ export function useAppData() {
     ) => addCardMutation.mutateAsync({ result, gameId, gameSlug, gameName }),
     updateOwnedCard: (
       id: string,
-      updates: Partial<DemoOwnedCard> & { card?: Partial<DemoOwnedCard["card"]> }
+      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> }
     ) => updateCardMutation.mutateAsync({ id, updates }),
     deleteOwnedCards: (ids: string[]) => deleteCardsMutation.mutateAsync(ids),
     importRows: (

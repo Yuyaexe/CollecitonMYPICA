@@ -20,7 +20,10 @@ interface DemoStore extends DemoState {
   activeCollectionId: string;
   setActiveCollection: (id: string) => void;
   addCardFromSearch: (result: CardSearchResult, gameId: string, gameSlug: string, gameName: string) => void;
-  updateOwnedCard: (id: string, updates: Partial<DemoOwnedCard> & { card?: Partial<DemoCard> }) => void;
+  updateOwnedCard: (
+    id: string,
+    updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoCard> }
+  ) => void;
   deleteOwnedCards: (ids: string[]) => void;
   importRows: (
     rows: Array<{
@@ -116,9 +119,10 @@ export const useDemoStore = create<DemoStore>()(
         set((s) => ({
           ownedCards: s.ownedCards.map((oc) => {
             if (oc.id !== id) return oc;
-            const next = { ...oc, ...updates };
-            if (updates.card) {
-              next.card = { ...oc.card, ...updates.card };
+            const { card: cardUpdates, ...ownedUpdates } = updates;
+            const next: DemoOwnedCard = { ...oc, ...ownedUpdates };
+            if (cardUpdates) {
+              next.card = { ...oc.card, ...cardUpdates };
             }
             return next;
           }),

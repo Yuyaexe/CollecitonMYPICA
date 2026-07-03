@@ -17,6 +17,7 @@ import { PriceBadge } from "@/components/shared/PriceBadge";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import { useAppData } from "@/hooks/useAppData";
+import { useMemo } from "react";
 
 interface CardDetailSheetProps {
   ownedCardId: string | null;
@@ -33,49 +34,93 @@ export function CardDetailSheet({
   currency,
   onOpenMarketplace,
 }: CardDetailSheetProps) {
-  const { ownedCards, updateOwnedCard } = useAppData();
+  const { ownedCards, activeCollectionId, updateOwnedCard } = useAppData();
   const card = ownedCardId
-    ? ownedCards.find((oc) => oc.id === ownedCardId) ?? null
+    ? (ownedCards.find((oc) => oc.id === ownedCardId) ?? null)
     : null;
+
+  const collectionRarities = useMemo(() => {
+    if (!activeCollectionId) return [];
+    return [
+      ...new Set(
+        ownedCards
+          .filter((oc) => oc.collectionId === activeCollectionId && oc.card.rarity)
+          .map((oc) => oc.card.rarity!)
+      ),
+    ].sort();
+  }, [ownedCards, activeCollectionId]);
+
+  const rarityOptions = useMemo(() => {
+    const options = new Set(collectionRarities);
+    if (card?.card.rarity) options.add(card.card.rarity);
+    return [...options];
+  }, [collectionRarities, card?.card.rarity]);
 
   if (!card) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{card.card.name}</SheetTitle>
+        <SheetHeader className="text-center">
+          <SheetTitle className="mx-auto max-w-[280px]">{card.card.name}</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="mx-auto mt-6 flex max-w-sm flex-col items-center space-y-6">
           <CardImage
             src={card.card.imageUrl}
             alt={card.card.name}
-            width={192}
-            height={268}
-            className="mx-auto rounded-xl shadow-lg"
+            width={176}
+            height={246}
+            className="rounded-xl shadow-lg ring-1 ring-border/40"
           />
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-muted-foreground">Set</p>
-              <p className="font-medium">{card.card.setName ?? "—"}</p>
+          <div className="w-full space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Set</span>
+              <span className="text-right font-medium">{card.card.setName ?? "—"}</span>
             </div>
-            <div>
-              <p className="text-muted-foreground">Number</p>
-              <p className="font-medium">{card.card.collectorNumber ?? "—"}</p>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Number</span>
+              <span className="font-medium">{card.card.collectorNumber ?? "—"}</span>
             </div>
-            <div>
-              <p className="text-muted-foreground">Rarity</p>
-              <p className="font-medium capitalize">{card.card.rarity ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Market</p>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Market</span>
               <PriceBadge price={card.card.marketPrice} currency={currency} />
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="w-full space-y-4">
+            <div className="space-y-2">
+              <Label>Rarity</Label>
+              {rarityOptions.length > 0 ? (
+                <Select
+                  value={card.card.rarity ?? ""}
+                  onValueChange={(v) =>
+                    updateOwnedCard(card.id, { card: { rarity: v || null } })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select rarity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rarityOptions.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={card.card.rarity ?? ""}
+                  placeholder="e.g. Ultra Rare"
+                  onChange={(e) =>
+                    updateOwnedCard(card.id, { card: { rarity: e.target.value || null } })
+                  }
+                />
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Quantity</Label>
               <Input
@@ -90,49 +135,51 @@ export function CardDetailSheet({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Condition</Label>
-              <Select
-                value={card.condition}
-                onValueChange={(v) =>
-                  updateOwnedCard(card.id, { condition: v as typeof card.condition })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CARD_CONDITIONS.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CONDITION_LABELS[c]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Condition</Label>
+                <Select
+                  value={card.condition}
+                  onValueChange={(v) =>
+                    updateOwnedCard(card.id, { condition: v as typeof card.condition })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARD_CONDITIONS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {CONDITION_LABELS[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <Select
+                  value={card.language}
+                  onValueChange={(v) =>
+                    updateOwnedCard(card.id, { language: v as typeof card.language })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARD_LANGUAGES.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Language</Label>
-              <Select
-                value={card.language}
-                onValueChange={(v) =>
-                  updateOwnedCard(card.id, { language: v as typeof card.language })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CARD_LANGUAGES.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <Checkbox
                 id="foil"
                 checked={card.isFoil}
@@ -166,7 +213,7 @@ export function CardDetailSheet({
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex w-full gap-2 pb-2">
             {onOpenMarketplace && (
               <Button variant="outline" className="flex-1" onClick={onOpenMarketplace}>
                 Marketplace

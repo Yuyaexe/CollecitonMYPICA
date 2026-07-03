@@ -152,14 +152,12 @@ export function CollectionTable() {
         </div>
         <span className="flex-[2]">Name</span>
         <span className="hidden flex-1 md:block">Set</span>
-        <span className="hidden w-12 lg:block">#</span>
+        <span className="hidden flex-1 lg:block">Rarity</span>
+        <span className="hidden w-12 xl:block">#</span>
         <span className="w-[88px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>
         <span className="hidden w-10 text-center sm:block">Lang</span>
-        <span className="hidden w-20 lg:block">Market</span>
-        <span className="hidden w-12 text-center xl:block">Trend</span>
-        <span className="hidden w-20 text-right xl:block">Profit</span>
-        <span className="hidden w-16 xl:block">Tags</span>
+        <span className="hidden w-20 text-right lg:block">Market</span>
       </div>
 
       <div ref={parentRef} className="flex-1 overflow-auto">
@@ -186,7 +184,6 @@ export function CollectionTable() {
                       onClick={(row, modifiers) =>
                         selectRow(row.id, modifiers, allIds, virtualRow.index)
                       }
-                      onDoubleClick={(row) => setMarketplaceCardId(row.id)}
                       onMiddleClick={(row) => openMarketplaceInNewTab(row.card)}
                       onCheckboxChange={(id, shift) =>
                         toggleSelect(id, shift, allIds, virtualRow.index)

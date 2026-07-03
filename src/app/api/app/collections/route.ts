@@ -10,7 +10,7 @@ import {
 } from "@/lib/data/server/supabase-service";
 
 export async function POST(request: NextRequest) {
-  const ctx = await getDataContext();
+  const ctx = await getDataContext(request);
   if (ctx.mode === "demo") {
     return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
         ? await createSupabaseCollection(ctx.supabase, userId, name.trim())
         : await createCollection(userId, name.trim());
 
-    return NextResponse.json(collection);
+    const response = NextResponse.json(collection);
+    return ctx.applySessionCookies?.(response) ?? response;
   } catch (error) {
     console.error("POST /api/app/collections", error);
     const message =
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const ctx = await getDataContext();
+  const ctx = await getDataContext(request);
   if (ctx.mode === "demo") {
     return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
