@@ -24,10 +24,12 @@ import {
   fetchBackupFromServer,
 } from "@/features/import/services/backup-export";
 import {
+  defaultCollectionAfterRestore,
   readBackupFile,
   restoreBackupOnServer,
 } from "@/features/import/services/backup-import";
 import { useDemoStore } from "@/lib/demo/store";
+import { useDataUiStore } from "@/lib/data/ui-store";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -86,6 +88,10 @@ export default function SettingsPage() {
     setRestoring(true);
     try {
       const backup = await readBackupFile(file);
+      const activeId = defaultCollectionAfterRestore(backup);
+      if (activeId) {
+        useDataUiStore.getState().setActiveCollectionId(activeId);
+      }
       if (isSupabaseMode) {
         const result = await restoreBackupOnServer(backup);
         await queryClient.invalidateQueries({ queryKey: ["app-state"] });
@@ -94,7 +100,9 @@ export default function SettingsPage() {
         );
       } else {
         useDemoStore.getState().restoreFromBackup(backup);
-        toast.success(`Restaurado: ${backup.ownedCards.length} cartas`);
+        toast.success(
+          `Restaurado: ${backup.ownedCards.length} cartas em ${backup.collections.length} coleções`
+        );
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao restaurar backup");
@@ -176,9 +184,10 @@ export default function SettingsPage() {
         <section className="space-y-4 border-t border-border pt-6 sm:pt-8">
           <h2 className="text-base font-semibold sm:text-lg">Backup</h2>
           <p className="text-sm text-muted-foreground">
-            Baixa um arquivo JSON com perfil, coleções e cartas. Guarde em nuvem
-            (Google Drive, OneDrive) ou pendrive. Também aceita export JSON de
-            listas CardTrader (backupVersion: 1 com pastas).
+            Baixa um arquivo JSON com perfil, coleções e cartas. Para importar
+            do app antigo (CardTrader / wishlist), selecione o JSON exportado
+            diretamente — ex.: yugioh-backup-….json — o app converte
+            automaticamente em 2 coleções (uma por aba).
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

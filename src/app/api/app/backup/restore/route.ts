@@ -7,6 +7,8 @@ import {
 import { parseBackupJson } from "@/features/import/services/backup-import";
 import { restoreSupabaseBackup } from "@/lib/data/server/restore-supabase-backup";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const ctx = await getDataContext();
   if (ctx.mode === "demo") {

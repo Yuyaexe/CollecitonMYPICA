@@ -49,6 +49,11 @@ export async function readBackupFile(file: File): Promise<DeckVaultBackup> {
   return parseBackupJson(parsed);
 }
 
+export function defaultCollectionAfterRestore(backup: DeckVaultBackup): string | null {
+  const col = backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
+  return col?.id ?? null;
+}
+
 export async function restoreBackupOnServer(backup: DeckVaultBackup) {
   const res = await fetch("/api/app/backup/restore", {
     method: "POST",
