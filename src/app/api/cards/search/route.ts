@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
               price: cardTrader.price,
               metadata: {
                 ...result.metadata,
-                cardtrader: cardTrader,
                 priceSource: "cardtrader",
               },
             };

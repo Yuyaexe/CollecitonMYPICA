@@ -72,11 +72,10 @@ export function toDemoProfile(row: DbProfile): DemoProfile {
 
 export function marketPriceMetadata(
   price: number | null | undefined,
-  extra?: { cardtraderBlueprintId?: number; priceSource?: string }
+  extra?: { priceSource?: string }
 ): Record<string, unknown> {
   const meta: Record<string, unknown> = {};
   if (price != null) meta.marketPrice = price;
-  if (extra?.cardtraderBlueprintId) meta.cardtraderBlueprintId = extra.cardtraderBlueprintId;
   if (extra?.priceSource) meta.priceSource = extra.priceSource;
   return meta;
 }

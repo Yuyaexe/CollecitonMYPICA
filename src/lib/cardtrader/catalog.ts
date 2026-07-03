@@ -159,6 +159,16 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
   return null;
 }
 
+export function buildCardTraderSearchUrl(
+  name: string,
+  setName?: string | null,
+  setCode?: string | null
+): string {
+  const terms = [name, setName, setCode].filter(Boolean).join(" ").trim();
+  return `https://www.cardtrader.com/en/search?query=${encodeURIComponent(terms)}`;
+}
+
+/** @deprecated Prefer buildCardTraderSearchUrl — avoids exposing blueprint ids in links */
 export function buildCardTraderUrl(gameSlug: string, blueprintId: number): string {
   const gamePath =
     gameSlug === "yugioh"

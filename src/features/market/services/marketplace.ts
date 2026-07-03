@@ -1,5 +1,6 @@
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { buildYgoProDeckUrl } from "@/lib/yugioh/urls";
+import { buildCardTraderSearchUrl } from "@/lib/cardtrader/catalog";
 
 export interface MarketplaceListing {
   source: string;
@@ -31,7 +32,7 @@ export function buildMarketplaceListings(
   const cardTraderCurrency = options?.cardTraderCurrency ?? "USD";
   const cardTraderUrl =
     options?.cardTraderUrl ??
-    `https://www.cardtrader.com/en/search?query=${searchQuery}`;
+    buildCardTraderSearchUrl(card.name, card.setName, card.setCode);
 
   const ygoUrl =
     options?.ygoProDeckUrl ?? buildYgoProDeckUrl(card.name, card.externalId);

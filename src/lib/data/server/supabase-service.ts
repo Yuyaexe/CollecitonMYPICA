@@ -366,7 +366,6 @@ async function resolveStoredMarketPrice(
     return {
       price,
       metadata: marketPriceMetadata(price, {
-        cardtraderBlueprintId: cardTrader?.blueprintId,
         priceSource: cardTrader ? "cardtrader" : undefined,
       }),
     };

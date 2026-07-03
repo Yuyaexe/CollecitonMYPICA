@@ -12,6 +12,14 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Public quote — no internal blueprint ids exposed to the browser */
+export interface ClientCardTraderQuote {
+  price: number;
+  currency: Currency;
+  url: string;
+  imageUrl: string | null;
+}
+
 export async function POST(request: NextRequest) {
   if (!isCardTraderConfigured()) {
     return NextResponse.json({
@@ -28,13 +36,7 @@ export async function POST(request: NextRequest) {
 
     const cards = (body.cards ?? []).slice(0, MAX_BATCH);
     const currency = body.currency ?? "USD";
-    const prices: Array<{
-      price: number;
-      currency: Currency;
-      blueprintId: number;
-      url: string;
-      imageUrl?: string | null;
-    } | null> = [];
+    const prices: Array<ClientCardTraderQuote | null> = [];
 
     for (let i = 0; i < cards.length; i++) {
       try {

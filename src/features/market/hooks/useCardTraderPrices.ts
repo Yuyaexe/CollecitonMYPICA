@@ -8,7 +8,6 @@ import type { Currency } from "@/types/tcg";
 interface CardTraderQuote {
   price: number;
   currency: Currency;
-  blueprintId: number;
   url: string;
   imageUrl?: string | null;
 }
