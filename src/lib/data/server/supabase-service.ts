@@ -154,17 +154,18 @@ export async function createSupabaseCollection(
 ) {
   const { data, error } = await supabase
     .from("collections")
-    .insert({ user_id: userId, name, is_default: false, is_favorite: false })
-    .select()
+    .insert({ user_id: userId, name, is_default: false })
+    .select("id, user_id, name, is_default, created_at, updated_at")
     .single();
   if (error) throw error;
+
   return toDemoCollection({
     id: data.id,
     userId: data.user_id,
     name: data.name,
     isDefault: data.is_default,
-    isFavorite: data.is_favorite ?? false,
-    coverImageUrl: data.cover_image_url ?? null,
+    isFavorite: false,
+    coverImageUrl: null,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
   });

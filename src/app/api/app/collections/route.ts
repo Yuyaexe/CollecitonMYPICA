@@ -30,7 +30,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(collection);
   } catch (error) {
     console.error("POST /api/app/collections", error);
-    return NextResponse.json({ error: "Failed to create collection" }, { status: 500 });
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" &&
+            error !== null &&
+            "message" in error &&
+            typeof error.message === "string"
+          ? error.message
+          : "Failed to create collection";
+    const status = message === "Authentication required" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

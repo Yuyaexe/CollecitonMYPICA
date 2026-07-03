@@ -18,7 +18,11 @@ export async function getDataContext(): Promise<DataContext> {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      await supabase.rpc("accept_collection_invites");
+      try {
+        await supabase.rpc("accept_collection_invites");
+      } catch {
+        // RPC missing until migration 0003 is applied
+      }
       return { mode: "supabase", userId: user.id, supabase };
     }
   }
