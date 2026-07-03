@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
-import { Download, HardDriveDownload, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Download, HardDriveDownload, HardDriveUpload, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,11 @@ import {
   downloadBackup,
   fetchBackupFromServer,
 } from "@/features/import/services/backup-export";
+import {
+  readBackupFile,
+  restoreBackupOnServer,
+} from "@/features/import/services/backup-import";
+import { useDemoStore } from "@/lib/demo/store";
 import { checkTauriUpdate, installTauriUpdate } from "@/lib/updater";
 import { toast } from "sonner";
 
@@ -40,9 +46,12 @@ export default function SettingsPage() {
     isDatabaseMode,
     isServerMode,
   } = useAppData();
+  const queryClient = useQueryClient();
+  const restoreInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [draft, setDraft] = useState<DemoProfile>(profile);
 
   useEffect(() => {
@@ -74,6 +83,33 @@ export default function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Falha ao criar backup");
     } finally {
       setBackingUp(false);
+    }
+  };
+
+  const handleRestoreFile = async (file: File) => {
+    const confirmed = window.confirm(
+      "Restaurar backup? As cartas serão mescladas nas coleções (duplicatas somam quantidade). Coleções com o mesmo nome serão reutilizadas."
+    );
+    if (!confirmed) return;
+
+    setRestoring(true);
+    try {
+      const backup = await readBackupFile(file);
+      if (isServerMode) {
+        const result = await restoreBackupOnServer(backup);
+        await queryClient.invalidateQueries({ queryKey: ["app-state"] });
+        toast.success(
+          `Restaurado: ${result.importedCards} cartas, ${result.wishlistAdded} wishlist`
+        );
+      } else {
+        useDemoStore.getState().restoreFromBackup(backup);
+        toast.success(`Restaurado: ${backup.ownedCards.length} cartas`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao restaurar backup");
+    } finally {
+      setRestoring(false);
+      if (restoreInputRef.current) restoreInputRef.current.value = "";
     }
   };
 
@@ -196,6 +232,28 @@ export default function SettingsPage() {
               <HardDriveDownload className="h-4 w-4" />
             )}
             Baixar backup
+          </Button>
+          <input
+            ref={restoreInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleRestoreFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={() => restoreInputRef.current?.click()}
+            disabled={restoring}
+          >
+            {restoring ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <HardDriveUpload className="h-4 w-4" />
+            )}
+            Restaurar backup
           </Button>
         </section>
 

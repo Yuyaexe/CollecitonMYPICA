@@ -31,5 +31,3 @@ export function getCardAdapter(gameSlug: string): CardApiAdapter | null {
 export function isApiSupported(gameSlug: string): boolean {
   return SUPPORTED_GAMES.includes(gameSlug as (typeof SUPPORTED_GAMES)[number]);
 }
-
-export { yugiohAdapter, pokemonAdapter, digimonAdapter };

@@ -9,6 +9,7 @@ import {
 } from "./types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+import type { DeckVaultBackup } from "@/features/import/services/backup-export";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -39,6 +40,7 @@ interface DemoStore extends DemoState {
   addCollection: (name: string) => void;
   toggleCollectionFavorite: (id: string) => void;
   toggleWishlist: (cardId: string) => void;
+  restoreFromBackup: (backup: DeckVaultBackup) => void;
 }
 
 export const useDemoStore = create<DemoStore>()(
@@ -213,6 +215,21 @@ export const useDemoStore = create<DemoStore>()(
             ? s.wishlistCardIds.filter((id) => id !== cardId)
             : [...s.wishlistCardIds, cardId],
         })),
+
+      restoreFromBackup: (backup) => {
+        const defaultCol =
+          backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
+        set({
+          profile: backup.profile,
+          collections: backup.collections.length
+            ? backup.collections
+            : createInitialDemoState().collections,
+          ownedCards: backup.ownedCards,
+          wishlistCardIds: backup.wishlistCardIds ?? [],
+          tags: backup.tags ?? [],
+          activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
+        });
+      },
     }),
     { name: "deckvault-demo" }
   )

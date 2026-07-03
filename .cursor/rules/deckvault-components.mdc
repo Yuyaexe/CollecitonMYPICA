@@ -9,6 +9,6 @@ alwaysApply: false
 Every UI element must be a reusable component. Do NOT duplicate.
 
 Required shared components in `src/components/shared/`:
-Button, Dropdown, Modal, SearchBar, Sidebar, CardTile, CollectionRow, PriceBadge, MarketBadge, Pagination, Checkbox, Tabs, Tooltip, ContextMenu, DataTable, BulkActionBar, EmptyState, PageHeader, CardDetailSheet
+SearchBar, Sidebar, CollectionRow, PriceBadge, BulkActionBar, EmptyState, PageHeader, CardDetailSheet, CardImage, Modal, QuantityStepper, CollaboratorPresence
 
 Feature pages compose shared components — no inline one-off UI.

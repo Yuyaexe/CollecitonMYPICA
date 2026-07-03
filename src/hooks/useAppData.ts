@@ -77,6 +77,10 @@ export function useAppData() {
     () => (isServerMode ? (serverState?.wishlistCardIds ?? []) : demo.wishlistCardIds),
     [isServerMode, serverState?.wishlistCardIds, demo.wishlistCardIds]
   );
+  const tags = useMemo(
+    () => (isServerMode ? (serverState?.tags ?? []) : demo.tags),
+    [isServerMode, serverState?.tags, demo.tags]
+  );
 
   const resolvedActiveId = useMemo(() => {
     if (activeCollectionId && collections.some((c) => c.id === activeCollectionId)) {
@@ -343,6 +347,7 @@ export function useAppData() {
     collections,
     ownedCards,
     wishlistCardIds,
+    tags,
     activeCollectionId: resolvedActiveId,
     setActiveCollection,
     updateProfile: (updates: Partial<DemoProfile>) =>
