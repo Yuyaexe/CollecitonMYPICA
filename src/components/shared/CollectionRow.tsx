@@ -18,6 +18,7 @@ interface CollectionRowProps {
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   currency: Currency;
   isWishlisted: boolean;
+  peerPresence?: { color: string; name: string };
   className?: string;
   style?: React.CSSProperties;
 }
@@ -32,6 +33,7 @@ export function CollectionRow({
   onCheckboxChange,
   currency,
   isWishlisted,
+  peerPresence,
   className,
   style,
 }: CollectionRowProps) {
@@ -45,7 +47,11 @@ export function CollectionRow({
     <div
       role="row"
       tabIndex={0}
-      style={style}
+      style={{
+        ...style,
+        ...(peerPresence ? { boxShadow: `inset 0 0 0 2px ${peerPresence.color}` } : {}),
+      }}
+      title={peerPresence ? `${peerPresence.name} is viewing this card` : undefined}
       className={cn(
         "group flex cursor-pointer items-center gap-3 border-b border-border/50 px-4 py-2 transition-all duration-150 hover:bg-muted/50",
         selected && "bg-primary/5",

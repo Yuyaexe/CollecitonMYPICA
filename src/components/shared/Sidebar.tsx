@@ -35,7 +35,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, isDatabaseMode } = useAppData();
+  const { profile, isSupabaseMode } = useAppData();
 
   return (
     <aside
@@ -112,7 +112,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{profile.displayName}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {isDatabaseMode ? "PostgreSQL" : "Collector"}
+                {isSupabaseMode ? "Supabase · Live" : "Collector"}
               </p>
             </div>
           )}

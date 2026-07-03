@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { isDatabaseConfigured } from "@/lib/db/constants";
+import { getDataContext } from "@/lib/data/server/data-context";
 
 export async function GET() {
-  return NextResponse.json({
-    mode: isDatabaseConfigured() ? "database" : "demo",
-  });
+  const ctx = await getDataContext();
+  return NextResponse.json({ mode: ctx.mode });
 }

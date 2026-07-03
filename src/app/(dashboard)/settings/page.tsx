@@ -24,7 +24,7 @@ import { toast } from "sonner";
 const APP_VERSION = "0.2.0";
 
 export default function SettingsPage() {
-  const { profile, updateProfile, isDatabaseMode } = useAppData();
+  const { profile, updateProfile, isSupabaseMode, isDatabaseMode } = useAppData();
   const { theme, setTheme } = useTheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [draft, setDraft] = useState<DemoProfile>(profile);
@@ -133,7 +133,12 @@ export default function SettingsPage() {
 
         <Button onClick={handleSave}>Save Settings</Button>
 
-        {isDatabaseMode && (
+        {isSupabaseMode && (
+          <p className="text-sm text-muted-foreground">
+            Data syncs via Supabase cloud. Invite friends from the Share button on Collection.
+          </p>
+        )}
+        {isDatabaseMode && !isSupabaseMode && (
           <p className="text-sm text-muted-foreground">
             Data is stored in local PostgreSQL (Docker).
           </p>

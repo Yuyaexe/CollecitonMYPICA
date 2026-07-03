@@ -27,6 +27,19 @@ Run PostgreSQL on your PC and browse collections/cards in **Adminer** (web UI).
 
 **Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
+**Windows (PowerShell bloqueando npm):** use o **CMD** em vez do PowerShell:
+
+```cmd
+npm.cmd install
+npm.cmd run docker:setup
+```
+
+Se preferir corrigir o PowerShell permanentemente (uma vez):
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ```powershell
 npm install
 npm run docker:setup
@@ -65,7 +78,33 @@ npm run docker:setup   # optional: local database
 npm run dev
 ```
 
-## Supabase Setup
+## Supabase (cloud — play with friends remotely)
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. **SQL Editor** → run migrations in order:
+   - `src/lib/db/migrations/0001_seed_and_indexes.sql`
+   - Push schema: `npm run db:push` with `DATABASE_URL` = Supabase connection string (Settings → Database)
+   - `src/lib/db/migrations/0002_rls_policies.sql`
+   - `src/lib/db/migrations/0003_collaboration.sql`
+3. **Database → Replication** → ensure `owned_cards` and `collections` are in `supabase_realtime` publication
+4. Copy `.env.local.example` → `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-....pooler.supabase.com:6543/postgres
+```
+
+5. `npm run dev` → sign up / log in (no Demo Mode when Supabase is configured)
+
+### Play together
+
+1. **You:** Collection → **Share** icon → invite friend&apos;s email
+2. **Friend:** Sign up with **that same email** → log in → collection appears
+3. **Live sync:** cards update without refresh; colored border shows which card your friend is viewing
+4. **Online avatars** appear in the collection header
+
+## Supabase Setup (legacy notes)
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy `.env.local.example` to `.env.local` and fill in credentials

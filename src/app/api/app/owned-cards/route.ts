@@ -1,22 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLocalUserId, isDatabaseConfigured } from "@/lib/db/constants";
+import { getDataContext, requireUserId } from "@/lib/data/server/data-context";
 import {
   addCardFromSearch,
   deleteOwnedCards,
   importRows,
   updateOwnedCard,
 } from "@/lib/data/server/collection-service";
+import {
+  addSupabaseCardFromSearch,
+  deleteSupabaseOwnedCards,
+  importSupabaseRows,
+  updateSupabaseOwnedCard,
+} from "@/lib/data/server/supabase-service";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 
 export async function POST(request: NextRequest) {
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  const ctx = await getDataContext();
+  if (ctx.mode === "demo") {
+    return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
 
   try {
     const body = await request.json();
     const action = body.action as string;
+    const userId = requireUserId(ctx);
 
     if (action === "add-from-search") {
       const { collectionId, result, gameId, gameSlug, gameName } = body as {
@@ -26,14 +34,11 @@ export async function POST(request: NextRequest) {
         gameSlug: string;
         gameName: string;
       };
-      await addCardFromSearch(
-        getLocalUserId(),
-        collectionId,
-        result,
-        gameId,
-        gameSlug,
-        gameName
-      );
+      if (ctx.mode === "supabase" && ctx.supabase) {
+        await addSupabaseCardFromSearch(ctx.supabase, collectionId, result, gameId);
+      } else {
+        await addCardFromSearch(userId, collectionId, result, gameId, gameSlug, gameName);
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -54,12 +59,10 @@ export async function POST(request: NextRequest) {
         }>;
         mergeDuplicates: boolean;
       };
-      const count = await importRows(
-        getLocalUserId(),
-        collectionId,
-        rows,
-        mergeDuplicates
-      );
+      const count =
+        ctx.mode === "supabase" && ctx.supabase
+          ? await importSupabaseRows(ctx.supabase, collectionId, rows, mergeDuplicates)
+          : await importRows(userId, collectionId, rows, mergeDuplicates);
       return NextResponse.json({ imported: count });
     }
 
@@ -71,8 +74,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  const ctx = await getDataContext();
+  if (ctx.mode === "demo") {
+    return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
 
   try {
@@ -80,7 +84,11 @@ export async function PATCH(request: NextRequest) {
       id: string;
       updates: Parameters<typeof updateOwnedCard>[2];
     };
-    await updateOwnedCard(getLocalUserId(), id, updates);
+    if (ctx.mode === "supabase" && ctx.supabase) {
+      await updateSupabaseOwnedCard(ctx.supabase, id, updates);
+    } else {
+      await updateOwnedCard(requireUserId(ctx), id, updates);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/owned-cards", error);
@@ -89,13 +97,18 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  const ctx = await getDataContext();
+  if (ctx.mode === "demo") {
+    return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
 
   try {
     const { ids } = (await request.json()) as { ids: string[] };
-    await deleteOwnedCards(getLocalUserId(), ids);
+    if (ctx.mode === "supabase" && ctx.supabase) {
+      await deleteSupabaseOwnedCards(ctx.supabase, ids);
+    } else {
+      await deleteOwnedCards(requireUserId(ctx), ids);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/app/owned-cards", error);

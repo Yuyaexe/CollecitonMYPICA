@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
 import { useAppData } from "@/hooks/useAppData";
+import { usePresenceContext } from "@/features/collection/context/presence-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { openMarketplaceInNewTab } from "@/features/market/services/marketplace";
 
@@ -54,6 +55,8 @@ export function CollectionTable() {
   }, [ownedCards, filters, activeCollectionId, wishlistCardIds, sortField, sortDir]);
 
   const allIds = filtered.map((oc) => oc.id);
+
+  const { peerByCardId } = usePresenceContext();
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -180,6 +183,14 @@ export function CollectionTable() {
                       }
                       currency={profile.currency}
                       isWishlisted={wishlistCardIds.includes(item.card.id)}
+                      peerPresence={
+                        peerByCardId.has(item.id)
+                          ? {
+                              color: peerByCardId.get(item.id)!.color,
+                              name: peerByCardId.get(item.id)!.displayName,
+                            }
+                          : undefined
+                      }
                     />
                   </div>
                 </ContextMenuTrigger>

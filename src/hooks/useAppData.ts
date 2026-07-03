@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import { useDemoStore } from "@/lib/demo/store";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { DEFAULT_COLLECTION_ID } from "@/lib/demo/types";
@@ -9,7 +10,9 @@ import type { DemoOwnedCard, DemoProfile, DemoCollection, DemoTag } from "@/lib/
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 
-async function fetchConfig(): Promise<{ mode: "database" | "demo" }> {
+type AppMode = "supabase" | "database" | "demo";
+
+async function fetchConfig(): Promise<{ mode: AppMode }> {
   const res = await fetch("/api/app/config");
   if (!res.ok) return { mode: "demo" };
   return res.json();
@@ -39,10 +42,13 @@ export function useAppData() {
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ["app-config"],
     queryFn: fetchConfig,
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
-  const isDatabaseMode = config?.mode === "database";
+  const mode = config?.mode ?? "demo";
+  const isServerMode = mode === "supabase" || mode === "database";
+  const isSupabaseMode = mode === "supabase";
+  const isDatabaseMode = isServerMode;
 
   const {
     data: serverState,
@@ -51,39 +57,45 @@ export function useAppData() {
   } = useQuery({
     queryKey: ["app-state"],
     queryFn: fetchAppState,
-    enabled: isDatabaseMode,
+    enabled: isServerMode,
   });
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["app-state"] });
   }, [queryClient]);
 
-  const profile = isDatabaseMode && serverState ? serverState.profile : demo.profile;
-  const collections =
-    isDatabaseMode && serverState ? serverState.collections : demo.collections;
-  const ownedCards =
-    isDatabaseMode && serverState ? serverState.ownedCards : demo.ownedCards;
-  const wishlistCardIds =
-    isDatabaseMode && serverState ? serverState.wishlistCardIds : demo.wishlistCardIds;
+  const profile = isServerMode ? (serverState?.profile ?? demo.profile) : demo.profile;
+  const collections = useMemo(
+    () => (isServerMode ? (serverState?.collections ?? []) : demo.collections),
+    [isServerMode, serverState?.collections, demo.collections]
+  );
+  const ownedCards = useMemo(
+    () => (isServerMode ? (serverState?.ownedCards ?? []) : demo.ownedCards),
+    [isServerMode, serverState?.ownedCards, demo.ownedCards]
+  );
+  const wishlistCardIds = useMemo(
+    () => (isServerMode ? (serverState?.wishlistCardIds ?? []) : demo.wishlistCardIds),
+    [isServerMode, serverState?.wishlistCardIds, demo.wishlistCardIds]
+  );
 
   const resolvedActiveId = useMemo(() => {
     if (activeCollectionId && collections.some((c) => c.id === activeCollectionId)) {
       return activeCollectionId;
     }
-    const defaultCol =
-      collections.find((c) => c.isDefault) ?? collections[0];
-    return defaultCol?.id ?? DEFAULT_COLLECTION_ID;
-  }, [activeCollectionId, collections]);
+    const defaultCol = collections.find((c) => c.isDefault) ?? collections[0];
+    if (defaultCol?.id) return defaultCol.id;
+    return isServerMode ? null : DEFAULT_COLLECTION_ID;
+  }, [activeCollectionId, collections, isServerMode]);
 
   useEffect(() => {
-    if (!isDatabaseMode && !activeCollectionId && demo.activeCollectionId) {
+    if (!isServerMode && !activeCollectionId && demo.activeCollectionId) {
       setActiveCollectionId(demo.activeCollectionId);
     }
-  }, [isDatabaseMode, activeCollectionId, demo.activeCollectionId, setActiveCollectionId]);
+  }, [isServerMode, activeCollectionId, demo.activeCollectionId, setActiveCollectionId]);
 
   useEffect(() => {
     if (
-      isDatabaseMode &&
+      isServerMode &&
       serverState &&
       resolvedActiveId &&
       activeCollectionId !== resolvedActiveId &&
@@ -92,7 +104,7 @@ export function useAppData() {
       setActiveCollectionId(resolvedActiveId);
     }
   }, [
-    isDatabaseMode,
+    isServerMode,
     serverState,
     resolvedActiveId,
     activeCollectionId,
@@ -100,17 +112,51 @@ export function useAppData() {
     setActiveCollectionId,
   ]);
 
+  useEffect(() => {
+    if (!isSupabaseMode || !resolvedActiveId) return;
+
+    const supabase = createClient();
+    const topic = `owned_cards:${resolvedActiveId}`;
+
+    for (const existing of supabase.getChannels()) {
+      if (existing.topic === `realtime:${topic}`) {
+        void supabase.removeChannel(existing);
+      }
+    }
+
+    const channel = supabase.channel(topic);
+
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "owned_cards",
+        filter: `collection_id=eq.${resolvedActiveId}`,
+      },
+      () => invalidate()
+    );
+
+    channel.subscribe();
+
+    return () => {
+      void channel.unsubscribe().then(() => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [isSupabaseMode, resolvedActiveId, invalidate]);
+
   const setActiveCollection = useCallback(
     (id: string) => {
       setActiveCollectionId(id);
-      if (!isDatabaseMode) demo.setActiveCollection(id);
+      if (!isServerMode) demo.setActiveCollection(id);
     },
-    [setActiveCollectionId, isDatabaseMode, demo]
+    [setActiveCollectionId, isServerMode, demo]
   );
 
   const profileMutation = useMutation({
     mutationFn: async (updates: Partial<DemoProfile>) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.updateProfile(updates);
         return;
       }
@@ -126,7 +172,7 @@ export function useAppData() {
 
   const addCollectionMutation = useMutation({
     mutationFn: async (name: string) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.addCollection(name);
         return;
       }
@@ -142,7 +188,7 @@ export function useAppData() {
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.toggleCollectionFavorite(id);
         return;
       }
@@ -163,13 +209,8 @@ export function useAppData() {
       gameSlug: string;
       gameName: string;
     }) => {
-      if (!isDatabaseMode) {
-        demo.addCardFromSearch(
-          args.result,
-          args.gameId,
-          args.gameSlug,
-          args.gameName
-        );
+      if (!isServerMode) {
+        demo.addCardFromSearch(args.result, args.gameId, args.gameSlug, args.gameName);
         return;
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -194,7 +235,7 @@ export function useAppData() {
       id: string;
       updates: Partial<DemoOwnedCard> & { card?: Partial<DemoOwnedCard["card"]> };
     }) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.updateOwnedCard(id, updates);
         return;
       }
@@ -210,7 +251,7 @@ export function useAppData() {
 
   const deleteCardsMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.deleteOwnedCards(ids);
         return;
       }
@@ -232,7 +273,7 @@ export function useAppData() {
       rows: Parameters<typeof demo.importRows>[0];
       mergeDuplicates: boolean;
     }) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         return demo.importRows(rows, mergeDuplicates);
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -254,7 +295,7 @@ export function useAppData() {
 
   const wishlistMutation = useMutation({
     mutationFn: async (cardId: string) => {
-      if (!isDatabaseMode) {
+      if (!isServerMode) {
         demo.toggleWishlist(cardId);
         return;
       }
@@ -269,9 +310,12 @@ export function useAppData() {
   });
 
   return {
+    mode,
+    isServerMode,
+    isSupabaseMode,
     isDatabaseMode,
-    isLoading: configLoading || (isDatabaseMode && stateLoading),
-    isError: isDatabaseMode && stateError,
+    isLoading: configLoading || (isServerMode && stateLoading),
+    isError: isServerMode && stateError,
     profile,
     collections,
     ownedCards,

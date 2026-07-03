@@ -4,9 +4,10 @@ import type { CollectionFilters } from "@/types/tcg";
 export function filterOwnedCards(
   cards: DemoOwnedCard[],
   filters: CollectionFilters,
-  collectionId: string,
+  collectionId: string | null,
   wishlistCardIds: string[]
 ): DemoOwnedCard[] {
+  if (!collectionId) return [];
   return cards.filter((oc) => {
     if (oc.collectionId !== collectionId) return false;
 

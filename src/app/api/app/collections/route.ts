@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLocalUserId, isDatabaseConfigured } from "@/lib/db/constants";
+import { getDataContext, requireUserId } from "@/lib/data/server/data-context";
 import {
   createCollection,
   toggleCollectionFavorite,
 } from "@/lib/data/server/collection-service";
+import {
+  createSupabaseCollection,
+  toggleSupabaseCollectionFavorite,
+} from "@/lib/data/server/supabase-service";
 
 export async function POST(request: NextRequest) {
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  const ctx = await getDataContext();
+  if (ctx.mode === "demo") {
+    return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
 
   try {
@@ -15,7 +20,13 @@ export async function POST(request: NextRequest) {
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
-    const collection = await createCollection(getLocalUserId(), name.trim());
+
+    const userId = requireUserId(ctx);
+    const collection =
+      ctx.mode === "supabase" && ctx.supabase
+        ? await createSupabaseCollection(ctx.supabase, userId, name.trim())
+        : await createCollection(userId, name.trim());
+
     return NextResponse.json(collection);
   } catch (error) {
     console.error("POST /api/app/collections", error);
@@ -24,8 +35,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  const ctx = await getDataContext();
+  if (ctx.mode === "demo") {
+    return NextResponse.json({ error: "Not in server mode" }, { status: 503 });
   }
 
   try {
@@ -34,8 +46,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Collection id required" }, { status: 400 });
     }
 
-    const updated = await toggleCollectionFavorite(id, getLocalUserId());
-    return NextResponse.json(updated);
+    if (ctx.mode === "supabase" && ctx.supabase) {
+      await toggleSupabaseCollectionFavorite(ctx.supabase, id);
+    } else {
+      await toggleCollectionFavorite(id, requireUserId(ctx));
+    }
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/collections", error);
     return NextResponse.json({ error: "Failed to update collection" }, { status: 500 });
