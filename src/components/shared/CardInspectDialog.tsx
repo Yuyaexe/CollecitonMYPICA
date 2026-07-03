@@ -38,8 +38,14 @@ import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency, cn } from "@/lib/utils";
 import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
+import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { parseCardTraderBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
-import { isYugiohPasscodeId, resolveYugiohPasscode } from "@/lib/yugioh/passcode";
+import {
+  isCardTraderBlueprintExternalId,
+  isYugiohPasscodeId,
+  resolveYugiohPasscode,
+} from "@/lib/yugioh/passcode";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
@@ -111,10 +117,13 @@ export function CardInspectDialog({
   });
 
   const cardDetail = cardDetailData?.result ?? null;
+  const lookedUpPasscode = useYugiohPasscodeForDisplay(
+    card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
+  );
   const ygoPasscode = resolveYugiohPasscode(
     card?.card.externalId,
     card?.card.imageUrl,
-    cardDetail?.externalId
+    cardDetail?.externalId ?? lookedUpPasscode
   );
 
   const printVariants = useMemo(() => {
@@ -130,6 +139,7 @@ export function CardInspectDialog({
         setName: v.setName,
         setCode: v.setCode,
         rarity: v.rarity,
+        blueprintId: parseCardTraderBlueprintId(v.externalId),
       })),
     [printVariants]
   );
@@ -156,6 +166,18 @@ export function CardInspectDialog({
 
   const activeQuote = activeVariant ? variantPrices?.get(activeVariant.key) : undefined;
 
+  const cardTraderProductUrl = useMemo(() => {
+    if (!card) return null;
+    const variant = activeVariant;
+    return resolveCardTraderProductUrl({
+      name: card.card.name,
+      externalId: variant?.externalId ?? card.card.externalId,
+      setName: variant?.setName ?? card.card.setName,
+      rarity: variant?.rarity ?? card.card.rarity,
+      imageUrl: variant?.imageUrl ?? card.card.imageUrl,
+    });
+  }, [card, activeVariant]);
+
   useEffect(() => {
     if (open && tab === "marketplace") {
       marketplaceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -176,7 +198,7 @@ export function CardInspectDialog({
   const listings = buildMarketplaceListings(card.card, {
     cardTraderPrice: displayPrice,
     cardTraderCurrency: currency,
-    cardTraderUrl: activeQuote?.url ?? null,
+    cardTraderUrl: activeQuote?.url ?? cardTraderProductUrl,
     ygoProDeckPrice: ygoSecondaryPrice,
     ygoProDeckUrl: activeVariant?.ygoProDeckUrl,
   });
@@ -184,6 +206,10 @@ export function CardInspectDialog({
   const handleVariantSelect = (variant: CardPrintVariant) => {
     const quote = variantPrices?.get(variant.key);
     const passcode = ygoPasscode ?? resolveYugiohPasscode(card.card.externalId, card.card.imageUrl);
+    const keepBlueprintId = isCardTraderBlueprintExternalId(
+      variant.externalId ?? card.card.externalId,
+      variant.imageUrl ?? card.card.imageUrl
+    );
     const imageUrl = passcode
       ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity)) ??
         variant.imageUrl ??
@@ -200,7 +226,9 @@ export function CardInspectDialog({
         setName: variant.setName,
         setCode: variant.setCode,
         collectorNumber: variant.setCode ?? card.card.collectorNumber,
-        externalId: passcode ?? card.card.externalId,
+        externalId: keepBlueprintId
+          ? (variant.externalId ?? card.card.externalId)
+          : (passcode ?? variant.externalId ?? card.card.externalId),
         imageUrl,
         marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },

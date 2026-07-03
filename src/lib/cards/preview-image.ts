@@ -5,6 +5,7 @@ import {
   isYugiohPasscodeId,
   resolveYugiohPasscode,
 } from "@/lib/yugioh/passcode";
+import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
 
 type CardImageFields = Pick<DemoCard, "imageUrl" | "gameSlug" | "externalId" | "rarity">;
 
@@ -32,6 +33,13 @@ function yugiohPreviewUrl(
   const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
   if (passcode) {
     return buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
+  }
+
+  if (
+    card.imageUrl?.includes("ygoprodeck.com") &&
+    parseCardTraderBlueprintId(card.externalId) != null
+  ) {
+    return null;
   }
 
   if (card.imageUrl && isCardTraderHostedImage(card.imageUrl)) {

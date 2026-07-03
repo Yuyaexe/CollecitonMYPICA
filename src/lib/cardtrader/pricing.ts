@@ -1,6 +1,6 @@
 import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
 import { isCardTraderConfigured, cardTraderFetch } from "./client";
-import { buildCardTraderSearchUrl, resolveBlueprintId, getBlueprintImageUrl } from "./catalog";
+import { buildCardTraderCardUrl, resolveBlueprintId, getBlueprintImageUrl } from "./catalog";
 import { centsToAmount, convertToCurrency } from "./convert-currency";
 import type { CardPriceInput, CardTraderPriceResult, CardTraderProduct } from "./types";
 
@@ -109,7 +109,13 @@ export async function getCardTraderPrice(
     price: centsToAmount(cents),
     currency: productCurrency(cheapest),
     blueprintId,
-    url: buildCardTraderSearchUrl(input.name, input.setName, input.setCode),
+    url: buildCardTraderCardUrl({
+      blueprintId,
+      name: input.name,
+      setName: input.setName,
+      rarity: input.rarity,
+      imageUrl: getBlueprintImageUrl(blueprintId),
+    }),
     listingCount: pool.length,
     imageUrl: getBlueprintImageUrl(blueprintId),
   };

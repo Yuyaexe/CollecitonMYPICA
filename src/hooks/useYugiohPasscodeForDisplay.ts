@@ -9,7 +9,8 @@ type CardPasscodeFields = Pick<DemoCard, "name" | "gameSlug" | "externalId" | "i
 
 export function useYugiohPasscodeForDisplay(card: CardPasscodeFields): string | null {
   const storedPasscode = resolveYugiohPasscode(card.externalId, card.imageUrl);
-  const needsLookup = card.gameSlug === "yugioh" && !storedPasscode;
+  const needsLookup =
+    card.gameSlug === "yugioh" && Boolean(card.name.trim()) && !storedPasscode;
 
   const { data: lookedUpPasscode } = useQuery({
     queryKey: ["ygo-passcode", card.name],

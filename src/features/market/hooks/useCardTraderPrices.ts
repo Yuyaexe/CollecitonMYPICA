@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
+import { parseCardTraderBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -181,6 +182,7 @@ async function fetchPriceBatch(
     condition: item.condition,
     language: item.language,
     isFoil: item.isFoil,
+    blueprintId: parseCardTraderBlueprintId(item.card.externalId),
   }));
   return fetchPriceBatchByInput(inputs, keys, currency);
 }
@@ -303,7 +305,16 @@ export function resolveCardTraderUrl(
   item: DemoOwnedCard,
   livePrices: Map<string, CardTraderQuote> | undefined
 ): string | null {
-  return livePrices?.get(cardPriceKey(item))?.url ?? null;
+  return (
+    livePrices?.get(cardPriceKey(item))?.url ??
+    resolveCardTraderProductUrl({
+      name: item.card.name,
+      externalId: item.card.externalId,
+      setName: item.card.setName,
+      rarity: item.card.rarity,
+      imageUrl: item.card.imageUrl,
+    })
+  );
 }
 
 export function resolveCardTraderImage(

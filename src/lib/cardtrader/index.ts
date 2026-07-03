@@ -3,6 +3,8 @@ export {
   resolveBlueprintId,
   resolveCardTraderGameId,
   buildCardTraderSearchUrl,
+  buildCardTraderCardUrl,
+  resolveCardTraderProductUrl,
   searchCardTraderCatalog,
   parseCardTraderBlueprintId,
 } from "./catalog";

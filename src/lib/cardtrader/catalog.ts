@@ -27,6 +27,7 @@ const expansionsByGame = new Map<number, CacheEntry<CardTraderExpansion[]>>();
 const blueprintsByExpansion = new Map<number, CacheEntry<CardTraderBlueprint[]>>();
 const blueprintLookup = new Map<string, number>();
 const blueprintImageCache = new Map<number, string>();
+const blueprintSlugCache = new Map<number, string>();
 
 function normalize(value: string): string {
   return value
@@ -114,6 +115,7 @@ async function getBlueprints(expansionId: number): Promise<CardTraderBlueprint[]
   for (const blueprint of data) {
     if (blueprint.image_url) {
       blueprintImageCache.set(blueprint.id, blueprint.image_url);
+      cacheBlueprintSlug(blueprint.id, blueprint.image_url);
     }
   }
   blueprintsByExpansion.set(expansionId, { data, expires: Date.now() + TTL_MS });
@@ -122,6 +124,74 @@ async function getBlueprints(expansionId: number): Promise<CardTraderBlueprint[]
 
 export function getBlueprintImageUrl(blueprintId: number): string | null {
   return blueprintImageCache.get(blueprintId) ?? null;
+}
+
+function slugifyForCardTrader(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Extract `{id}-{slug}` from CardTrader CDN blueprint image URLs. */
+export function extractCardTraderSlugFromImageUrl(
+  imageUrl: string | null | undefined
+): string | null {
+  if (!imageUrl) return null;
+  const match = imageUrl.match(/blueprints\/(\d+-[^/?#]+)/i);
+  return match?.[1] ?? null;
+}
+
+function cacheBlueprintSlug(blueprintId: number, imageUrl?: string | null): void {
+  const slug = extractCardTraderSlugFromImageUrl(imageUrl);
+  if (slug) blueprintSlugCache.set(blueprintId, slug);
+}
+
+export function getBlueprintProductSlug(blueprintId: number): string | null {
+  return blueprintSlugCache.get(blueprintId) ?? null;
+}
+
+/** Direct product page — e.g. /en/cards/201101-speedroid-scratch-secret-rare-brothers-of-legend */
+export function buildCardTraderCardUrl(input: {
+  blueprintId: number;
+  name: string;
+  setName?: string | null;
+  rarity?: string | null;
+  imageUrl?: string | null;
+}): string {
+  const cached = getBlueprintProductSlug(input.blueprintId);
+  const fromImage = cached ?? extractCardTraderSlugFromImageUrl(input.imageUrl);
+  if (fromImage) {
+    return `https://www.cardtrader.com/en/cards/${fromImage}`;
+  }
+
+  const parts = [slugifyForCardTrader(input.name)];
+  if (input.rarity?.trim()) parts.push(slugifyForCardTrader(input.rarity));
+  if (input.setName?.trim()) parts.push(slugifyForCardTrader(input.setName));
+
+  return `https://www.cardtrader.com/en/cards/${input.blueprintId}-${parts.join("-")}`;
+}
+
+export function resolveCardTraderProductUrl(params: {
+  name: string;
+  externalId?: string | null;
+  setName?: string | null;
+  rarity?: string | null;
+  imageUrl?: string | null;
+}): string {
+  const blueprintId = parseCardTraderBlueprintId(params.externalId);
+  if (blueprintId != null) {
+    return buildCardTraderCardUrl({
+      blueprintId,
+      name: params.name,
+      setName: params.setName,
+      rarity: params.rarity,
+      imageUrl: params.imageUrl,
+    });
+  }
+  return buildCardTraderSearchUrl(params.name, params.setName);
 }
 
 function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null, setCode?: string | null): number {
@@ -217,6 +287,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
       blueprintLookup.set(cacheKey, best.blueprint.id);
       if (best.blueprint.image_url) {
         blueprintImageCache.set(best.blueprint.id, best.blueprint.image_url);
+        cacheBlueprintSlug(best.blueprint.id, best.blueprint.image_url);
       }
       return best.blueprint.id;
     }
@@ -228,21 +299,16 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
 export function buildCardTraderSearchUrl(
   name: string,
   setName?: string | null,
-  setCode?: string | null
+  /** @deprecated Collector/set codes break CardTrader search — ignored. */
+  _setCode?: string | null
 ): string {
-  const terms = [name, setName, setCode].filter(Boolean).join(" ").trim();
+  const terms = [name, setName].filter(Boolean).join(" ").trim();
   return `https://www.cardtrader.com/en/search?query=${encodeURIComponent(terms)}`;
 }
 
-/** @deprecated Prefer buildCardTraderSearchUrl — avoids exposing blueprint ids in links */
+/** @deprecated Use buildCardTraderCardUrl for direct product links */
 export function buildCardTraderUrl(gameSlug: string, blueprintId: number): string {
-  const gamePath =
-    gameSlug === "yugioh"
-      ? "yu-gi-oh"
-      : gameSlug === "onepiece"
-        ? "one-piece"
-        : gameSlug;
-  return `https://www.cardtrader.com/en/${gamePath}/cards/${blueprintId}`;
+  return `https://www.cardtrader.com/en/cards/${blueprintId}`;
 }
 
 function blueprintToSearchResult(
@@ -251,6 +317,7 @@ function blueprintToSearchResult(
 ): CardSearchResult {
   if (blueprint.image_url) {
     blueprintImageCache.set(blueprint.id, blueprint.image_url);
+    cacheBlueprintSlug(blueprint.id, blueprint.image_url);
   }
 
   return {
