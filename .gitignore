@@ -47,3 +47,6 @@ deckvault.log
 
 # accidental nested clone
 CollecitonMYPICA/
+
+# editor
+.vscode/
