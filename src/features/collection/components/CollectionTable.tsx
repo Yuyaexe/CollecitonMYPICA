@@ -135,7 +135,7 @@ export function CollectionTable() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-border bg-card/50 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground shadow-sm">
         <div className="flex shrink-0 items-center p-1">
           <Checkbox
             checked={

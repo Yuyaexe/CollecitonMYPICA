@@ -249,6 +249,58 @@ export async function toggleSupabaseCollectionFavorite(
   if (error) throw error;
 }
 
+export async function renameSupabaseCollection(
+  supabase: SupabaseClient,
+  id: string,
+  name: string
+) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Collection name is required");
+
+  const { data, error } = await supabase
+    .from("collections")
+    .update({ name: trimmed, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, user_id, name, is_default, is_favorite, cover_image_url, created_at, updated_at")
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error("Collection not found");
+
+  return toDemoCollection({
+    id: data.id,
+    userId: data.user_id,
+    name: data.name,
+    isDefault: data.is_default,
+    isFavorite: data.is_favorite ?? false,
+    coverImageUrl: data.cover_image_url,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+  });
+}
+
+export async function deleteSupabaseCollection(
+  supabase: SupabaseClient,
+  userId: string,
+  id: string
+) {
+  const { data: existing } = await supabase
+    .from("collections")
+    .select("is_default, user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) throw new Error("Collection not found");
+  if (existing.is_default) throw new Error("A coleção padrão não pode ser excluída");
+  if (existing.user_id !== userId) throw new Error("Only the collection owner can delete");
+
+  const admin = getSupabaseAdmin();
+  const client = admin ?? supabase;
+
+  const { error } = await client.from("collections").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function inviteToCollection(
   supabase: SupabaseClient,
   userId: string,

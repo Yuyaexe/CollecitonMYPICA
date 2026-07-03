@@ -8,6 +8,13 @@ import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { toast } from "sonner";
@@ -32,11 +39,20 @@ export function CollectionManager() {
     activeCollectionId,
     setActiveCollection,
     addCollection,
+    renameCollection,
+    deleteCollection,
     toggleCollectionFavorite,
   } = useAppData();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameName, setRenameName] = useState("");
+  const [renameTarget, setRenameTarget] = useState<DemoCollection | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DemoCollection | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuTarget, setMenuTarget] = useState<DemoCollection | null>(null);
 
   const sortedCollections = useMemo(() => {
     return [...collections].sort((a, b) => {
@@ -61,6 +77,24 @@ export function CollectionManager() {
     router.push("/collection");
   };
 
+  const openRename = (collection: DemoCollection) => {
+    setRenameTarget(collection);
+    setRenameName(collection.name);
+    setRenameOpen(true);
+    setMenuOpen(false);
+  };
+
+  const openDelete = (collection: DemoCollection) => {
+    setDeleteTarget(collection);
+    setDeleteOpen(true);
+    setMenuOpen(false);
+  };
+
+  const openMenu = (collection: DemoCollection) => {
+    setMenuTarget(collection);
+    setMenuOpen(true);
+  };
+
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
@@ -77,21 +111,72 @@ export function CollectionManager() {
     }
   };
 
+  const handleRename = async () => {
+    if (!renameTarget) return;
+    const trimmed = renameName.trim();
+    if (!trimmed) return;
+    try {
+      await renameCollection(renameTarget.id, trimmed);
+      setRenameOpen(false);
+      setRenameTarget(null);
+      toast.success("Coleção renomeada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao renomear coleção");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteCollection(deleteTarget.id);
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      toast.success("Coleção excluída");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao excluir coleção");
+    }
+  };
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {sortedCollections.map((collection, index) => (
-          <CollectionGridCard
-            key={collection.id}
-            name={collection.name}
-            coverImageUrl={getCollectionCover(collection, ownedCards)}
-            cardCount={cardCounts.get(collection.id) ?? 0}
-            isFavorite={collection.isFavorite ?? collection.isDefault}
-            isActive={collection.id === activeCollectionId}
-            index={index}
-            onSelect={() => handleSelect(collection.id)}
-            onToggleFavorite={() => toggleCollectionFavorite(collection.id)}
-          />
+          <ContextMenu key={collection.id}>
+            <ContextMenuTrigger asChild>
+              <div>
+                <CollectionGridCard
+                  name={collection.name}
+                  coverImageUrl={getCollectionCover(collection, ownedCards)}
+                  cardCount={cardCounts.get(collection.id) ?? 0}
+                  isFavorite={collection.isFavorite ?? collection.isDefault}
+                  isActive={collection.id === activeCollectionId}
+                  index={index}
+                  onSelect={() => handleSelect(collection.id)}
+                  onToggleFavorite={() => toggleCollectionFavorite(collection.id)}
+                  onOpenMenu={() => openMenu(collection)}
+                />
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => handleSelect(collection.id)}>
+                Abrir
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => openRename(collection)}>
+                Renomear
+              </ContextMenuItem>
+              {!collection.isDefault && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => openDelete(collection)}
+                  >
+                    Excluir
+                  </ContextMenuItem>
+                </>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
         ))}
         <CreateCollectionCard
           index={sortedCollections.length}
@@ -126,6 +211,89 @@ export function CollectionManager() {
             autoFocus
           />
         </div>
+      </Modal>
+
+      <Modal
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        title={menuTarget?.name ?? "Coleção"}
+        description="Gerenciar esta coleção"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setMenuOpen(false)}>
+              Fechar
+            </Button>
+            {menuTarget && (
+              <>
+                <Button variant="outline" onClick={() => openRename(menuTarget)}>
+                  Renomear
+                </Button>
+                {!menuTarget.isDefault && (
+                  <Button variant="destructive" onClick={() => openDelete(menuTarget)}>
+                    Excluir
+                  </Button>
+                )}
+              </>
+            )}
+          </>
+        }
+      >
+        {menuTarget && (
+          <p className="py-2 text-sm text-muted-foreground">
+            {cardCounts.get(menuTarget.id) ?? 0} cartas nesta coleção.
+            {menuTarget.isDefault && " A coleção padrão não pode ser excluída."}
+          </p>
+        )}
+      </Modal>
+
+      <Modal
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        title="Renomear coleção"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleRename} disabled={!renameName.trim()}>
+              Salvar
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2 py-2">
+          <Label htmlFor="rename-collection">Nome</Label>
+          <Input
+            id="rename-collection"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRename()}
+            autoFocus
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Excluir coleção?"
+        description={
+          deleteTarget
+            ? `Todas as ${cardCounts.get(deleteTarget.id) ?? 0} cartas em "${deleteTarget.name}" serão removidas. Esta ação não pode ser desfeita.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Excluir
+            </Button>
+          </>
+        }
+      >
+        <div />
       </Modal>
     </>
   );

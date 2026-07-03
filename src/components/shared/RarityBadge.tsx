@@ -44,7 +44,7 @@ export function RarityBadge({
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>{badge}</TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs">
+      <TooltipContent side="right" className="max-w-xs text-xs">
         {style.label}
       </TooltipContent>
     </Tooltip>

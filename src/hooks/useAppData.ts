@@ -200,6 +200,41 @@ export function useAppData() {
     onSuccess: invalidate,
   });
 
+  const renameCollectionMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      if (!isSupabaseMode) {
+        demo.renameCollection(id, name);
+        return;
+      }
+      const res = await fetch("/api/app/collections", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to rename collection");
+    },
+    onSuccess: invalidate,
+  });
+
+  const deleteCollectionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!isSupabaseMode) {
+        demo.deleteCollection(id);
+        setActiveCollectionId(useDemoStore.getState().activeCollectionId);
+        return;
+      }
+      const res = await fetch("/api/app/collections", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to delete collection");
+    },
+    onSuccess: invalidate,
+  });
+
   const addCardMutation = useMutation({
     mutationFn: async (args: {
       result: CardSearchResult;
@@ -336,6 +371,9 @@ export function useAppData() {
     addCollection: (name: string) => addCollectionMutation.mutateAsync(name),
     toggleCollectionFavorite: (id: string) =>
       toggleFavoriteMutation.mutateAsync(id),
+    renameCollection: (id: string, name: string) =>
+      renameCollectionMutation.mutateAsync({ id, name }),
+    deleteCollection: (id: string) => deleteCollectionMutation.mutateAsync(id),
     addCardFromSearch: (
       result: CardSearchResult,
       gameId: string,

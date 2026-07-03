@@ -42,6 +42,8 @@ interface DemoStore extends DemoState {
   ) => number;
   updateProfile: (updates: Partial<DemoState["profile"]>) => void;
   addCollection: (name: string) => DemoCollection;
+  renameCollection: (id: string, name: string) => void;
+  deleteCollection: (id: string) => void;
   toggleCollectionFavorite: (id: string) => void;
   restoreFromBackup: (backup: DeckVaultBackup) => void;
 }
@@ -202,6 +204,33 @@ export const useDemoStore = create<DemoStore>()(
         };
         set((s) => ({ collections: [...s.collections, newCollection] }));
         return newCollection;
+      },
+
+      renameCollection: (id, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        set((s) => ({
+          collections: s.collections.map((c) =>
+            c.id === id ? { ...c, name: trimmed } : c
+          ),
+        }));
+      },
+
+      deleteCollection: (id) => {
+        const state = get();
+        const target = state.collections.find((c) => c.id === id);
+        if (!target || target.isDefault) return;
+
+        const collections = state.collections.filter((c) => c.id !== id);
+        const ownedCards = state.ownedCards.filter((oc) => oc.collectionId !== id);
+        let activeCollectionId = state.activeCollectionId;
+        if (activeCollectionId === id) {
+          activeCollectionId =
+            collections.find((c) => c.isDefault)?.id ??
+            collections[0]?.id ??
+            DEFAULT_COLLECTION_ID;
+        }
+        set({ collections, ownedCards, activeCollectionId });
       },
 
       toggleCollectionFavorite: (id) =>
