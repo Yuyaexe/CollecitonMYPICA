@@ -14,13 +14,15 @@ interface CollectionRowProps {
   item: DemoOwnedCard;
   selected: boolean;
   focused: boolean;
-  onClick: (item: DemoOwnedCard, shiftKey: boolean) => void;
+  onClick: (
+    item: DemoOwnedCard,
+    modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
+  ) => void;
   onDoubleClick: (item: DemoOwnedCard) => void;
   onMiddleClick: (item: DemoOwnedCard) => void;
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   currency: Currency;
-  isWishlisted: boolean;
   peerPresence?: { color: string; name: string };
   className?: string;
   style?: React.CSSProperties;
@@ -36,7 +38,6 @@ export const CollectionRow = memo(function CollectionRow({
   onCheckboxChange,
   onQuantityChange,
   currency,
-  isWishlisted,
   peerPresence,
   className,
   style,
@@ -74,7 +75,11 @@ export const CollectionRow = memo(function CollectionRow({
       )}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("[data-row-action]")) return;
-        onClick(item, e.shiftKey);
+        onClick(item, {
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+        });
       }}
       onDoubleClick={(e) => {
         e.preventDefault();
@@ -159,9 +164,6 @@ export const CollectionRow = memo(function CollectionRow({
       <div className="hidden w-16 gap-1 xl:flex">
         {item.isFoil && (
           <Badge className="border-0 bg-amber-500/15 text-[10px] text-amber-400">Foil</Badge>
-        )}
-        {isWishlisted && (
-          <Badge className="border-0 bg-pink-500/15 text-[10px] text-pink-400">Wish</Badge>
         )}
       </div>
     </div>

@@ -5,13 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Layers,
-  Library,
-  Heart,
+  LayoutGrid,
   Settings,
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,10 +19,8 @@ import { useAppData } from "@/hooks/useAppData";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/collections", label: "Deck Manager", icon: LayoutGrid },
+  { href: "/collections", label: "Collection Manager", icon: LayoutGrid },
   { href: "/collection", label: "Collection", icon: Layers },
-  { href: "/deck-builder", label: "Deck Builder", icon: Library, disabled: true },
-  { href: "/wishlist", label: "Wishlist", icon: Heart, disabled: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -64,27 +60,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const content = (
             <Link
-              href={item.disabled ? "#" : item.href}
+              href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                active && !item.disabled
+                active
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                item.disabled && "pointer-events-none opacity-40"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
-              onClick={(e) => item.disabled && e.preventDefault()}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed && (
-                <>
-                  <span>{item.label}</span>
-                  {item.disabled && (
-                    <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Soon
-                    </span>
-                  )}
-                </>
-              )}
+              {!collapsed && <span>{item.label}</span>}
             </Link>
           );
 

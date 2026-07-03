@@ -134,21 +134,5 @@ export async function restoreSupabaseBackup(
     importedCards++;
   }
 
-  let wishlistAdded = 0;
-  for (const oldCardId of backup.wishlistCardIds) {
-    const newCardId = cardIdMap.get(oldCardId);
-    if (!newCardId) continue;
-    const { data: existing } = await supabase
-      .from("wishlists")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("card_id", newCardId)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.from("wishlists").insert({ user_id: userId, card_id: newCardId });
-      wishlistAdded++;
-    }
-  }
-
-  return { importedCards, collections: backup.collections.length, wishlistAdded };
+  return { importedCards, collections: backup.collections.length };
 }

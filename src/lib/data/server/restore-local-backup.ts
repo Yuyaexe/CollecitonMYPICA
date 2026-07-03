@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { cards, collections, ownedCards, wishlists } from "@/lib/db/schema";
+import { cards, collections, ownedCards } from "@/lib/db/schema";
 import { marketPriceMetadata } from "@/lib/data/mappers";
 import type { DeckVaultBackup } from "@/features/import/services/backup-export";
 import type { DemoCard } from "@/lib/demo/types";
@@ -123,20 +123,5 @@ export async function restoreLocalBackup(userId: string, backup: DeckVaultBackup
     importedCards++;
   }
 
-  let wishlistAdded = 0;
-  for (const oldCardId of backup.wishlistCardIds) {
-    const newCardId = cardIdMap.get(oldCardId);
-    if (!newCardId) continue;
-    const [existing] = await database
-      .select()
-      .from(wishlists)
-      .where(and(eq(wishlists.userId, userId), eq(wishlists.cardId, newCardId)))
-      .limit(1);
-    if (!existing) {
-      await database.insert(wishlists).values({ userId, cardId: newCardId });
-      wishlistAdded++;
-    }
-  }
-
-  return { importedCards, collections: backup.collections.length, wishlistAdded };
+  return { importedCards, collections: backup.collections.length };
 }

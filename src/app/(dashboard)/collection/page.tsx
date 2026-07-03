@@ -26,12 +26,12 @@ export default function CollectionPage() {
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const filters = useCollectionUIStore((s) => s.filters);
 
-  const { profile, ownedCards, activeCollectionId, wishlistCardIds, isSupabaseMode, isLoading } =
+  const { profile, ownedCards, activeCollectionId, isSupabaseMode, isLoading } =
     useAppData();
 
   const filtered = useMemo(() => {
-    return filterOwnedCards(ownedCards, filters, activeCollectionId, wishlistCardIds);
-  }, [ownedCards, filters, activeCollectionId, wishlistCardIds]);
+    return filterOwnedCards(ownedCards, filters, activeCollectionId);
+  }, [ownedCards, filters, activeCollectionId]);
 
   if (isLoading || !activeCollectionId) {
     return (

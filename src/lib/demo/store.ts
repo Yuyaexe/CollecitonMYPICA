@@ -4,6 +4,7 @@ import {
   createInitialDemoState,
   DEFAULT_COLLECTION_ID,
   type DemoCard,
+  type DemoCollection,
   type DemoOwnedCard,
   type DemoState,
 } from "./types";
@@ -37,9 +38,8 @@ interface DemoStore extends DemoState {
     mergeDuplicates: boolean
   ) => number;
   updateProfile: (updates: Partial<DemoState["profile"]>) => void;
-  addCollection: (name: string) => void;
+  addCollection: (name: string) => DemoCollection;
   toggleCollectionFavorite: (id: string) => void;
-  toggleWishlist: (cardId: string) => void;
   restoreFromBackup: (backup: DeckVaultBackup) => void;
 }
 
@@ -188,32 +188,23 @@ export const useDemoStore = create<DemoStore>()(
       updateProfile: (updates) =>
         set((s) => ({ profile: { ...s.profile, ...updates } })),
 
-      addCollection: (name) =>
-        set((s) => ({
-          collections: [
-            ...s.collections,
-            {
-              id: generateId(),
-              name,
-              isDefault: false,
-              isFavorite: false,
-              coverImageUrl: null,
-            },
-          ],
-        })),
+      addCollection: (name) => {
+        const newCollection = {
+          id: generateId(),
+          name,
+          isDefault: false,
+          isFavorite: false,
+          coverImageUrl: null,
+        };
+        set((s) => ({ collections: [...s.collections, newCollection] }));
+        return newCollection;
+      },
 
       toggleCollectionFavorite: (id) =>
         set((s) => ({
           collections: s.collections.map((c) =>
             c.id === id ? { ...c, isFavorite: !c.isFavorite } : c
           ),
-        })),
-
-      toggleWishlist: (cardId) =>
-        set((s) => ({
-          wishlistCardIds: s.wishlistCardIds.includes(cardId)
-            ? s.wishlistCardIds.filter((id) => id !== cardId)
-            : [...s.wishlistCardIds, cardId],
         })),
 
       restoreFromBackup: (backup) => {
@@ -225,7 +216,6 @@ export const useDemoStore = create<DemoStore>()(
             ? backup.collections
             : createInitialDemoState().collections,
           ownedCards: backup.ownedCards,
-          wishlistCardIds: backup.wishlistCardIds ?? [],
           tags: backup.tags ?? [],
           activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
         });

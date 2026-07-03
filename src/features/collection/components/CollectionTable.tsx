@@ -27,10 +27,8 @@ export function CollectionTable() {
   const {
     ownedCards,
     activeCollectionId,
-    wishlistCardIds,
     profile,
     deleteOwnedCards,
-    toggleWishlist,
     updateOwnedCard,
     isLoading,
     isError,
@@ -50,9 +48,9 @@ export function CollectionTable() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
 
   const filtered = useMemo(() => {
-    const f = filterOwnedCards(ownedCards, filters, activeCollectionId, wishlistCardIds);
+    const f = filterOwnedCards(ownedCards, filters, activeCollectionId);
     return sortOwnedCards(f, sortField, sortDir);
-  }, [ownedCards, filters, activeCollectionId, wishlistCardIds, sortField, sortDir]);
+  }, [ownedCards, filters, activeCollectionId, sortField, sortDir]);
 
   const allIds = filtered.map((oc) => oc.id);
 
@@ -185,7 +183,9 @@ export function CollectionTable() {
                       item={item}
                       selected={selectedIds.has(item.id)}
                       focused={focusedRowIndex === virtualRow.index}
-                      onClick={(row, shift) => selectRow(row.id, shift, allIds, virtualRow.index)}
+                      onClick={(row, modifiers) =>
+                        selectRow(row.id, modifiers, allIds, virtualRow.index)
+                      }
                       onDoubleClick={(row) => setMarketplaceCardId(row.id)}
                       onMiddleClick={(row) => openMarketplaceInNewTab(row.card)}
                       onCheckboxChange={(id, shift) =>
@@ -193,7 +193,6 @@ export function CollectionTable() {
                       }
                       onQuantityChange={handleQuantityChange}
                       currency={profile.currency}
-                      isWishlisted={wishlistCardIds.includes(item.card.id)}
                       peerPresence={
                         peerByCardId.has(item.id)
                           ? {
@@ -215,11 +214,6 @@ export function CollectionTable() {
                   <ContextMenuSeparator />
                   <ContextMenuItem onClick={() => setDetailCardId(item.id)}>
                     View card details
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => toggleWishlist(item.card.id)}>
-                    {wishlistCardIds.includes(item.card.id)
-                      ? "Remove from wishlist"
-                      : "Add to wishlist"}
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem

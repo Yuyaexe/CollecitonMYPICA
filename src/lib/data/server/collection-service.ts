@@ -6,7 +6,6 @@ import {
   games,
   ownedCards,
   profiles,
-  wishlists,
 } from "@/lib/db/schema";
 import {
   toDemoCollection,
@@ -51,11 +50,6 @@ export async function getAppState(userId: string) {
     ownedRows = rows.map((r) => toDemoOwnedCard(r.owned, r.card, r.game));
   }
 
-  const wishlistRows = await database
-    .select({ cardId: wishlists.cardId })
-    .from(wishlists)
-    .where(eq(wishlists.userId, userId));
-
   const profile: DemoProfile = profileRow
     ? toDemoProfile(profileRow)
     : {
@@ -71,7 +65,6 @@ export async function getAppState(userId: string) {
     profile,
     collections: demoCollections,
     ownedCards: ownedRows,
-    wishlistCardIds: wishlistRows.map((w) => w.cardId),
     tags: [] as { id: string; name: string; color: string }[],
   };
 }
@@ -381,23 +374,4 @@ export async function importRows(
   }
 
   return imported;
-}
-
-export async function toggleWishlist(userId: string, cardId: string) {
-  const database = requireDb();
-  const [existing] = await database
-    .select()
-    .from(wishlists)
-    .where(and(eq(wishlists.userId, userId), eq(wishlists.cardId, cardId)))
-    .limit(1);
-
-  if (existing) {
-    await database
-      .delete(wishlists)
-      .where(and(eq(wishlists.userId, userId), eq(wishlists.cardId, cardId)));
-    return false;
-  }
-
-  await database.insert(wishlists).values({ userId, cardId });
-  return true;
 }

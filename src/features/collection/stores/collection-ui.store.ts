@@ -15,7 +15,12 @@ interface CollectionUIState {
   lastSelectedIndex: number;
 
   toggleSelect: (id: string, shiftKey?: boolean, allIds?: string[], rowIndex?: number) => void;
-  selectRow: (id: string, shiftKey?: boolean, allIds?: string[], rowIndex?: number) => void;
+  selectRow: (
+    id: string,
+    modifiers?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
+    allIds?: string[],
+    rowIndex?: number
+  ) => void;
   selectAll: (ids: string[]) => void;
   clearSelection: () => void;
   setFilters: (filters: Partial<CollectionFilters>) => void;
@@ -60,15 +65,32 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
     set({ selectedIds: next, lastSelectedIndex: idx, focusedRowIndex: idx });
   },
 
-  selectRow: (id, shiftKey, allIds, rowIndex) => {
+  selectRow: (id, modifiers = {}, allIds, rowIndex) => {
+    const { shiftKey = false, ctrlKey = false, metaKey = false } = modifiers;
     const { selectedIds, lastSelectedIndex } = get();
     const idx = rowIndex ?? allIds?.indexOf(id) ?? lastSelectedIndex;
+    const multiKey = ctrlKey || metaKey;
 
     if (shiftKey && allIds) {
       const next = new Set(selectedIds);
       const start = Math.min(lastSelectedIndex, idx);
       const end = Math.max(lastSelectedIndex, idx);
       for (let i = start; i <= end; i++) next.add(allIds[i]);
+      set({ selectedIds: next, lastSelectedIndex: idx, focusedRowIndex: idx });
+      return;
+    }
+
+    if (multiKey) {
+      const next = new Set(selectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      set({ selectedIds: next, lastSelectedIndex: idx, focusedRowIndex: idx });
+      return;
+    }
+
+    if (selectedIds.has(id)) {
+      const next = new Set(selectedIds);
+      next.delete(id);
       set({ selectedIds: next, lastSelectedIndex: idx, focusedRowIndex: idx });
       return;
     }

@@ -55,7 +55,6 @@ export interface DemoState {
   collections: DemoCollection[];
   ownedCards: DemoOwnedCard[];
   tags: DemoTag[];
-  wishlistCardIds: string[];
 }
 
 export const DEMO_GAMES = [
@@ -87,6 +86,5 @@ export function createInitialDemoState(): DemoState {
     ],
     ownedCards: [],
     tags: [],
-    wishlistCardIds: [],
   };
 }

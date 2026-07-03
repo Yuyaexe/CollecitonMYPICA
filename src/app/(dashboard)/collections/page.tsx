@@ -7,7 +7,7 @@ export default function CollectionsPage() {
   return (
     <div className="flex-1 overflow-auto p-8">
       <PageHeader
-        title="Deck Manager"
+        title="Collection Manager"
         description="Select a collection to browse cards, or create a new one"
       />
 

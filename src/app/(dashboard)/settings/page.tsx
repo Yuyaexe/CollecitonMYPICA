@@ -39,7 +39,6 @@ export default function SettingsPage() {
     profile,
     collections,
     ownedCards,
-    wishlistCardIds,
     tags,
     updateProfile,
     isSupabaseMode,
@@ -72,7 +71,6 @@ export default function SettingsPage() {
             profile,
             collections,
             ownedCards,
-            wishlistCardIds,
             tags,
           });
       downloadBackup(backup);
@@ -99,7 +97,7 @@ export default function SettingsPage() {
         const result = await restoreBackupOnServer(backup);
         await queryClient.invalidateQueries({ queryKey: ["app-state"] });
         toast.success(
-          `Restaurado: ${result.importedCards} cartas, ${result.wishlistAdded} wishlist`
+          `Restaurado: ${result.importedCards} cartas em ${result.collections} coleções`
         );
       } else {
         useDemoStore.getState().restoreFromBackup(backup);
@@ -222,7 +220,7 @@ export default function SettingsPage() {
         <section className="space-y-4 border-t border-border pt-8">
           <h2 className="text-lg font-semibold">Backup</h2>
           <p className="text-sm text-muted-foreground">
-            Baixa um arquivo JSON com perfil, coleções, cartas e wishlist. Guarde em nuvem
+            Baixa um arquivo JSON com perfil, coleções e cartas. Guarde em nuvem
             (Google Drive, OneDrive) ou pendrive.
           </p>
           <Button variant="outline" onClick={handleBackup} disabled={backingUp}>

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAppData } from "@/hooks/useAppData";
+import { useDataUiStore } from "@/lib/data/ui-store";
+import { toast } from "sonner";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
 
 function getCollectionCover(
@@ -62,9 +64,17 @@ export function CollectionManager() {
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    await addCollection(trimmed);
-    setNewName("");
-    setCreateOpen(false);
+    try {
+      const created = await addCollection(trimmed);
+      setActiveCollection(created.id);
+      useDataUiStore.getState().setActiveCollectionId(created.id);
+      setNewName("");
+      setCreateOpen(false);
+      toast.success(`Coleção "${trimmed}" criada`);
+      router.push("/collection");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao criar coleção");
+    }
   };
 
   return (

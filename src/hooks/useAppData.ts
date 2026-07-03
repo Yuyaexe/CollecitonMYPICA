@@ -22,7 +22,6 @@ interface AppState {
   profile: DemoProfile;
   collections: DemoCollection[];
   ownedCards: DemoOwnedCard[];
-  wishlistCardIds: string[];
   tags: DemoTag[];
 }
 
@@ -72,10 +71,6 @@ export function useAppData() {
   const ownedCards = useMemo(
     () => (isServerMode ? (serverState?.ownedCards ?? []) : demo.ownedCards),
     [isServerMode, serverState?.ownedCards, demo.ownedCards]
-  );
-  const wishlistCardIds = useMemo(
-    () => (isServerMode ? (serverState?.wishlistCardIds ?? []) : demo.wishlistCardIds),
-    [isServerMode, serverState?.wishlistCardIds, demo.wishlistCardIds]
   );
   const tags = useMemo(
     () => (isServerMode ? (serverState?.tags ?? []) : demo.tags),
@@ -175,17 +170,18 @@ export function useAppData() {
   });
 
   const addCollectionMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (name: string): Promise<DemoCollection> => {
       if (!isServerMode) {
-        demo.addCollection(name);
-        return;
+        return demo.addCollection(name);
       }
       const res = await fetch("/api/app/collections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error("Failed to create collection");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to create collection");
+      return json as DemoCollection;
     },
     onSuccess: invalidate,
   });
@@ -320,22 +316,6 @@ export function useAppData() {
     onSuccess: invalidate,
   });
 
-  const wishlistMutation = useMutation({
-    mutationFn: async (cardId: string) => {
-      if (!isServerMode) {
-        demo.toggleWishlist(cardId);
-        return;
-      }
-      const res = await fetch("/api/app/wishlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId }),
-      });
-      if (!res.ok) throw new Error("Failed to toggle wishlist");
-    },
-    onSuccess: invalidate,
-  });
-
   return {
     mode,
     isServerMode,
@@ -346,7 +326,6 @@ export function useAppData() {
     profile,
     collections,
     ownedCards,
-    wishlistCardIds,
     tags,
     activeCollectionId: resolvedActiveId,
     setActiveCollection,
@@ -381,6 +360,5 @@ export function useAppData() {
       }>,
       mergeDuplicates: boolean
     ) => importMutation.mutateAsync({ rows, mergeDuplicates }),
-    toggleWishlist: (cardId: string) => wishlistMutation.mutateAsync(cardId),
   };
 }

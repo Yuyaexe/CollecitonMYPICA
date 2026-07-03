@@ -13,7 +13,6 @@ export interface DeckVaultBackup {
   profile: DemoProfile;
   collections: DemoCollection[];
   ownedCards: DemoOwnedCard[];
-  wishlistCardIds: string[];
   tags: DemoTag[];
 }
 
@@ -49,7 +48,6 @@ export async function fetchBackupFromServer(): Promise<DeckVaultBackup> {
     profile: state.profile,
     collections: state.collections,
     ownedCards: state.ownedCards,
-    wishlistCardIds: state.wishlistCardIds,
     tags: state.tags ?? [],
   });
 }

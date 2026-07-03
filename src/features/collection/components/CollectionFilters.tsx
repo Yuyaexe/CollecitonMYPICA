@@ -192,16 +192,6 @@ export function CollectionFilters() {
               Foil only
             </Label>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="wishlist-filter"
-              checked={filters.wishlistOnly}
-              onCheckedChange={(c) => setFilters({ wishlistOnly: !!c })}
-            />
-            <Label htmlFor="wishlist-filter" className="text-sm">
-              Wishlist only
-            </Label>
-          </div>
         </div>
       </div>
     </ScrollArea>

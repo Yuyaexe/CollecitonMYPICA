@@ -23,7 +23,6 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
     profile: backup.profile,
     collections: backup.collections,
     ownedCards: backup.ownedCards,
-    wishlistCardIds: backup.wishlistCardIds ?? [],
     tags: backup.tags ?? [],
   };
 }
@@ -49,5 +48,5 @@ export async function restoreBackupOnServer(backup: DeckVaultBackup) {
   if (!res.ok) {
     throw new Error(json.error ?? "Falha ao restaurar backup");
   }
-  return json as { importedCards: number; collections: number; wishlistAdded: number };
+  return json as { importedCards: number; collections: number };
 }

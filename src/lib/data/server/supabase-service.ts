@@ -92,11 +92,6 @@ export async function getSupabaseAppState(supabase: SupabaseClient, userId: stri
     ownedRows = ((owned ?? []) as unknown as OwnedJoin[]).map(mapOwned);
   }
 
-  const { data: wishlistRows } = await supabase
-    .from("wishlists")
-    .select("card_id")
-    .eq("user_id", userId);
-
   const profile: DemoProfile = profileRow
     ? toDemoProfile({
         userId: profileRow.user_id,
@@ -132,7 +127,6 @@ export async function getSupabaseAppState(supabase: SupabaseClient, userId: stri
     profile,
     collections,
     ownedCards: ownedRows,
-    wishlistCardIds: (wishlistRows ?? []).map((w) => w.card_id),
     tags: [] as { id: string; name: string; color: string }[],
   };
 }
@@ -430,24 +424,4 @@ export async function importSupabaseRows(
     imported++;
   }
   return imported;
-}
-
-export async function toggleSupabaseWishlist(
-  supabase: SupabaseClient,
-  userId: string,
-  cardId: string
-) {
-  const { data: existing } = await supabase
-    .from("wishlists")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("card_id", cardId)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase.from("wishlists").delete().eq("id", existing.id);
-    return false;
-  }
-  await supabase.from("wishlists").insert({ user_id: userId, card_id: cardId });
-  return true;
 }

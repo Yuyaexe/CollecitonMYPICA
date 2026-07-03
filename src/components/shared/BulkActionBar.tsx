@@ -6,12 +6,21 @@ import { cn } from "@/lib/utils";
 
 interface BulkActionBarProps {
   selectedCount: number;
+  totalCards?: number;
+  totalValue?: string;
   onClear: () => void;
   children: ReactNode;
   className?: string;
 }
 
-export function BulkActionBar({ selectedCount, onClear, children, className }: BulkActionBarProps) {
+export function BulkActionBar({
+  selectedCount,
+  totalCards,
+  totalValue,
+  onClear,
+  children,
+  className,
+}: BulkActionBarProps) {
   return (
     <AnimatePresence>
       {selectedCount > 0 && (
@@ -26,14 +35,22 @@ export function BulkActionBar({ selectedCount, onClear, children, className }: B
           )}
         >
           <span className="text-sm font-medium">
-            {selectedCount} selected
+            {selectedCount} selecionada{selectedCount !== 1 ? "s" : ""}
+            {totalCards !== undefined && totalCards !== selectedCount && (
+              <span className="text-muted-foreground"> · {totalCards} cartas</span>
+            )}
           </span>
+          {totalValue && (
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">
+              {totalValue}
+            </span>
+          )}
           <div className="flex items-center gap-2">{children}</div>
           <button
             onClick={onClear}
             className="text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground"
           >
-            Clear
+            Limpar
           </button>
         </motion.div>
       )}

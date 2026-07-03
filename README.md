@@ -37,7 +37,7 @@ Open [http://localhost:3000/collection](http://localhost:3000/collection)
 
 **Settings → Backup**
 
-- **Baixar backup** — JSON with profile, collections, cards, wishlist
+- **Baixar backup** — JSON with profile, collections, and cards
 - **Restaurar backup** — merges cards into existing collections (same name = same collection)
 
 Store backups on Google Drive, OneDrive, or a USB drive.
@@ -73,6 +73,6 @@ Output: `src-tauri/target/release/deckvault.exe`
 - Quick Add (Yu-Gi-Oh, Pokemon, Digimon APIs)
 - CSV Import / Export
 - Multi-collection + live collaboration (Supabase)
-- Marketplace comparison, wishlist, bulk actions
+- Marketplace comparison, bulk actions
 
 Next.js 15 · TypeScript · Tailwind · Supabase · Drizzle · Tauri 2

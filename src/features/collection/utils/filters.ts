@@ -4,8 +4,7 @@ import type { CollectionFilters } from "@/types/tcg";
 export function filterOwnedCards(
   cards: DemoOwnedCard[],
   filters: CollectionFilters,
-  collectionId: string | null,
-  wishlistCardIds: string[]
+  collectionId: string | null
 ): DemoOwnedCard[] {
   if (!collectionId) return [];
   return cards.filter((oc) => {
@@ -29,7 +28,6 @@ export function filterOwnedCards(
     if (filters.condition && oc.condition !== filters.condition) return false;
     if (filters.isFoil !== null && oc.isFoil !== filters.isFoil) return false;
     if (filters.minQuantity !== null && oc.quantity < filters.minQuantity) return false;
-    if (filters.wishlistOnly && !wishlistCardIds.includes(card.id)) return false;
 
     const price = card.marketPrice;
     if (filters.priceMin !== null && (price === null || price < filters.priceMin)) return false;

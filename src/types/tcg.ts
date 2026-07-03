@@ -36,7 +36,6 @@ export interface CollectionFilters {
   priceMax: number | null;
   isFoil: boolean | null;
   minQuantity: number | null;
-  wishlistOnly: boolean;
 }
 
 export const DEFAULT_FILTERS: CollectionFilters = {
@@ -51,5 +50,4 @@ export const DEFAULT_FILTERS: CollectionFilters = {
   priceMax: null,
   isFoil: null,
   minQuantity: null,
-  wishlistOnly: false,
 };
