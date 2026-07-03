@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { DEFAULT_FILTERS, type CollectionFilters } from "@/types/tcg";
 
 export type CollectionViewMode = "table" | "grid" | "compact" | "binder";
+export type BinderGridLayout = "4x3" | "3x3";
 
 interface CollectionUIState {
   selectedIds: Set<string>;
@@ -9,10 +10,9 @@ interface CollectionUIState {
   sortField: string;
   sortDir: "asc" | "desc";
   viewMode: CollectionViewMode;
+  binderGridLayout: BinderGridLayout;
   priceRefreshKey: number;
-  sidebarCollapsed: boolean;
   detailCardId: string | null;
-  marketplaceCardId: string | null;
   inspectTab: "details" | "marketplace";
   quickAddOpen: boolean;
   importOpen: boolean;
@@ -32,12 +32,9 @@ interface CollectionUIState {
   resetFilters: () => void;
   setSort: (field: string, dir?: "asc" | "desc") => void;
   setViewMode: (mode: CollectionViewMode) => void;
+  setBinderGridLayout: (layout: BinderGridLayout) => void;
   refreshPrices: () => void;
-  toggleSidebar: () => void;
-  setDetailCardId: (id: string | null) => void;
-  setMarketplaceCardId: (id: string | null) => void;
   openCardInspect: (id: string, tab?: "details" | "marketplace") => void;
-  setInspectTab: (tab: "details" | "marketplace") => void;
   closeCardInspect: () => void;
   setQuickAddOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
@@ -50,10 +47,9 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   sortField: "name",
   sortDir: "asc",
   viewMode: "table",
+  binderGridLayout: "4x3",
   priceRefreshKey: 0,
-  sidebarCollapsed: false,
   detailCardId: null,
-  marketplaceCardId: null,
   inspectTab: "details",
   quickAddOpen: false,
   importOpen: false,
@@ -125,20 +121,10 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
       sortDir: dir ?? (s.sortField === field && s.sortDir === "asc" ? "desc" : "asc"),
     })),
   setViewMode: (mode) => set({ viewMode: mode }),
+  setBinderGridLayout: (layout) => set({ binderGridLayout: layout }),
   refreshPrices: () => set((s) => ({ priceRefreshKey: s.priceRefreshKey + 1 })),
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  openCardInspect: (id, tab = "details") =>
-    set({ detailCardId: id, marketplaceCardId: id, inspectTab: tab }),
-  setInspectTab: (tab) => set({ inspectTab: tab }),
-  closeCardInspect: () => set({ detailCardId: null, marketplaceCardId: null }),
-  setDetailCardId: (id) =>
-    id === null
-      ? set({ detailCardId: null, marketplaceCardId: null })
-      : set({ detailCardId: id, marketplaceCardId: id, inspectTab: "details" }),
-  setMarketplaceCardId: (id) =>
-    id === null
-      ? set({ detailCardId: null, marketplaceCardId: null })
-      : set({ detailCardId: id, marketplaceCardId: id, inspectTab: "marketplace" }),
+  openCardInspect: (id, tab = "details") => set({ detailCardId: id, inspectTab: tab }),
+  closeCardInspect: () => set({ detailCardId: null }),
   setQuickAddOpen: (open) => set({ quickAddOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setFocusedRowIndex: (index) => set({ focusedRowIndex: index }),

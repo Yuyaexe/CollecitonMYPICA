@@ -1,37 +1,104 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  useCollectionUIStore,
+  type BinderGridLayout,
+} from "@/features/collection/stores/collection-ui.store";
 import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
-const GRID_SIZE = 4;
-const PAGE_SIZE = GRID_SIZE * GRID_SIZE;
-const SPREAD_SIZE = PAGE_SIZE * 2;
+const LAYOUT_CONFIG: Record<
+  BinderGridLayout,
+  { cols: number; rows: number; label: string; maxWidth: string }
+> = {
+  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-6xl" },
+  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-4xl" },
+};
 
 interface CollectionBinderViewProps {
   data: CollectionViewData;
 }
 
-function buildSpreads(cards: DemoOwnedCard[]): DemoOwnedCard[][] {
+function buildSpreads(cards: DemoOwnedCard[], pageSize: number): DemoOwnedCard[][] {
+  const spreadSize = pageSize * 2;
   if (cards.length === 0) return [[]];
   const spreads: DemoOwnedCard[][] = [];
-  for (let i = 0; i < cards.length; i += SPREAD_SIZE) {
-    spreads.push(cards.slice(i, i + SPREAD_SIZE));
+  for (let i = 0; i < cards.length; i += spreadSize) {
+    spreads.push(cards.slice(i, i + spreadSize));
   }
   return spreads;
 }
 
-function pageSlots(cards: DemoOwnedCard[], offset: number): (DemoOwnedCard | null)[] {
-  const slice = cards.slice(offset, offset + PAGE_SIZE);
-  return Array.from({ length: PAGE_SIZE }, (_, i) => slice[i] ?? null);
+function pageSlots(
+  cards: DemoOwnedCard[],
+  offset: number,
+  pageSize: number
+): (DemoOwnedCard | null)[] {
+  const slice = cards.slice(offset, offset + pageSize);
+  return Array.from({ length: pageSize }, (_, i) => slice[i] ?? null);
+}
+
+function useIsTruncated(text: string) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  const check = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setTruncated(el.scrollWidth > el.clientWidth + 1);
+  }, []);
+
+  useEffect(() => {
+    check();
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [check, text]);
+
+  return { ref, truncated };
+}
+
+function BinderCardName({ name }: { name: string }) {
+  const { ref, truncated } = useIsTruncated(name);
+
+  const className = cn(
+    "truncate text-[9px] font-medium leading-tight text-white/75 transition-all duration-150",
+    "group-hover:text-[11px] group-hover:font-semibold group-hover:text-white",
+    truncated && "cursor-default"
+  );
+
+  return (
+    <Tooltip open={truncated ? undefined : false} delayDuration={150}>
+      <TooltipTrigger asChild>
+        <p ref={ref} className={className}>
+          {name}
+        </p>
+      </TooltipTrigger>
+      {truncated && (
+        <TooltipContent
+          side="top"
+          className="max-w-xs border-primary/30 bg-zinc-950 px-3 py-2 text-sm font-semibold leading-snug text-white shadow-xl"
+        >
+          {name}
+        </TooltipContent>
+      )}
+    </Tooltip>
+  );
 }
 
 interface BinderSlotProps {
@@ -53,6 +120,7 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
   }
 
   const thumbSrc = getCardPreviewImageUrl(card.card) ?? card.card.imageUrl;
+  const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
 
   return (
     <div
@@ -77,12 +145,22 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
           sizes="(max-width: 768px) 20vw, 100px"
           className="object-contain p-0.5 transition-transform duration-150 group-hover:scale-[1.02]"
         />
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1.5 pb-1.5 pt-6",
+            "translate-y-full opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+          )}
+        >
+          <p className="line-clamp-2 text-center text-[10px] font-semibold leading-tight text-white sm:text-[11px]">
+            {card.card.name}
+          </p>
+        </div>
       </button>
 
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full flex-col gap-0.5 rounded-md bg-zinc-900/90 px-1.5 py-1 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 dark:bg-zinc-950/90"
+        className="flex w-full flex-col gap-0.5 rounded-md bg-zinc-900/90 px-1.5 py-1 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
       >
         <div className="flex items-center justify-between gap-1">
           <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} size="sm" />
@@ -93,12 +171,8 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
             ×{card.quantity}
           </span>
         </div>
-        <p className="truncate text-[9px] font-medium leading-tight text-white/75">
-          {card.card.name}
-        </p>
-        <p className="truncate text-[8px] text-white/50">
-          {[card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—"}
-        </p>
+        <BinderCardName name={card.card.name} />
+        <p className="truncate text-[8px] text-white/50 group-hover:text-white/70">{setLine}</p>
       </button>
     </div>
   );
@@ -107,13 +181,24 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
 interface BinderPageProps {
   cards: (DemoOwnedCard | null)[];
   side: "left" | "right";
+  cols: number;
+  rows: number;
   selectedIds: Set<string>;
   currency: Currency;
   resolvePrice: (item: DemoOwnedCard) => number | null;
   onOpen: (id: string) => void;
 }
 
-function BinderPage({ cards, side, selectedIds, currency, resolvePrice, onOpen }: BinderPageProps) {
+function BinderPage({
+  cards,
+  side,
+  cols,
+  rows,
+  selectedIds,
+  currency,
+  resolvePrice,
+  onOpen,
+}: BinderPageProps) {
   return (
     <div
       className={cn(
@@ -133,7 +218,13 @@ function BinderPage({ cards, side, selectedIds, currency, resolvePrice, onOpen }
             : "left-0 bg-gradient-to-r from-stone-900/15 to-transparent"
         )}
       />
-      <div className="grid flex-1 grid-cols-4 grid-rows-4 gap-1.5 sm:gap-2">
+      <div
+        className="grid flex-1 gap-1.5 sm:gap-2"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(0, auto))`,
+        }}
+      >
         {cards.map((card, index) => (
           <BinderSlot
             key={card?.id ?? `${side}-empty-${index}`}
@@ -149,17 +240,59 @@ function BinderPage({ cards, side, selectedIds, currency, resolvePrice, onOpen }
   );
 }
 
+function BinderLayoutToggle({
+  layout,
+  onChange,
+}: {
+  layout: BinderGridLayout;
+  onChange: (layout: BinderGridLayout) => void;
+}) {
+  return (
+    <div
+      className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5"
+      role="group"
+      aria-label="Binder grid layout"
+    >
+      {(Object.keys(LAYOUT_CONFIG) as BinderGridLayout[]).map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-7 px-2.5 text-xs tabular-nums",
+            layout === id && "bg-background shadow-sm"
+          )}
+          onClick={() => onChange(id)}
+          aria-pressed={layout === id}
+        >
+          {LAYOUT_CONFIG[id].label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export function CollectionBinderView({ data }: CollectionBinderViewProps) {
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
+  const binderGridLayout = useCollectionUIStore((s) => s.binderGridLayout);
+  const setBinderGridLayout = useCollectionUIStore((s) => s.setBinderGridLayout);
   const [spreadIndex, setSpreadIndex] = useState(0);
 
-  const spreads = useMemo(() => buildSpreads(data.filtered), [data.filtered]);
+  const { cols, rows, label, maxWidth } = LAYOUT_CONFIG[binderGridLayout];
+  const pageSize = cols * rows;
+  const spreadSize = pageSize * 2;
+
+  const spreads = useMemo(
+    () => buildSpreads(data.filtered, pageSize),
+    [data.filtered, pageSize]
+  );
   const totalSpreads = spreads.length;
 
   const filterKey = useMemo(
-    () => data.filtered.map((c) => c.id).join(","),
-    [data.filtered]
+    () => `${binderGridLayout}:${data.filtered.map((c) => c.id).join(",")}`,
+    [binderGridLayout, data.filtered]
   );
 
   useEffect(() => {
@@ -173,18 +306,21 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
   }, [spreadIndex, totalSpreads]);
 
   const currentSpread = spreads[spreadIndex] ?? [];
-  const leftPage = pageSlots(currentSpread, 0);
-  const rightPage = pageSlots(currentSpread, PAGE_SIZE);
+  const leftPage = pageSlots(currentSpread, 0, pageSize);
+  const rightPage = pageSlots(currentSpread, pageSize, pageSize);
 
-  const spreadStart = spreadIndex * SPREAD_SIZE + 1;
-  const spreadEnd = Math.min((spreadIndex + 1) * SPREAD_SIZE, data.filtered.length);
+  const spreadStart = spreadIndex * spreadSize + 1;
+  const spreadEnd = Math.min((spreadIndex + 1) * spreadSize, data.filtered.length);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background">
       <div className="flex flex-1 flex-col items-center overflow-auto px-2 py-3 sm:px-4 sm:py-5">
-        <div className="w-full max-w-6xl">
-          <div className="mb-2 flex items-center justify-between px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
-            <span className="font-medium text-foreground/80">Binder · 4×4</span>
+        <div className={cn("w-full", maxWidth)}>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-foreground/80">Binder · {label}</span>
+              <BinderLayoutToggle layout={binderGridLayout} onChange={setBinderGridLayout} />
+            </div>
             <span className="tabular-nums">
               {spreadStart}–{spreadEnd} de {data.filtered.length}
             </span>
@@ -194,6 +330,8 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
             <BinderPage
               cards={leftPage}
               side="left"
+              cols={cols}
+              rows={rows}
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
@@ -210,6 +348,8 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
             <BinderPage
               cards={rightPage}
               side="right"
+              cols={cols}
+              rows={rows}
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
