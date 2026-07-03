@@ -18,6 +18,7 @@ interface CollectionRowProps {
   item: DemoOwnedCard;
   selected: boolean;
   focused: boolean;
+  marketPrice?: number | null;
   onClick: (
     item: DemoOwnedCard,
     modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
@@ -36,6 +37,7 @@ export const CollectionRow = memo(function CollectionRow({
   item,
   selected,
   focused,
+  marketPrice: marketPriceProp,
   onClick,
   onNameClick,
   onMiddleClick,
@@ -46,7 +48,7 @@ export const CollectionRow = memo(function CollectionRow({
   className,
   style,
 }: CollectionRowProps) {
-  const marketPrice = item.card.marketPrice;
+  const marketPrice = marketPriceProp ?? item.card.marketPrice;
 
   const shiftKeyRef = useRef(false);
 
@@ -157,7 +159,7 @@ export const CollectionRow = memo(function CollectionRow({
         {item.card.collectorNumber ?? "—"}
       </div>
 
-      <div data-row-action className="flex w-[88px] shrink-0 justify-center">
+      <div data-row-action className="flex w-[104px] shrink-0 justify-center">
         <QuantityStepper value={item.quantity} onChange={handleQuantityChange} />
       </div>
 

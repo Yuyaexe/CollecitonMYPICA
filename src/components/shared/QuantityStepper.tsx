@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuantityStepperProps {
@@ -48,47 +49,87 @@ export function QuantityStepper({
     setEditing(false);
   };
 
+  const decrement = () => onChange(clamp(value - 1));
+  const increment = () => onChange(clamp(value + 1));
+
+  const atMin = value <= min;
+  const atMax = value >= max;
+
   return (
     <div
       className={cn(
-        "inline-flex h-7 min-w-[3rem] items-center justify-center rounded-md border border-border/60 bg-background/80 px-1",
-        !editing && "cursor-text hover:border-primary/40 hover:bg-muted/30",
+        "inline-flex h-7 items-center rounded-md border border-border/60 bg-background/80",
         className
       )}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      {editing ? (
-        <input
-          ref={inputRef}
-          type="text"
-          inputMode="numeric"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            }
-            if (e.key === "Escape") {
-              e.preventDefault();
-              cancel();
-            }
-          }}
-          className="w-full bg-transparent text-center text-sm font-medium tabular-nums outline-none"
-          aria-label="Edit quantity"
-        />
-      ) : (
-        <button
-          type="button"
-          className="w-full px-1 text-center text-sm font-medium tabular-nums"
-          onClick={() => setEditing(true)}
-          aria-label={`Quantity ${value}, click to edit`}
-        >
-          {value}
-        </button>
-      )}
+      <button
+        type="button"
+        disabled={atMin || editing}
+        onClick={decrement}
+        aria-label="Decrease quantity"
+        className={cn(
+          "flex h-full w-6 shrink-0 items-center justify-center rounded-l-md border-r border-border/60",
+          "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+          "disabled:pointer-events-none disabled:opacity-30"
+        )}
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+
+      <div
+        className={cn(
+          "flex min-w-[2rem] flex-1 items-center justify-center px-0.5",
+          !editing && "cursor-text hover:bg-muted/20"
+        )}
+      >
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="numeric"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            className="w-full bg-transparent text-center text-sm font-medium tabular-nums outline-none"
+            aria-label="Edit quantity"
+          />
+        ) : (
+          <button
+            type="button"
+            className="w-full px-0.5 text-center text-sm font-medium tabular-nums"
+            onClick={() => setEditing(true)}
+            aria-label={`Quantity ${value}, click to edit`}
+          >
+            {value}
+          </button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        disabled={atMax || editing}
+        onClick={increment}
+        aria-label="Increase quantity"
+        className={cn(
+          "flex h-full w-6 shrink-0 items-center justify-center rounded-r-md border-l border-border/60",
+          "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+          "disabled:pointer-events-none disabled:opacity-30"
+        )}
+      >
+        <Plus className="h-3 w-3" />
+      </button>
     </div>
   );
 }

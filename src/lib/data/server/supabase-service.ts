@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { getCardTraderPriceForProfile, isCardTraderConfigured } from "@/lib/cardtrader";
 import { toDemoCard, toDemoCollection, toDemoOwnedCard, toDemoProfile, marketPriceMetadata } from "@/lib/data/mappers";
 import type { DemoCollection, DemoOwnedCard, DemoProfile } from "@/lib/demo/types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
-import type { CardCondition, CardLanguage } from "@/types/tcg";
+import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
 
 type CardJoin = {
   id: string;
@@ -338,11 +339,54 @@ export async function inviteToCollection(
   if (error) throw error;
 }
 
+async function resolveStoredMarketPrice(
+  gameSlug: string,
+  result: CardSearchResult,
+  currency: Currency
+) {
+  if (!isCardTraderConfigured()) {
+    return {
+      price: result.price ?? null,
+      metadata: marketPriceMetadata(result.price),
+    };
+  }
+
+  try {
+    const cardTrader = await getCardTraderPriceForProfile(
+      {
+        gameSlug,
+        name: result.name,
+        setName: result.setName,
+        setCode: result.setCode,
+      },
+      currency
+    );
+
+    const price = cardTrader?.price ?? result.price ?? null;
+    return {
+      price,
+      metadata: marketPriceMetadata(price, {
+        cardtraderBlueprintId: cardTrader?.blueprintId,
+        priceSource: cardTrader ? "cardtrader" : undefined,
+      }),
+    };
+  } catch {
+    return {
+      price: result.price ?? null,
+      metadata: marketPriceMetadata(result.price),
+    };
+  }
+}
+
 async function findOrCreateSupabaseCard(
   supabase: SupabaseClient,
   gameId: string,
-  result: CardSearchResult
+  result: CardSearchResult,
+  gameSlug: string,
+  currency: Currency
 ): Promise<string> {
+  const { metadata } = await resolveStoredMarketPrice(gameSlug, result, currency);
+
   if (result.externalId) {
     const { data: existing } = await supabase
       .from("cards")
@@ -360,7 +404,7 @@ async function findOrCreateSupabaseCard(
           collector_number: result.collectorNumber,
           rarity: result.rarity,
           image_url: result.imageUrl,
-          metadata: marketPriceMetadata(result.price),
+          metadata,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -379,7 +423,7 @@ async function findOrCreateSupabaseCard(
       collector_number: result.collectorNumber,
       rarity: result.rarity,
       image_url: result.imageUrl,
-      metadata: marketPriceMetadata(result.price),
+      metadata,
     })
     .select("id")
     .single();
@@ -391,9 +435,17 @@ export async function addSupabaseCardFromSearch(
   supabase: SupabaseClient,
   collectionId: string,
   result: CardSearchResult,
-  gameId: string
+  gameId: string,
+  gameSlug: string,
+  currency: Currency
 ) {
-  const cardId = await findOrCreateSupabaseCard(supabase, gameId, result);
+  const cardId = await findOrCreateSupabaseCard(
+    supabase,
+    gameId,
+    result,
+    gameSlug,
+    currency
+  );
 
   if (result.externalId) {
     const { data: existingOwned } = await supabase
@@ -445,6 +497,8 @@ export async function updateSupabaseOwnedCard(
       setName?: string | null;
       setCode?: string | null;
       collectorNumber?: string | null;
+      imageUrl?: string | null;
+      externalId?: string | null;
     };
   }
 ) {
@@ -481,6 +535,8 @@ export async function updateSupabaseOwnedCard(
   if (updates.card?.collectorNumber !== undefined) {
     cardPayload.collector_number = updates.card.collectorNumber;
   }
+  if (updates.card?.imageUrl !== undefined) cardPayload.image_url = updates.card.imageUrl;
+  if (updates.card?.externalId !== undefined) cardPayload.external_id = updates.card.externalId;
   if (Object.keys(cardPayload).length > 1 && row?.card_id) {
     await supabase.from("cards").update(cardPayload).eq("id", row.card_id);
   }

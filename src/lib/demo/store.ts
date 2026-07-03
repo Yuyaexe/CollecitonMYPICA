@@ -202,7 +202,10 @@ export const useDemoStore = create<DemoStore>()(
           isFavorite: false,
           coverImageUrl: null,
         };
-        set((s) => ({ collections: [...s.collections, newCollection] }));
+        set((s) => ({
+          collections: [...s.collections, newCollection],
+          activeCollectionId: newCollection.id,
+        }));
         return newCollection;
       },
 

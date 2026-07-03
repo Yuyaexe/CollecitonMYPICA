@@ -1,4 +1,5 @@
 import type { DemoOwnedCard } from "@/lib/demo/types";
+import { buildYgoProDeckUrl } from "@/lib/yugioh/urls";
 
 export interface MarketplaceListing {
   source: string;
@@ -6,23 +7,53 @@ export interface MarketplaceListing {
   price: number | null;
   currency: string;
   url: string;
+  primary?: boolean;
 }
 
-export function buildMarketplaceListings(card: DemoOwnedCard["card"]): MarketplaceListing[] {
+export interface MarketplaceOptions {
+  cardTraderPrice?: number | null;
+  cardTraderCurrency?: string;
+  cardTraderUrl?: string | null;
+  ygoProDeckPrice?: number | null;
+  ygoProDeckUrl?: string | null;
+}
+
+export function buildMarketplaceListings(
+  card: DemoOwnedCard["card"],
+  options?: MarketplaceOptions
+): MarketplaceListing[] {
   const listings: MarketplaceListing[] = [];
   const encodedName = encodeURIComponent(card.name);
   const setPart = card.setName ? ` ${card.setName}` : "";
   const searchQuery = encodeURIComponent(`${card.name}${setPart}`.trim());
 
+  const cardTraderPrice = options?.cardTraderPrice ?? null;
+  const cardTraderCurrency = options?.cardTraderCurrency ?? "USD";
+  const cardTraderUrl =
+    options?.cardTraderUrl ??
+    `https://www.cardtrader.com/en/search?query=${searchQuery}`;
+
+  const ygoUrl =
+    options?.ygoProDeckUrl ?? buildYgoProDeckUrl(card.name, card.externalId);
+  const ygoPrice = options?.ygoProDeckPrice ?? null;
+
   switch (card.gameSlug) {
     case "yugioh":
       listings.push(
         {
-          source: "TCGPlayer",
-          name: "TCGPlayer",
-          price: card.marketPrice,
+          source: "CardTrader",
+          name: "CardTrader",
+          price: cardTraderPrice,
+          currency: cardTraderCurrency,
+          url: cardTraderUrl,
+          primary: true,
+        },
+        {
+          source: "YGOPRODeck",
+          name: "YGOPRODeck",
+          price: ygoPrice,
           currency: "USD",
-          url: `https://www.tcgplayer.com/search/yugioh/product?q=${searchQuery}`,
+          url: ygoUrl,
         },
         {
           source: "Cardmarket",
@@ -32,19 +63,25 @@ export function buildMarketplaceListings(card: DemoOwnedCard["card"]): Marketpla
           url: `https://www.cardmarket.com/en/YuGiOh/Products/Search?searchString=${searchQuery}`,
         },
         {
-          source: "YGOPRODeck",
-          name: "YGOPRODeck",
-          price: card.marketPrice,
+          source: "TCGPlayer",
+          name: "TCGPlayer",
+          price: null,
           currency: "USD",
-          url: card.externalId
-            ? `https://ygoprodeck.com/card/${card.externalId}`
-            : `https://ygoprodeck.com/card-database/?search=${searchQuery}`,
+          url: `https://www.tcgplayer.com/search/yugioh/product?q=${searchQuery}`,
         }
       );
       break;
 
     case "pokemon":
       listings.push(
+        {
+          source: "CardTrader",
+          name: "CardTrader",
+          price: cardTraderPrice,
+          currency: cardTraderCurrency,
+          url: cardTraderUrl,
+          primary: true,
+        },
         {
           source: "TCGPlayer",
           name: "TCGPlayer",
@@ -58,15 +95,6 @@ export function buildMarketplaceListings(card: DemoOwnedCard["card"]): Marketpla
           price: null,
           currency: "EUR",
           url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${searchQuery}`,
-        },
-        {
-          source: "PokemonTCG",
-          name: "Pokemon TCG API",
-          price: card.marketPrice,
-          currency: "USD",
-          url: card.externalId
-            ? `https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/series/${card.setCode ?? ""}/${card.externalId}`
-            : `https://www.tcgplayer.com/search/pokemon/product?q=${searchQuery}`,
         }
       );
       break;
@@ -74,20 +102,19 @@ export function buildMarketplaceListings(card: DemoOwnedCard["card"]): Marketpla
     case "digimon":
       listings.push(
         {
+          source: "CardTrader",
+          name: "CardTrader",
+          price: cardTraderPrice,
+          currency: cardTraderCurrency,
+          url: cardTraderUrl,
+          primary: true,
+        },
+        {
           source: "TCGPlayer",
           name: "TCGPlayer",
           price: card.marketPrice,
           currency: "USD",
           url: `https://www.tcgplayer.com/search/digimon-card-game/product?q=${searchQuery}`,
-        },
-        {
-          source: "DigimonCard",
-          name: "DigimonCard.io",
-          price: null,
-          currency: "USD",
-          url: card.collectorNumber
-            ? `https://digimoncard.io/card/${card.collectorNumber.toLowerCase()}`
-            : `https://digimoncard.io/card-database/?search=${encodedName}`,
         },
         {
           source: "Cardmarket",
@@ -100,23 +127,39 @@ export function buildMarketplaceListings(card: DemoOwnedCard["card"]): Marketpla
       break;
 
     default:
-      listings.push({
-        source: "TCGPlayer",
-        name: "TCGPlayer",
-        price: card.marketPrice,
-        currency: "USD",
-        url: `https://www.tcgplayer.com/search/all/product?q=${searchQuery}`,
-      });
+      listings.push(
+        {
+          source: "CardTrader",
+          name: "CardTrader",
+          price: cardTraderPrice,
+          currency: cardTraderCurrency,
+          url: cardTraderUrl,
+          primary: true,
+        },
+        {
+          source: "TCGPlayer",
+          name: "TCGPlayer",
+          price: card.marketPrice,
+          currency: "USD",
+          url: `https://www.tcgplayer.com/search/all/product?q=${searchQuery}`,
+        }
+      );
   }
 
   return listings;
 }
 
-export function getPrimaryMarketplaceUrl(card: DemoOwnedCard["card"]): string {
-  return buildMarketplaceListings(card)[0]?.url ?? "#";
+export function getPrimaryMarketplaceUrl(
+  card: DemoOwnedCard["card"],
+  options?: MarketplaceOptions
+): string {
+  return buildMarketplaceListings(card, options)[0]?.url ?? "#";
 }
 
-export function openMarketplaceInNewTab(card: DemoOwnedCard["card"]): void {
-  const url = getPrimaryMarketplaceUrl(card);
+export function openMarketplaceInNewTab(
+  card: DemoOwnedCard["card"],
+  options?: MarketplaceOptions
+): void {
+  const url = getPrimaryMarketplaceUrl(card, options);
   if (url !== "#") window.open(url, "_blank", "noopener,noreferrer");
 }

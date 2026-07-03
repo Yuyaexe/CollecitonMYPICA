@@ -55,10 +55,10 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   }, [open]);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["card-search", debouncedQuery, game.slug],
+    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency],
     queryFn: async () => {
       const res = await fetch(
-        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}`
+        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}`
       );
       const json = await res.json();
       if (!res.ok) {

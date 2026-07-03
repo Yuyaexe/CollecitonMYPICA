@@ -15,6 +15,10 @@ import { CollectionRow } from "@/components/shared/CollectionRow";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
+import {
+  resolveDisplayPrice,
+  useCardTraderPrices,
+} from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +54,17 @@ export function CollectionTable() {
     const f = filterOwnedCards(ownedCards, filters, activeCollectionId);
     return sortOwnedCards(f, sortField, sortDir);
   }, [ownedCards, filters, activeCollectionId, sortField, sortDir]);
+
+  const collectionCards = useMemo(
+    () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
+    [ownedCards, activeCollectionId]
+  );
+
+  const { data: cardTraderPrices } = useCardTraderPrices(
+    collectionCards,
+    profile.currency,
+    !isLoading && !isError
+  );
 
   const allIds = filtered.map((oc) => oc.id);
 
@@ -154,7 +169,7 @@ export function CollectionTable() {
         <span className="flex-[2]">Name</span>
         <span className="hidden min-w-[9rem] flex-[1.5] md:block">Set</span>
         <span className="hidden w-12 xl:block">#</span>
-        <span className="w-[88px] shrink-0 text-center">Qty</span>
+        <span className="w-[104px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>
         <span className="hidden w-10 text-center sm:block">Lang</span>
         <span className="hidden w-20 text-right lg:block">Market</span>
@@ -181,6 +196,7 @@ export function CollectionTable() {
                       item={item}
                       selected={selectedIds.has(item.id)}
                       focused={focusedRowIndex === virtualRow.index}
+                      marketPrice={resolveDisplayPrice(item, cardTraderPrices)}
                       onClick={(row, modifiers) =>
                         selectRow(row.id, modifiers, allIds, virtualRow.index)
                       }

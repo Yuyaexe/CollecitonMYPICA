@@ -50,6 +50,7 @@ export function useAppData() {
   const {
     data: serverState,
     isLoading: stateLoading,
+    isFetching: stateFetching,
     isError: stateError,
   } = useQuery({
     queryKey: ["app-state"],
@@ -94,16 +95,17 @@ export function useAppData() {
     if (
       isSupabaseMode &&
       serverState &&
-      resolvedActiveId &&
-      activeCollectionId !== resolvedActiveId &&
+      !stateFetching &&
+      activeCollectionId &&
       !collections.some((c) => c.id === activeCollectionId)
     ) {
-      setActiveCollectionId(resolvedActiveId);
+      const fallback = collections.find((c) => c.isDefault) ?? collections[0];
+      if (fallback?.id) setActiveCollectionId(fallback.id);
     }
   }, [
     isSupabaseMode,
     serverState,
-    resolvedActiveId,
+    stateFetching,
     activeCollectionId,
     collections,
     setActiveCollectionId,
@@ -181,7 +183,19 @@ export function useAppData() {
       if (!res.ok) throw new Error(json.error ?? "Failed to create collection");
       return json as DemoCollection;
     },
-    onSuccess: invalidate,
+    onSuccess: (created) => {
+      if (isSupabaseMode) {
+        queryClient.setQueryData<AppState>(["app-state"], (prev) => {
+          if (!prev) return prev;
+          if (prev.collections.some((c) => c.id === created.id)) return prev;
+          return { ...prev, collections: [...prev.collections, created] };
+        });
+      } else {
+        demo.setActiveCollection(created.id);
+      }
+      setActiveCollectionId(created.id);
+      void queryClient.invalidateQueries({ queryKey: ["app-state"] });
+    },
   });
 
   const toggleFavoriteMutation = useMutation({

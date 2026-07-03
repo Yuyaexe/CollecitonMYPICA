@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!isApiSupported(game)) {
-    return NextResponse.json({ result: null });
+    return NextResponse.json({ result: null, relatedPrints: [] });
   }
 
   const adapter = getCardAdapter(game);
@@ -21,7 +21,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await adapter.getById(id);
-    return NextResponse.json({ result });
+    if (!result) {
+      return NextResponse.json({ result: null, relatedPrints: [] });
+    }
+
+    let relatedPrints: Awaited<ReturnType<typeof adapter.search>> = [];
+    if (game === "yugioh" && result.name) {
+      const prints = await adapter.search(result.name);
+      relatedPrints = prints.filter((p) => p.externalId !== result.externalId);
+    }
+
+    return NextResponse.json({ result, relatedPrints });
   } catch {
     return NextResponse.json({ error: "Failed to load card" }, { status: 500 });
   }

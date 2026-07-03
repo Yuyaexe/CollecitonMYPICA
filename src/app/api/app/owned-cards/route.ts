@@ -11,7 +11,7 @@ import {
   updateSupabaseOwnedCard,
 } from "@/lib/data/server/supabase-service";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
-import type { CardCondition, CardLanguage } from "@/types/tcg";
+import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
 
 export async function POST(request: NextRequest) {
   const ctx = await getDataContext();
@@ -26,12 +26,29 @@ export async function POST(request: NextRequest) {
     requireUserId(ctx);
 
     if (action === "add-from-search") {
-      const { collectionId, result, gameId } = body as {
+      const { collectionId, result, gameId, gameSlug } = body as {
         collectionId: string;
         result: CardSearchResult;
         gameId: string;
+        gameSlug: string;
       };
-      await addSupabaseCardFromSearch(supabase, collectionId, result, gameId);
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("currency")
+        .eq("user_id", requireUserId(ctx))
+        .maybeSingle();
+
+      const currency = (profileRow?.currency as Currency | undefined) ?? "USD";
+
+      await addSupabaseCardFromSearch(
+        supabase,
+        collectionId,
+        result,
+        gameId,
+        gameSlug,
+        currency
+      );
       return NextResponse.json({ ok: true });
     }
 

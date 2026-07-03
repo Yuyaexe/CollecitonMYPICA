@@ -16,7 +16,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useAppData } from "@/hooks/useAppData";
-import { useDataUiStore } from "@/lib/data/ui-store";
 import { toast } from "sonner";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
 
@@ -101,7 +100,6 @@ export function CollectionManager() {
     try {
       const created = await addCollection(trimmed);
       setActiveCollection(created.id);
-      useDataUiStore.getState().setActiveCollectionId(created.id);
       setNewName("");
       setCreateOpen(false);
       toast.success(`Coleção "${trimmed}" criada`);

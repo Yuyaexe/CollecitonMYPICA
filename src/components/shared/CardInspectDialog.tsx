@@ -20,14 +20,25 @@ import {
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
+import {
+  resolveDisplayPrice,
+  resolveCardTraderUrl,
+  resolveCardTraderImage,
+  cardPriceKey,
+  useCardTraderPrices,
+} from "@/features/market/hooks/useCardTraderPrices";
 import { isApiSupported } from "@/features/catalog/services/card-api";
-import { getSearchResultVariants } from "@/features/catalog/services/card-api/variants";
+import {
+  findVariantForSelection,
+  getSearchResultVariants,
+} from "@/features/catalog/services/card-api/variants";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency } from "@/lib/utils";
+import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
 
@@ -39,16 +50,20 @@ interface CardInspectDialogProps {
   currency: Currency;
 }
 
+interface CardDetailResponse {
+  result: CardSearchResult | null;
+  relatedPrints: CardSearchResult[];
+}
+
 async function fetchCardDetail(
   externalId: string,
   gameSlug: string
-): Promise<CardSearchResult | null> {
+): Promise<CardDetailResponse> {
   const res = await fetch(
     `/api/cards/detail?id=${encodeURIComponent(externalId)}&game=${encodeURIComponent(gameSlug)}`
   );
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.result ?? null;
+  if (!res.ok) return { result: null, relatedPrints: [] };
+  return res.json();
 }
 
 export function CardInspectDialog({
@@ -61,7 +76,13 @@ export function CardInspectDialog({
   const { ownedCards, activeCollectionId, updateOwnedCard } = useAppData();
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
-  const { data: cardDetail } = useQuery({
+  const { data: cardTraderPrices } = useCardTraderPrices(
+    card ? [card] : [],
+    currency,
+    open
+  );
+
+  const { data: cardDetailData } = useQuery({
     queryKey: ["card-detail", card?.card.externalId, card?.card.gameSlug],
     queryFn: () => fetchCardDetail(card!.card.externalId!, card!.card.gameSlug),
     enabled:
@@ -70,6 +91,24 @@ export function CardInspectDialog({
       isApiSupported(card.card.gameSlug),
     staleTime: 10 * 60 * 1000,
   });
+
+  const cardDetail = cardDetailData?.result ?? null;
+
+  const printVariants = useMemo(() => {
+    if (!cardDetail || !card) return [];
+    const relatedPrints = cardDetailData?.relatedPrints ?? [];
+    return getSearchResultVariants(cardDetail, card.card.gameSlug, relatedPrints);
+  }, [cardDetail, card, cardDetailData?.relatedPrints]);
+
+  const activeVariant = useMemo(() => {
+    if (!card) return undefined;
+    return findVariantForSelection(
+      printVariants,
+      card.card.rarity ?? "",
+      card.card.setCode,
+      card.card.setName
+    );
+  }, [printVariants, card]);
 
   const collectionRarities = useMemo(() => {
     if (!activeCollectionId) return [];
@@ -83,16 +122,8 @@ export function CardInspectDialog({
   }, [ownedCards, activeCollectionId]);
 
   const apiRarities = useMemo(() => {
-    if (!cardDetail || !card) return [];
-    const variants = getSearchResultVariants(cardDetail, card.card.gameSlug);
-    const samePrint = variants.filter(
-      (v) =>
-        (card.card.setCode && v.setCode === card.card.setCode) ||
-        (card.card.setName && v.setName === card.card.setName)
-    );
-    const source = samePrint.length > 0 ? samePrint : variants;
-    return [...new Set(source.map((v) => v.rarity).filter(Boolean))] as string[];
-  }, [cardDetail, card]);
+    return [...new Set(printVariants.map((v) => v.rarity).filter(Boolean))] as string[];
+  }, [printVariants]);
 
   useEffect(() => {
     if (open && tab === "marketplace") {
@@ -102,11 +133,59 @@ export function CardInspectDialog({
 
   if (!card) return null;
 
+  const cardTraderQuote = cardTraderPrices?.get(cardPriceKey(card));
+  const displayPrice = cardTraderQuote?.price ?? resolveDisplayPrice(card, cardTraderPrices);
+  const ygoSecondaryPrice = activeVariant?.price ?? null;
+
+  const displayImage =
+    cardTraderQuote?.imageUrl ??
+    resolveCardTraderImage(card, cardTraderPrices) ??
+    activeVariant?.imageUrl ??
+    buildYgoImageUrl(
+      activeVariant?.externalId ?? card.card.externalId,
+      pickYgoImageSizeForRarity(card.card.rarity)
+    ) ??
+    card.card.imageUrl;
+
+  const listings = buildMarketplaceListings(card.card, {
+    cardTraderPrice: displayPrice,
+    cardTraderCurrency: currency,
+    cardTraderUrl: resolveCardTraderUrl(card, cardTraderPrices),
+    ygoProDeckPrice: ygoSecondaryPrice,
+    ygoProDeckUrl: activeVariant?.ygoProDeckUrl,
+  });
+
   const rarityOptions = [
     ...new Set([...apiRarities, ...collectionRarities, card.card.rarity].filter(Boolean)),
   ] as string[];
 
-  const listings = buildMarketplaceListings(card.card);
+  const handleRarityChange = (rarity: string) => {
+    const variant = findVariantForSelection(
+      printVariants,
+      rarity,
+      card.card.setCode,
+      card.card.setName
+    );
+
+    const imageUrl =
+      variant?.imageUrl ??
+      buildYgoImageUrl(
+        variant?.externalId ?? card.card.externalId,
+        pickYgoImageSizeForRarity(rarity)
+      ) ??
+      card.card.imageUrl;
+
+    updateOwnedCard(card.id, {
+      card: {
+        rarity: rarity || null,
+        setName: variant?.setName ?? card.card.setName,
+        setCode: variant?.setCode ?? card.card.setCode,
+        collectorNumber: variant?.setCode ?? card.card.collectorNumber,
+        externalId: variant?.externalId ?? card.card.externalId,
+        imageUrl,
+      },
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,10 +193,9 @@ export function CardInspectDialog({
         <DialogTitle className="sr-only">{card.card.name}</DialogTitle>
 
         <div className="flex flex-col md:flex-row">
-          {/* Left — card preview */}
           <div className="flex shrink-0 flex-col items-center border-b border-border/60 bg-muted/20 p-6 md:w-[240px] md:border-b-0 md:border-r">
             <CardImage
-              src={card.card.imageUrl}
+              src={displayImage}
               alt={card.card.name}
               width={160}
               height={224}
@@ -136,15 +214,22 @@ export function CardInspectDialog({
                 <dd className="font-medium">{card.card.collectorNumber ?? "—"}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Market</dt>
+                <dt className="text-muted-foreground">CardTrader</dt>
                 <dd>
-                  <PriceBadge price={card.card.marketPrice} currency={currency} />
+                  <PriceBadge price={displayPrice} currency={currency} />
                 </dd>
               </div>
+              {ygoSecondaryPrice != null && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">YGOPRODeck</dt>
+                  <dd>
+                    <PriceBadge price={ygoSecondaryPrice} currency="USD" />
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 
-          {/* Right — marketplace + edits */}
           <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
             <div ref={marketplaceRef} className="space-y-3">
               <h3 className="text-sm font-semibold">Marketplace</h3>
@@ -157,14 +242,21 @@ export function CardInspectDialog({
                     rel="noopener noreferrer"
                     className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
                   >
-                    <span className="text-sm font-medium">{listing.name}</span>
+                    <span className="text-sm font-medium">
+                      {listing.name}
+                      {listing.primary && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
+                          Principal
+                        </span>
+                      )}
+                    </span>
                     <div className="flex items-center gap-2">
                       {listing.price !== null ? (
                         <span className="text-sm tabular-nums text-muted-foreground">
                           {formatCurrency(listing.price, listing.currency as Currency)}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">View</span>
+                        <span className="text-xs text-muted-foreground">Abrir</span>
                       )}
                       <ExternalLink className="h-4 w-4 text-muted-foreground" />
                     </div>
@@ -179,9 +271,7 @@ export function CardInspectDialog({
                 {rarityOptions.length > 0 ? (
                   <Select
                     value={card.card.rarity ?? ""}
-                    onValueChange={(v) =>
-                      updateOwnedCard(card.id, { card: { rarity: v || null } })
-                    }
+                    onValueChange={handleRarityChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select rarity" />
@@ -198,9 +288,7 @@ export function CardInspectDialog({
                   <Input
                     value={card.card.rarity ?? ""}
                     placeholder="e.g. Ultra Rare"
-                    onChange={(e) =>
-                      updateOwnedCard(card.id, { card: { rarity: e.target.value || null } })
-                    }
+                    onChange={(e) => handleRarityChange(e.target.value || "")}
                   />
                 )}
               </div>
