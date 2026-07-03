@@ -36,7 +36,7 @@ import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency, cn } from "@/lib/utils";
-import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
+import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
 
 export type CardInspectTab = "details" | "marketplace";
 
@@ -137,14 +137,11 @@ export function CardInspectDialog({
   const displayPrice = activeQuote?.price ?? card.card.marketPrice;
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
-  const displayImage =
-    activeQuote?.imageUrl ??
-    activeVariant?.imageUrl ??
-    buildYgoImageUrl(
-      activeVariant?.externalId ?? card.card.externalId,
-      pickYgoImageSizeForRarity(card.card.rarity)
-    ) ??
-    card.card.imageUrl;
+  const displayImage = resolveCardDisplayImage(card.card, {
+    quoteImage: activeQuote?.imageUrl,
+    variantImage: activeVariant?.imageUrl,
+    detailImage: cardDetail?.imageUrl,
+  });
 
   const listings = buildMarketplaceListings(card.card, {
     cardTraderPrice: displayPrice,
@@ -156,11 +153,11 @@ export function CardInspectDialog({
 
   const handleVariantSelect = (variant: CardPrintVariant) => {
     const quote = variantPrices?.get(variant.key);
-    const imageUrl =
-      quote?.imageUrl ??
-      variant.imageUrl ??
-      buildYgoImageUrl(variant.externalId ?? card.card.externalId, pickYgoImageSizeForRarity(variant.rarity)) ??
-      card.card.imageUrl;
+    const imageUrl = resolveCardDisplayImage(card.card, {
+      quoteImage: quote?.imageUrl,
+      variantImage: variant.imageUrl,
+      detailImage: cardDetail?.imageUrl,
+    });
 
     updateOwnedCard(card.id, {
       card: {
