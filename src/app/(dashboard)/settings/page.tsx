@@ -177,7 +177,8 @@ export default function SettingsPage() {
           <h2 className="text-base font-semibold sm:text-lg">Backup</h2>
           <p className="text-sm text-muted-foreground">
             Baixa um arquivo JSON com perfil, coleções e cartas. Guarde em nuvem
-            (Google Drive, OneDrive) ou pendrive.
+            (Google Drive, OneDrive) ou pendrive. Também aceita export JSON de
+            listas CardTrader (backupVersion: 1 com pastas).
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

@@ -2,10 +2,18 @@ import {
   BACKUP_VERSION,
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
+import {
+  convertExternalWishlistToDeckVault,
+  isExternalWishlistBackup,
+} from "@/features/import/services/external-wishlist-converter";
 
 export function parseBackupJson(raw: unknown): DeckVaultBackup {
   if (!raw || typeof raw !== "object") {
     throw new Error("Arquivo JSON inválido");
+  }
+
+  if (isExternalWishlistBackup(raw)) {
+    return convertExternalWishlistToDeckVault(raw);
   }
 
   const backup = raw as DeckVaultBackup;

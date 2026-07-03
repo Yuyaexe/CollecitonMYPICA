@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "verify": "node scripts/verify-deckvault.mjs",
+    "convert-backup": "node scripts/convert-external-backup.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:sql": "node scripts/run-sql.mjs",
