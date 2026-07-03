@@ -4,6 +4,20 @@ export function isCardTraderConfigured(): boolean {
   return Boolean(process.env.CARDTRADER_API_TOKEN?.trim());
 }
 
+/** CardTrader wraps list endpoints as `{ array: T[] }` instead of a raw array. */
+export function unwrapCardTraderList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (
+    data &&
+    typeof data === "object" &&
+    "array" in data &&
+    Array.isArray((data as { array: unknown }).array)
+  ) {
+    return (data as { array: T[] }).array;
+  }
+  return [];
+}
+
 export async function cardTraderFetch<T>(
   path: string,
   params?: Record<string, string>

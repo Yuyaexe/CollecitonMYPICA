@@ -1,4 +1,4 @@
-import { cardTraderFetch } from "./client";
+import { cardTraderFetch, unwrapCardTraderList } from "./client";
 import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTraderGame } from "./types";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -37,7 +37,8 @@ function isFresh<T>(entry: CacheEntry<T> | null | undefined): entry is CacheEntr
 
 async function getGames(): Promise<CardTraderGame[]> {
   if (isFresh(gamesCache)) return gamesCache.data;
-  const data = await cardTraderFetch<CardTraderGame[]>("/games");
+  const raw = await cardTraderFetch<unknown>("/games");
+  const data = unwrapCardTraderList<CardTraderGame>(raw);
   gamesCache = { data, expires: Date.now() + TTL_MS };
   return data;
 }
@@ -56,9 +57,10 @@ async function getExpansions(gameId: number): Promise<CardTraderExpansion[]> {
   const cached = expansionsByGame.get(gameId);
   if (isFresh(cached)) return cached.data;
 
-  const data = await cardTraderFetch<CardTraderExpansion[]>("/expansions", {
+  const raw = await cardTraderFetch<unknown>("/expansions", {
     game_id: String(gameId),
   });
+  const data = unwrapCardTraderList<CardTraderExpansion>(raw);
   expansionsByGame.set(gameId, { data, expires: Date.now() + TTL_MS });
   return data;
 }
@@ -67,9 +69,10 @@ async function getBlueprints(expansionId: number): Promise<CardTraderBlueprint[]
   const cached = blueprintsByExpansion.get(expansionId);
   if (isFresh(cached)) return cached.data;
 
-  const data = await cardTraderFetch<CardTraderBlueprint[]>("/blueprints/export", {
+  const raw = await cardTraderFetch<unknown>("/blueprints/export", {
     expansion_id: String(expansionId),
   });
+  const data = unwrapCardTraderList<CardTraderBlueprint>(raw);
   for (const blueprint of data) {
     if (blueprint.image_url) {
       blueprintImageCache.set(blueprint.id, blueprint.image_url);
@@ -107,12 +110,23 @@ function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null,
   return score;
 }
 
-function scoreBlueprint(blueprint: CardTraderBlueprint, cardName: string): number {
+function scoreBlueprint(
+  blueprint: CardTraderBlueprint,
+  cardName: string,
+  setCode?: string | null
+): number {
   const a = normalize(blueprint.name);
   const b = normalize(cardName);
-  if (a === b) return 100;
-  if (a.includes(b) || b.includes(a)) return 70;
-  return 0;
+  let score = 0;
+  if (a === b) score += 100;
+  else if (a.includes(b) || b.includes(a)) score += 70;
+
+  if (setCode) {
+    const code = normalize(setCode);
+    if (a.includes(code)) score += 90;
+  }
+
+  return score;
 }
 
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
@@ -143,7 +157,10 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
   for (const { expansion } of candidates) {
     const blueprints = await getBlueprints(expansion.id);
     const best = blueprints
-      .map((blueprint) => ({ blueprint, score: scoreBlueprint(blueprint, input.name) }))
+      .map((blueprint) => ({
+        blueprint,
+        score: scoreBlueprint(blueprint, input.name, input.setCode),
+      }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)[0];
 

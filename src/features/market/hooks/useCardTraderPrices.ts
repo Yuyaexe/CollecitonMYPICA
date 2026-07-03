@@ -13,7 +13,8 @@ interface CardTraderQuote {
   imageUrl?: string | null;
 }
 
-const BATCH_SIZE = 12;
+const BATCH_SIZE = 8;
+const PARALLEL_BATCHES = 2;
 const MAX_CARDS = 48;
 
 export function cardPriceKey(card: DemoOwnedCard): string {
@@ -99,17 +100,28 @@ export function useCardTraderVariantPrices(
     staleTime: 30 * 60 * 1000,
     queryFn: async () => {
       const merged = new Map<string, CardTraderQuote>();
+      const chunks: Array<typeof variants> = [];
       for (let i = 0; i < variants.length; i += BATCH_SIZE) {
-        const batch = variants.slice(i, i + BATCH_SIZE);
-        const keys = batch.map((v) => v.key);
-        const inputs: CardPriceInput[] = batch.map((v) => ({
-          gameSlug,
-          name: cardName,
-          setName: v.setName,
-          setCode: v.setCode,
-        }));
-        const batchMap = await fetchPriceBatchByInput(inputs, keys, currency);
-        batchMap.forEach((value, key) => merged.set(key, value));
+        chunks.push(variants.slice(i, i + BATCH_SIZE));
+      }
+
+      for (let i = 0; i < chunks.length; i += PARALLEL_BATCHES) {
+        const parallel = chunks.slice(i, i + PARALLEL_BATCHES);
+        const results = await Promise.all(
+          parallel.map(async (batch) => {
+            const keys = batch.map((v) => v.key);
+            const inputs: CardPriceInput[] = batch.map((v) => ({
+              gameSlug,
+              name: cardName,
+              setName: v.setName,
+              setCode: v.setCode,
+            }));
+            return fetchPriceBatchByInput(inputs, keys, currency);
+          })
+        );
+        results.forEach((batchMap) => {
+          batchMap.forEach((value, key) => merged.set(key, value));
+        });
       }
       return merged;
     },

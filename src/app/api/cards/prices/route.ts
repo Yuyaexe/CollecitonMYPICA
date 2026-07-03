@@ -7,6 +7,7 @@ import type { CardPriceInput } from "@/lib/cardtrader";
 import type { Currency } from "@/types/tcg";
 
 const MAX_BATCH = 12;
+const BATCH_DELAY_MS = 50;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
         prices.push(null);
       }
       if (i < cards.length - 1) {
-        await sleep(150);
+        await sleep(BATCH_DELAY_MS);
       }
     }
 

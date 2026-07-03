@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.digimoncard.io" },
       { protocol: "https", hostname: "digimoncard.io" },
       { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "https", hostname: "**.cardtrader.com" },
+      { protocol: "https", hostname: "product-images.cardtrader.com" },
     ],
   },
 };
