@@ -52,6 +52,31 @@ async function findOrCreateSupabaseCardFromDemo(
   return inserted.id;
 }
 
+function catalogKey(card: DemoCard): string {
+  return `${card.gameId}:${card.externalId ?? card.name}`;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let index = 0;
+
+  async function worker() {
+    while (index < items.length) {
+      const current = index++;
+      results[current] = await fn(items[current]!);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+  return results;
+}
+
 export async function restoreSupabaseBackup(
   supabase: SupabaseClient,
   userId: string,
@@ -80,7 +105,7 @@ export async function restoreSupabaseBackup(
         .insert({
           user_id: userId,
           name: bc.name,
-          is_default: false,
+          is_default: bc.isDefault,
           is_favorite: bc.isFavorite,
         })
         .select("id")
@@ -90,49 +115,94 @@ export async function restoreSupabaseBackup(
     }
   }
 
-  const cardIdMap = new Map<string, string>();
-  let importedCards = 0;
+  const uniqueCards = new Map<string, DemoCard>();
+  for (const oc of backup.ownedCards) {
+    const key = catalogKey(oc.card);
+    if (!uniqueCards.has(key)) uniqueCards.set(key, oc.card);
+  }
+
+  const catalogEntries = [...uniqueCards.entries()];
+  const resolvedIds = await mapWithConcurrency(catalogEntries, 12, async ([, card]) =>
+    findOrCreateSupabaseCardFromDemo(supabase, card)
+  );
+
+  const catalogIdByKey = new Map<string, string>();
+  catalogEntries.forEach(([key], i) => {
+    catalogIdByKey.set(key, resolvedIds[i]!);
+  });
+
+  type AggregatedOwned = {
+    collectionId: string;
+    cardId: string;
+    quantity: number;
+    condition: string;
+    language: string;
+    isFoil: boolean;
+    purchasePrice: number | null;
+    notes: string | null;
+  };
+
+  const aggregated = new Map<string, AggregatedOwned>();
 
   for (const oc of backup.ownedCards) {
     const collectionId = collectionMap.get(oc.collectionId);
-    if (!collectionId) continue;
+    const cardId = catalogIdByKey.get(catalogKey(oc.card));
+    if (!collectionId || !cardId) continue;
 
-    let cardId = cardIdMap.get(oc.cardId);
-    if (!cardId) {
-      cardId = await findOrCreateSupabaseCardFromDemo(supabase, oc.card);
-      cardIdMap.set(oc.cardId, cardId);
+    const aggKey = `${collectionId}:${cardId}`;
+    const existing = aggregated.get(aggKey);
+    if (existing) {
+      existing.quantity += oc.quantity;
+      continue;
     }
 
+    aggregated.set(aggKey, {
+      collectionId,
+      cardId,
+      quantity: oc.quantity,
+      condition: oc.condition,
+      language: oc.language,
+      isFoil: oc.isFoil,
+      purchasePrice: oc.purchasePrice,
+      notes: oc.notes,
+    });
+  }
+
+  const rows = [...aggregated.values()];
+  let importedCards = 0;
+
+  await mapWithConcurrency(rows, 8, async (row) => {
     const { data: existingOwned } = await supabase
       .from("owned_cards")
       .select("id, quantity")
-      .eq("collection_id", collectionId)
-      .eq("card_id", cardId)
+      .eq("collection_id", row.collectionId)
+      .eq("card_id", row.cardId)
       .maybeSingle();
 
     if (existingOwned) {
-      await supabase
+      const { error } = await supabase
         .from("owned_cards")
         .update({
-          quantity: existingOwned.quantity + oc.quantity,
+          quantity: existingOwned.quantity + row.quantity,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingOwned.id);
+      if (error) throw error;
     } else {
       const { error } = await supabase.from("owned_cards").insert({
-        collection_id: collectionId,
-        card_id: cardId,
-        quantity: oc.quantity,
-        condition: oc.condition,
-        language: oc.language,
-        is_foil: oc.isFoil,
-        purchase_price: oc.purchasePrice,
-        notes: oc.notes,
+        collection_id: row.collectionId,
+        card_id: row.cardId,
+        quantity: row.quantity,
+        condition: row.condition,
+        language: row.language,
+        is_foil: row.isFoil,
+        purchase_price: row.purchasePrice,
+        notes: row.notes,
       });
       if (error) throw error;
     }
     importedCards++;
-  }
+  });
 
   return { importedCards, collections: backup.collections.length };
 }

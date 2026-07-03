@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * Convert CardTrader wishlist JSON (backupVersion: 1) to DeckVault backup format.
+ * One collection per tab — all folders merged.
  *
  * Usage:
  *   node scripts/convert-external-backup.mjs input.json [output.json]
+ *   node scripts/convert-external-backup.mjs --merge deckvault_backup.json
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -42,6 +44,10 @@ function isExternalWishlistBackup(raw) {
   );
 }
 
+function isDeckVaultBackup(raw) {
+  return raw && typeof raw === "object" && raw.version === "1.0" && Array.isArray(raw.collections);
+}
+
 function rarityFromDetailUrl(url) {
   if (!url) return null;
   const slug = url.split("/").pop()?.toLowerCase() ?? "";
@@ -54,9 +60,7 @@ function rarityFromDetailUrl(url) {
 function detectCurrency(tabs) {
   for (const tab of tabs) {
     for (const entry of walkItems(tab.items)) {
-      if (entry.pricing?.cheapestPriceCents != null && entry.pricing?.cheapestPriceCurrency === "BRL") {
-        return "BRL";
-      }
+      if (entry.pricing?.cheapestPriceCurrency === "BRL") return "BRL";
     }
   }
   return "USD";
@@ -72,11 +76,8 @@ function* walkItems(items) {
   }
 }
 
-function collectionLabel(tabName, folderLabel, multipleTabs) {
-  const folder = folderLabel.trim() || "Sem pasta";
-  if (!multipleTabs) return folder;
-  const tab = tabName.trim() || "Coleção";
-  return `${tab} · ${folder}`;
+function cardMergeKey(card) {
+  return card.cardTraderBlueprintId ?? card.externalId ?? card.name;
 }
 
 function cardEntryToOwned(entry, collectionId) {
@@ -116,57 +117,79 @@ function cardEntryToOwned(entry, collectionId) {
   };
 }
 
-function processFolder(folder, tabName, multipleTabs, collections, ownedCards, makeDefault) {
-  const collectionId = randomUUID();
-  collections.push({
-    id: collectionId,
-    name: collectionLabel(tabName, folder.label, multipleTabs),
-    isDefault: makeDefault.value,
-    isFavorite: makeDefault.value,
-    coverImageUrl: null,
-  });
-  makeDefault.value = false;
-
-  for (const item of folder.items) {
-    if (item.type === "folder") {
-      processFolder(item, tabName, multipleTabs, collections, ownedCards, makeDefault);
-    } else if (item.card?.name) {
-      ownedCards.push(cardEntryToOwned(item, collectionId));
-    }
+function mergeOwnedInto(target, owned) {
+  const key = `${owned.collectionId}:${cardMergeKey(owned.card)}`;
+  const existing = target.get(key);
+  if (!existing) {
+    target.set(key, owned);
+    return;
   }
+  existing.quantity += owned.quantity;
+}
+
+function mergeDeckVaultCollectionsByTab(backup) {
+  if (backup.collections.length <= 1) return backup;
+
+  const tabToOldIds = new Map();
+  for (const col of backup.collections) {
+    const sep = col.name.indexOf(" · ");
+    const tabName = sep >= 0 ? col.name.slice(0, sep).trim() : col.name.trim();
+    const list = tabToOldIds.get(tabName) ?? [];
+    list.push(col.id);
+    tabToOldIds.set(tabName, list);
+  }
+
+  if (tabToOldIds.size === backup.collections.length) return backup;
+
+  const oldToNew = new Map();
+  const collections = [];
+  let isFirst = true;
+
+  for (const tabName of tabToOldIds.keys()) {
+    const collectionId = randomUUID();
+    collections.push({
+      id: collectionId,
+      name: tabName,
+      isDefault: isFirst,
+      isFavorite: isFirst,
+      coverImageUrl: null,
+    });
+    for (const oldId of tabToOldIds.get(tabName) ?? []) {
+      oldToNew.set(oldId, collectionId);
+    }
+    isFirst = false;
+  }
+
+  const merged = new Map();
+  for (const oc of backup.ownedCards) {
+    const collectionId = oldToNew.get(oc.collectionId);
+    if (!collectionId) continue;
+    mergeOwnedInto(merged, { ...oc, collectionId });
+  }
+
+  return { ...backup, collections, ownedCards: [...merged.values()] };
 }
 
 function convert(source) {
   const tabs = source.collection.tabs ?? [];
-  const multipleTabs = tabs.length > 1;
   const collections = [];
-  const ownedCards = [];
-  const makeDefault = { value: true };
+  const mergedCards = new Map();
+  let makeDefault = true;
 
   for (const tab of tabs) {
-    const looseCards = [];
+    const collectionId = randomUUID();
+    const tabName = tab.name.trim() || "Coleção";
+    collections.push({
+      id: collectionId,
+      name: tabName,
+      isDefault: makeDefault,
+      isFavorite: makeDefault,
+      coverImageUrl: null,
+    });
+    makeDefault = false;
 
-    for (const item of tab.items) {
-      if (item.type === "folder") {
-        processFolder(item, tab.name, multipleTabs, collections, ownedCards, makeDefault);
-      } else if (item.card?.name) {
-        looseCards.push(item);
-      }
-    }
-
-    if (looseCards.length > 0) {
-      const collectionId = randomUUID();
-      collections.push({
-        id: collectionId,
-        name: tab.name.trim() || "Coleção",
-        isDefault: makeDefault.value,
-        isFavorite: makeDefault.value,
-        coverImageUrl: null,
-      });
-      makeDefault.value = false;
-      for (const entry of looseCards) {
-        ownedCards.push(cardEntryToOwned(entry, collectionId));
-      }
+    for (const entry of walkItems(tab.items)) {
+      mergeOwnedInto(mergedCards, cardEntryToOwned(entry, collectionId));
     }
   }
 
@@ -180,24 +203,30 @@ function convert(source) {
       defaultGameId: YGO.id,
     },
     collections,
-    ownedCards,
+    ownedCards: [...mergedCards.values()],
     tags: [],
   };
 }
 
 function main() {
-  const inputPath = process.argv[2];
+  const mergeOnly = process.argv[2] === "--merge";
+  const inputPath = mergeOnly ? process.argv[3] : process.argv[2];
+
   if (!inputPath) {
-    console.error("Uso: node scripts/convert-external-backup.mjs <input.json> [output.json]");
+    console.error(
+      "Uso:\n  node scripts/convert-external-backup.mjs <wishlist.json> [output.json]\n  node scripts/convert-external-backup.mjs --merge <deckvault_backup.json> [output.json]"
+    );
     process.exitCode = 1;
     return;
   }
 
   const outputPath =
-    process.argv[3] ??
+    process.argv[mergeOnly ? 4 : 3] ??
     resolve(
       process.cwd(),
-      `deckvault_backup_${new Date().toISOString().slice(0, 10)}.json`
+      mergeOnly
+        ? `deckvault_backup_merged_${new Date().toISOString().slice(0, 10)}.json`
+        : `deckvault_backup_${new Date().toISOString().slice(0, 10)}.json`
     );
 
   let raw;
@@ -209,21 +238,33 @@ function main() {
     return;
   }
 
-  if (!isExternalWishlistBackup(raw)) {
+  let backup;
+  if (mergeOnly) {
+    if (!isDeckVaultBackup(raw)) {
+      console.error("Arquivo não é um backup DeckVault (version 1.0).");
+      process.exitCode = 1;
+      return;
+    }
+    backup = mergeDeckVaultCollectionsByTab(raw);
+  } else if (isExternalWishlistBackup(raw)) {
+    backup = convert(raw);
+  } else if (isDeckVaultBackup(raw)) {
+    backup = mergeDeckVaultCollectionsByTab(raw);
+  } else {
     console.error(
-      "JSON não reconhecido. Esperado backupVersion: 1 com collection.tabs (export CardTrader/wishlist)."
+      "JSON não reconhecido. Use wishlist (backupVersion: 1) ou backup DeckVault."
     );
     process.exitCode = 1;
     return;
   }
 
-  const backup = convert(raw);
   writeFileSync(outputPath, JSON.stringify(backup, null, 2), "utf8");
 
   console.log(`Backup DeckVault salvo em: ${outputPath}`);
   console.log(
     `${backup.ownedCards.length} cartas · ${backup.collections.length} coleções · moeda ${backup.profile.currency}`
   );
+  console.log("Coleções:", backup.collections.map((c) => c.name).join(", "));
 }
 
 main();

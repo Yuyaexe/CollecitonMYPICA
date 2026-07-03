@@ -117,23 +117,15 @@ function* walkItems(items: ExternalWishlistItem[]): Generator<ExternalWishlistCa
   }
 }
 
-function collectionLabel(
-  tabName: string,
-  folderLabel: string,
-  multipleTabs: boolean
-): string {
-  const folder = folderLabel.trim() || "Sem pasta";
-  if (!multipleTabs) return folder;
-  const tab = tabName.trim() || "Coleção";
-  return `${tab} · ${folder}`;
+function cardMergeKey(card: DemoOwnedCard["card"]): string {
+  return card.cardTraderBlueprintId ?? card.externalId ?? card.name;
 }
 
 function cardEntryToOwned(
   entry: ExternalWishlistCardEntry,
   collectionId: string
 ): DemoOwnedCard {
-  const blueprintId =
-    entry.card.id > 0 ? String(entry.card.id) : null;
+  const blueprintId = entry.card.id > 0 ? String(entry.card.id) : null;
   const imageUrl = entry.card.card_images?.[0]?.image_url ?? null;
   const cents = entry.pricing?.cheapestPriceCents;
   const marketPrice =
@@ -169,68 +161,95 @@ function cardEntryToOwned(
   };
 }
 
-function processFolder(
-  folder: ExternalWishlistFolder,
-  tabName: string,
-  multipleTabs: boolean,
-  collections: DemoCollection[],
-  ownedCards: DemoOwnedCard[],
-  makeDefault: { value: boolean }
+function mergeOwnedInto(
+  target: Map<string, DemoOwnedCard>,
+  owned: DemoOwnedCard
 ): void {
-  const collectionId = newId();
-  const name = collectionLabel(tabName, folder.label, multipleTabs);
-  collections.push({
-    id: collectionId,
-    name,
-    isDefault: makeDefault.value,
-    isFavorite: makeDefault.value,
-    coverImageUrl: null,
-  });
-  makeDefault.value = false;
-
-  for (const item of folder.items) {
-    if ("type" in item && item.type === "folder") {
-      processFolder(item, tabName, multipleTabs, collections, ownedCards, makeDefault);
-    } else if ("card" in item && item.card?.name) {
-      ownedCards.push(cardEntryToOwned(item, collectionId));
-    }
+  const key = `${owned.collectionId}:${cardMergeKey(owned.card)}`;
+  const existing = target.get(key);
+  if (!existing) {
+    target.set(key, owned);
+    return;
   }
+  existing.quantity += owned.quantity;
 }
 
-/** Convert CardTrader wishlist JSON into a DeckVault backup payload. */
+/** Merge folder-split DeckVault collections back into one per tab (opa, CARDTRADER, …). */
+export function mergeDeckVaultCollectionsByTab(
+  backup: DeckVaultBackup
+): DeckVaultBackup {
+  if (backup.collections.length <= 1) return backup;
+
+  const tabToOldIds = new Map<string, string[]>();
+
+  for (const col of backup.collections) {
+    const sep = col.name.indexOf(" · ");
+    const tabName = sep >= 0 ? col.name.slice(0, sep).trim() : col.name.trim();
+    const list = tabToOldIds.get(tabName) ?? [];
+    list.push(col.id);
+    tabToOldIds.set(tabName, list);
+  }
+
+  if (tabToOldIds.size === backup.collections.length) {
+    return backup;
+  }
+
+  const oldToNew = new Map<string, string>();
+  const collections: DemoCollection[] = [];
+  let isFirst = true;
+
+  for (const [tabName] of tabToOldIds) {
+    const collectionId = newId();
+    collections.push({
+      id: collectionId,
+      name: tabName,
+      isDefault: isFirst,
+      isFavorite: isFirst,
+      coverImageUrl: null,
+    });
+    for (const oldId of tabToOldIds.get(tabName) ?? []) {
+      oldToNew.set(oldId, collectionId);
+    }
+    isFirst = false;
+  }
+
+  const merged = new Map<string, DemoOwnedCard>();
+  for (const oc of backup.ownedCards) {
+    const collectionId = oldToNew.get(oc.collectionId);
+    if (!collectionId) continue;
+    mergeOwnedInto(merged, { ...oc, collectionId });
+  }
+
+  return {
+    ...backup,
+    collections,
+    ownedCards: [...merged.values()],
+  };
+}
+
+/** Convert CardTrader wishlist JSON — one DeckVault collection per tab, folders merged. */
 export function convertExternalWishlistToDeckVault(
   source: ExternalWishlistBackup
 ): DeckVaultBackup {
   const tabs = source.collection.tabs ?? [];
-  const multipleTabs = tabs.length > 1;
   const collections: DemoCollection[] = [];
-  const ownedCards: DemoOwnedCard[] = [];
-  const makeDefault = { value: true };
+  const mergedCards = new Map<string, DemoOwnedCard>();
+  let makeDefault = true;
 
   for (const tab of tabs) {
-    const looseCards: ExternalWishlistCardEntry[] = [];
+    const collectionId = newId();
+    const tabName = tab.name.trim() || "Coleção";
+    collections.push({
+      id: collectionId,
+      name: tabName,
+      isDefault: makeDefault,
+      isFavorite: makeDefault,
+      coverImageUrl: null,
+    });
+    makeDefault = false;
 
-    for (const item of tab.items) {
-      if ("type" in item && item.type === "folder") {
-        processFolder(item, tab.name, multipleTabs, collections, ownedCards, makeDefault);
-      } else if ("card" in item && item.card?.name) {
-        looseCards.push(item);
-      }
-    }
-
-    if (looseCards.length > 0) {
-      const collectionId = newId();
-      collections.push({
-        id: collectionId,
-        name: tab.name.trim() || "Coleção",
-        isDefault: makeDefault.value,
-        isFavorite: makeDefault.value,
-        coverImageUrl: null,
-      });
-      makeDefault.value = false;
-      for (const entry of looseCards) {
-        ownedCards.push(cardEntryToOwned(entry, collectionId));
-      }
+    for (const entry of walkItems(tab.items)) {
+      mergeOwnedInto(mergedCards, cardEntryToOwned(entry, collectionId));
     }
   }
 
@@ -259,7 +278,7 @@ export function convertExternalWishlistToDeckVault(
       currency: detectCurrency(tabs),
     },
     collections,
-    ownedCards,
+    ownedCards: [...mergedCards.values()],
     tags: [],
   };
 }

@@ -5,6 +5,7 @@ import {
 import {
   convertExternalWishlistToDeckVault,
   isExternalWishlistBackup,
+  mergeDeckVaultCollectionsByTab,
 } from "@/features/import/services/external-wishlist-converter";
 
 export function parseBackupJson(raw: unknown): DeckVaultBackup {
@@ -25,7 +26,7 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
     throw new Error("Estrutura de backup incompleta");
   }
 
-  return {
+  const normalized: DeckVaultBackup = {
     version: BACKUP_VERSION,
     exportedAt: backup.exportedAt ?? new Date().toISOString(),
     profile: backup.profile,
@@ -33,6 +34,8 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
     ownedCards: backup.ownedCards,
     tags: backup.tags ?? [],
   };
+
+  return mergeDeckVaultCollectionsByTab(normalized);
 }
 
 export async function readBackupFile(file: File): Promise<DeckVaultBackup> {
