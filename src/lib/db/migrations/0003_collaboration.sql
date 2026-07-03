@@ -80,6 +80,10 @@ DROP POLICY IF EXISTS "Users can view own collections" ON collections;
 DROP POLICY IF EXISTS "Users can insert own collections" ON collections;
 DROP POLICY IF EXISTS "Users can update own collections" ON collections;
 DROP POLICY IF EXISTS "Users can delete own collections" ON collections;
+DROP POLICY IF EXISTS "View accessible collections" ON collections;
+DROP POLICY IF EXISTS "Insert own collections" ON collections;
+DROP POLICY IF EXISTS "Update editable collections" ON collections;
+DROP POLICY IF EXISTS "Delete own collections" ON collections;
 
 CREATE POLICY "View accessible collections" ON collections FOR SELECT
   USING (public.user_can_access_collection(id));
@@ -98,6 +102,10 @@ DROP POLICY IF EXISTS "Users can view own owned cards" ON owned_cards;
 DROP POLICY IF EXISTS "Users can insert own owned cards" ON owned_cards;
 DROP POLICY IF EXISTS "Users can update own owned cards" ON owned_cards;
 DROP POLICY IF EXISTS "Users can delete own owned cards" ON owned_cards;
+DROP POLICY IF EXISTS "View accessible owned cards" ON owned_cards;
+DROP POLICY IF EXISTS "Insert editable owned cards" ON owned_cards;
+DROP POLICY IF EXISTS "Update editable owned cards" ON owned_cards;
+DROP POLICY IF EXISTS "Delete editable owned cards" ON owned_cards;
 
 CREATE POLICY "View accessible owned cards" ON owned_cards FOR SELECT
   USING (public.user_can_access_collection(collection_id));
@@ -112,6 +120,9 @@ CREATE POLICY "Delete editable owned cards" ON owned_cards FOR DELETE
   USING (public.user_can_edit_collection(collection_id));
 
 -- collection_members policies
+DROP POLICY IF EXISTS "View members of accessible collections" ON collection_members;
+DROP POLICY IF EXISTS "Owners manage members" ON collection_members;
+
 CREATE POLICY "View members of accessible collections" ON collection_members FOR SELECT
   USING (public.user_can_access_collection(collection_id));
 
@@ -121,6 +132,9 @@ CREATE POLICY "Owners manage members" ON collection_members FOR ALL
   );
 
 -- collection_invites policies
+DROP POLICY IF EXISTS "Owners manage invites" ON collection_invites;
+DROP POLICY IF EXISTS "Invitees view own invites" ON collection_invites;
+
 CREATE POLICY "Owners manage invites" ON collection_invites FOR ALL
   USING (
     EXISTS (SELECT 1 FROM collections c WHERE c.id = collection_id AND c.user_id = auth.uid())
