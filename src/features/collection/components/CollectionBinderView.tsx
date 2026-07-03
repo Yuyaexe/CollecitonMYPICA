@@ -1,17 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { cn, formatCurrency } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   useCollectionUIStore,
   type BinderGridLayout,
@@ -51,53 +46,16 @@ function pageSlots(
   return Array.from({ length: pageSize }, (_, i) => slice[i] ?? null);
 }
 
-function useIsTruncated(text: string) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [truncated, setTruncated] = useState(false);
-
-  const check = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    setTruncated(el.scrollWidth > el.clientWidth + 1);
-  }, []);
-
-  useEffect(() => {
-    check();
-    const el = ref.current;
-    if (!el) return;
-    const observer = new ResizeObserver(check);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [check, text]);
-
-  return { ref, truncated };
-}
-
 function BinderCardName({ name }: { name: string }) {
-  const { ref, truncated } = useIsTruncated(name);
-
-  const className = cn(
-    "truncate text-[9px] font-medium leading-tight text-white/75 transition-all duration-150",
-    "group-hover:text-[11px] group-hover:font-semibold group-hover:text-white",
-    truncated && "cursor-default"
-  );
-
   return (
-    <Tooltip open={truncated ? undefined : false} delayDuration={150}>
-      <TooltipTrigger asChild>
-        <p ref={ref} className={className}>
-          {name}
-        </p>
-      </TooltipTrigger>
-      {truncated && (
-        <TooltipContent
-          side="top"
-          className="max-w-xs border-primary/30 bg-zinc-950 px-3 py-2 text-sm font-semibold leading-snug text-white shadow-xl"
-        >
-          {name}
-        </TooltipContent>
+    <p
+      className={cn(
+        "truncate text-[9px] font-medium leading-tight text-white/75 transition-all duration-150",
+        "group-hover:text-[11px] group-hover:font-semibold group-hover:text-white"
       )}
-    </Tooltip>
+    >
+      {name}
+    </p>
   );
 }
 
