@@ -60,7 +60,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       onOpenChange={onOpenChange}
       title="Quick Add"
       description={`Search ${game.name} catalog`}
-      className="sm:max-w-xl"
+      className="sm:max-w-3xl"
     >
       <div className="space-y-4">
         <SearchBar
@@ -76,50 +76,51 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           </p>
         )}
 
-        <ScrollArea className="h-[320px]">
+        <ScrollArea className="h-[420px] pr-3">
           {isLoading && (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          {data?.map((result) => (
-            <button
-              key={`${result.externalId}-${result.setCode}`}
-              onClick={() => handleAdd(result)}
-              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-all duration-150 hover:bg-muted"
-            >
-              <CardImage
-                src={result.imageUrl}
-                alt={result.name}
-                width={36}
-                height={48}
-                className="shrink-0 rounded"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{result.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {result.setName ?? "—"}
-                  {result.collectorNumber ? ` #${result.collectorNumber}` : ""}
-                  {result.rarity ? ` · ${result.rarity}` : ""}
-                  {result.edition ? ` · ${result.edition}` : ""}
-                </p>
-              </div>
-              {result.price !== null && (
-                <span className="text-sm text-muted-foreground">${result.price.toFixed(2)}</span>
-              )}
-              <Plus className="h-4 w-4 text-primary" />
-            </button>
-          ))}
+          {data && data.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              {data.map((result) => (
+                <button
+                  key={`${result.externalId}-${result.setCode ?? result.setName}-${result.collectorNumber ?? ""}`}
+                  type="button"
+                  onClick={() => handleAdd(result)}
+                  className="group flex flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  title={result.name}
+                >
+                  <div className="relative aspect-[59/86] w-full overflow-hidden rounded-md bg-muted shadow-sm ring-1 ring-border/50 transition-transform duration-150 group-hover:scale-[1.03] group-hover:ring-primary/40">
+                    <CardImage
+                      src={result.imageUrl}
+                      alt={result.name}
+                      fill
+                      sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 120px"
+                      className="object-contain"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/20 group-hover:opacity-100">
+                      <Plus className="h-6 w-6 text-white drop-shadow-md" />
+                    </span>
+                  </div>
+                  <p className="mt-1.5 line-clamp-2 text-center text-[11px] font-medium leading-tight text-foreground">
+                    {result.name}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
 
           {isError && (
-            <p className="py-8 text-center text-sm text-destructive">
+            <p className="py-12 text-center text-sm text-destructive">
               Search failed. Check your connection and try again.
             </p>
           )}
 
           {debouncedQuery.length >= 2 && !isLoading && !isError && data?.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">No cards found</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">No cards found</p>
           )}
         </ScrollArea>
       </div>
