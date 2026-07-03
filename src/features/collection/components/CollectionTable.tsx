@@ -72,9 +72,20 @@ export function CollectionTable() {
 
   const handleQuantityChange = useCallback(
     (id: string, quantity: number) => {
+      if (quantity < 1) {
+        void deleteOwnedCards([id]);
+        return;
+      }
       void updateOwnedCard(id, { quantity });
     },
-    [updateOwnedCard]
+    [updateOwnedCard, deleteOwnedCards]
+  );
+
+  const handleRemove = useCallback(
+    (id: string) => {
+      void deleteOwnedCards([id]);
+    },
+    [deleteOwnedCards]
   );
 
   const virtualizer = useVirtualizer({
@@ -206,6 +217,7 @@ export function CollectionTable() {
                         toggleSelect(id, shift, allIds, virtualRow.index)
                       }
                       onQuantityChange={handleQuantityChange}
+                      onRemove={handleRemove}
                       currency={profile.currency}
                       peerPresence={
                         peerByCardId.has(item.id)

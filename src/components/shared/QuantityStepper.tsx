@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 interface QuantityStepperProps {
   value: number;
   onChange: (value: number) => void;
+  onRemove?: () => void;
   min?: number;
   max?: number;
   className?: string;
@@ -15,6 +16,7 @@ interface QuantityStepperProps {
 export function QuantityStepper({
   value,
   onChange,
+  onRemove,
   min = 1,
   max = 99999,
   className,
@@ -39,7 +41,11 @@ export function QuantityStepper({
   const commit = () => {
     const parsed = parseInt(draft, 10);
     if (!Number.isNaN(parsed)) {
-      onChange(clamp(parsed));
+      if (parsed < min) {
+        onRemove?.();
+      } else {
+        onChange(clamp(parsed));
+      }
     }
     setEditing(false);
   };
@@ -49,10 +55,16 @@ export function QuantityStepper({
     setEditing(false);
   };
 
-  const decrement = () => onChange(clamp(value - 1));
+  const decrement = () => {
+    if (value <= min) {
+      onRemove?.();
+      return;
+    }
+    onChange(clamp(value - 1));
+  };
   const increment = () => onChange(clamp(value + 1));
 
-  const atMin = value <= min;
+  const atMin = value <= min && !onRemove;
   const atMax = value >= max;
 
   return (
@@ -68,7 +80,7 @@ export function QuantityStepper({
         type="button"
         disabled={atMin || editing}
         onClick={decrement}
-        aria-label="Decrease quantity"
+        aria-label={value <= min && onRemove ? "Remove from collection" : "Decrease quantity"}
         className={cn(
           "flex h-full w-6 shrink-0 items-center justify-center rounded-l-md border-r border-border/60",
           "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",

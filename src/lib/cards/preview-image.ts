@@ -8,8 +8,11 @@ export function getCardPreviewImageUrl(card: Pick<DemoCard, "imageUrl" | "gameSl
     if (card.externalId) {
       return `https://images.ygoprodeck.com/images/cards/${card.externalId}.jpg`;
     }
-    if (card.imageUrl.includes("cards_small")) {
-      return card.imageUrl.replace("cards_small", "cards").replace("_small", "");
+    if (card.imageUrl.includes("cards_small") || card.imageUrl.includes("_small")) {
+      return card.imageUrl
+        .replace("/cards_small/", "/cards/")
+        .replace("cards_small", "cards")
+        .replace("_small", "");
     }
   }
 

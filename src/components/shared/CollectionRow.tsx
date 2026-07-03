@@ -27,6 +27,7 @@ interface CollectionRowProps {
   onMiddleClick: (item: DemoOwnedCard) => void;
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   onQuantityChange: (id: string, quantity: number) => void;
+  onRemove?: (id: string) => void;
   currency: Currency;
   peerPresence?: { color: string; name: string };
   className?: string;
@@ -43,6 +44,7 @@ export const CollectionRow = memo(function CollectionRow({
   onMiddleClick,
   onCheckboxChange,
   onQuantityChange,
+  onRemove,
   currency,
   peerPresence,
   className,
@@ -109,17 +111,17 @@ export const CollectionRow = memo(function CollectionRow({
 
       <CardHoverPreview
         className="shrink-0"
-        src={item.card.imageUrl}
+        src={getCardPreviewImageUrl(item.card) ?? item.card.imageUrl}
         previewSrc={getCardPreviewImageUrl(item.card)}
         alt={item.card.name}
       >
-        <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded shadow-sm ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">
+        <div className="relative h-11 w-[1.875rem] shrink-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">
           <CardImage
-            src={item.card.imageUrl}
+            src={getCardPreviewImageUrl(item.card) ?? item.card.imageUrl}
             alt={item.card.name}
             fill
-            sizes="28px"
-            className="rounded object-cover"
+            sizes="44px"
+            className="object-contain p-px"
           />
         </div>
       </CardHoverPreview>
@@ -160,7 +162,11 @@ export const CollectionRow = memo(function CollectionRow({
       </div>
 
       <div data-row-action className="flex w-[104px] shrink-0 justify-center">
-        <QuantityStepper value={item.quantity} onChange={handleQuantityChange} />
+        <QuantityStepper
+          value={item.quantity}
+          onChange={handleQuantityChange}
+          onRemove={onRemove ? () => onRemove(item.id) : undefined}
+        />
       </div>
 
       <div className="hidden w-12 text-center text-xs md:block">

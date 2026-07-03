@@ -48,7 +48,7 @@ export function CardImage({
       fill={fill}
       sizes={sizes}
       unoptimized
-      className={cn("object-cover", className)}
+      className={cn("object-contain", className)}
       onError={() => setError(true)}
     />
   );
