@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "notes": "DeckVault update",
+  "pub_date": "2026-01-01T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "REPLACE_WITH_SIGNATURE",
+      "url": "https://github.com/REPLACE_OWNER/REPLACE_REPO/releases/download/v0.2.0/DeckVault_0.2.0_x64-setup.exe"
+    }
+  }
+}

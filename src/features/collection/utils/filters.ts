@@ -1,0 +1,86 @@
+import type { DemoOwnedCard } from "@/lib/demo/types";
+import type { CollectionFilters } from "@/types/tcg";
+
+export function filterOwnedCards(
+  cards: DemoOwnedCard[],
+  filters: CollectionFilters,
+  collectionId: string,
+  wishlistCardIds: string[]
+): DemoOwnedCard[] {
+  return cards.filter((oc) => {
+    if (oc.collectionId !== collectionId) return false;
+
+    const { card } = oc;
+    const search = filters.search.toLowerCase();
+
+    if (search) {
+      const haystack = [card.name, card.setName, card.setCode, card.collectorNumber]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+
+    if (filters.gameId && card.gameId !== filters.gameId) return false;
+    if (filters.setCode && card.setCode !== filters.setCode) return false;
+    if (filters.rarity && card.rarity !== filters.rarity) return false;
+    if (filters.language && oc.language !== filters.language) return false;
+    if (filters.condition && oc.condition !== filters.condition) return false;
+    if (filters.isFoil !== null && oc.isFoil !== filters.isFoil) return false;
+    if (filters.minQuantity !== null && oc.quantity < filters.minQuantity) return false;
+    if (filters.wishlistOnly && !wishlistCardIds.includes(card.id)) return false;
+
+    const price = card.marketPrice;
+    if (filters.priceMin !== null && (price === null || price < filters.priceMin)) return false;
+    if (filters.priceMax !== null && (price === null || price > filters.priceMax)) return false;
+
+    return true;
+  });
+}
+
+export function sortOwnedCards(
+  cards: DemoOwnedCard[],
+  field: string,
+  dir: "asc" | "desc"
+): DemoOwnedCard[] {
+  const sorted = [...cards].sort((a, b) => {
+    let av: string | number | null = null;
+    let bv: string | number | null = null;
+
+    switch (field) {
+      case "name":
+        av = a.card.name;
+        bv = b.card.name;
+        break;
+      case "marketPrice":
+        av = a.card.marketPrice ?? 0;
+        bv = b.card.marketPrice ?? 0;
+        break;
+      case "quantity":
+        av = a.quantity;
+        bv = b.quantity;
+        break;
+      default:
+        av = a.card.name;
+        bv = b.card.name;
+    }
+
+    if (typeof av === "string" && typeof bv === "string") {
+      return av.localeCompare(bv);
+    }
+    return (av as number) - (bv as number);
+  });
+
+  return dir === "desc" ? sorted.reverse() : sorted;
+}
+
+export function computeCollectionStats(cards: DemoOwnedCard[]) {
+  const totalCards = cards.reduce((sum, oc) => sum + oc.quantity, 0);
+  const totalValue = cards.reduce(
+    (sum, oc) => sum + (oc.card.marketPrice ?? 0) * oc.quantity,
+    0
+  );
+  const uniqueSets = new Set(cards.map((oc) => oc.card.setName).filter(Boolean)).size;
+
+  return { totalCards, totalValue, uniqueSets };
+}

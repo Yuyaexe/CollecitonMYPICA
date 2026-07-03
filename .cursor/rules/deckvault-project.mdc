@@ -1,0 +1,20 @@
+---
+description: DeckVault project scope and roadmap
+alwaysApply: true
+---
+
+# DeckVault — TCG Collection Manager
+
+Supported games: Yu-Gi-Oh, Pokemon, Digimon, Magic, One Piece, Lorcana.
+
+Goals: track collection, build decks, track prices, wishlists, market comparison, import/export, statistics, collection value over time.
+
+## Roadmap
+
+**Phase 1:** Auth, Dashboard, Sidebar, Collection, Search, Import CSV, Responsive, Windows launcher (.bat/.exe)
+
+**Phase 2:** Deck Builder, Wishlist, Folders, Bulk Edit, Tags
+
+**Phase 3:** Price Tracking, Graphs, Market Comparison, Trading, Statistics
+
+**Phase 4:** Community, Profiles, Sharing, Trades, Comments, Friends, Notifications

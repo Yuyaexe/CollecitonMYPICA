@@ -1,0 +1,14 @@
+---
+description: Mandatory reusable components — never duplicate
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# Component Rules
+
+Every UI element must be a reusable component. Do NOT duplicate.
+
+Required shared components in `src/components/shared/`:
+Button, Dropdown, Modal, SearchBar, Sidebar, CardTile, CollectionRow, PriceBadge, MarketBadge, Pagination, Checkbox, Tabs, Tooltip, ContextMenu, DataTable, BulkActionBar, EmptyState, PageHeader, CardDetailSheet
+
+Feature pages compose shared components — no inline one-off UI.
