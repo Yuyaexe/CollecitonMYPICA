@@ -65,11 +65,12 @@ interface BinderSlotProps {
   card: DemoOwnedCard | null;
   selected: boolean;
   marketPrice: number | null;
+  cardTraderImage?: string | null;
   currency: Currency;
   onOpen: () => void;
 }
 
-function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlotProps) {
+function BinderSlot({ card, selected, marketPrice, cardTraderImage, currency, onOpen }: BinderSlotProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
   );
@@ -88,7 +89,8 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
     );
   }
 
-  const thumbSrc = getCardPreviewImageUrl(card.card, ygoPasscode) ?? card.card.imageUrl;
+  const thumbSrc =
+    getCardPreviewImageUrl(card.card, ygoPasscode, cardTraderImage) ?? card.card.imageUrl;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
 
   return (
@@ -155,6 +157,7 @@ interface BinderPageProps {
   selectedIds: Set<string>;
   currency: Currency;
   resolvePrice: (item: DemoOwnedCard) => number | null;
+  resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
   onOpen: (id: string) => void;
 }
 
@@ -166,6 +169,7 @@ function BinderPage({
   selectedIds,
   currency,
   resolvePrice,
+  resolveCardTraderImage,
   onOpen,
 }: BinderPageProps) {
   return (
@@ -200,6 +204,7 @@ function BinderPage({
             card={card}
             selected={card ? selectedIds.has(card.id) : false}
             marketPrice={card ? resolvePrice(card) : null}
+            cardTraderImage={card ? resolveCardTraderImage(card) : null}
             currency={currency}
             onOpen={() => card && onOpen(card.id)}
           />
@@ -304,6 +309,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
+              resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
             />
 
@@ -322,6 +328,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
+              resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
             />
           </div>

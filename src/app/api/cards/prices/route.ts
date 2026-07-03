@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
+  type CardTraderClientQuote,
 } from "@/lib/cardtrader";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import type { Currency } from "@/types/tcg";
@@ -11,14 +12,6 @@ const BATCH_DELAY_MS = 50;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Public quote — no internal blueprint ids exposed to the browser */
-export interface ClientCardTraderQuote {
-  price: number;
-  currency: Currency;
-  url: string;
-  imageUrl: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -37,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const cards = (body.cards ?? []).slice(0, MAX_BATCH);
     const currency = body.currency ?? "USD";
-    const prices: Array<ClientCardTraderQuote | null> = [];
+    const prices: Array<CardTraderClientQuote | null> = [];
 
     for (let i = 0; i < cards.length; i++) {
       try {

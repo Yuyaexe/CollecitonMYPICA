@@ -16,6 +16,7 @@ interface CollectionCompactCardProps {
   item: DemoOwnedCard;
   selected: boolean;
   marketPrice: number | null;
+  cardTraderImage?: string | null;
   currency: Currency;
   onSelect: () => void;
   onOpen: () => void;
@@ -27,6 +28,7 @@ export function CollectionCompactCard({
   item,
   selected,
   marketPrice,
+  cardTraderImage,
   currency,
   onSelect,
   onOpen,
@@ -35,7 +37,8 @@ export function CollectionCompactCard({
 }: CollectionCompactCardProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
+  const thumbSrc =
+    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
 
   return (
     <div

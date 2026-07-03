@@ -23,6 +23,7 @@ export function CollectionCompactView({ data }: CollectionCompactViewProps) {
             item={item}
             selected={selectedIds.has(item.id)}
             marketPrice={data.resolvePrice(item)}
+            cardTraderImage={data.resolveCardTraderImage(item)}
             currency={data.profileCurrency}
             onSelect={() => toggleSelect(item.id, false, data.allIds, index)}
             onOpen={() => openCardInspect(item.id, "details")}

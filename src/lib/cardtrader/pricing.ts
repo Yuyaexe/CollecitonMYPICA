@@ -1,8 +1,17 @@
 import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
 import { isCardTraderConfigured, cardTraderFetch } from "./client";
-import { buildCardTraderCardUrl, resolveBlueprintId, getBlueprintImageUrl } from "./catalog";
+import {
+  buildCardTraderCardUrl,
+  resolveBlueprintId,
+  getBlueprintImageUrl,
+} from "./catalog";
 import { centsToAmount, convertToCurrency } from "./convert-currency";
-import type { CardPriceInput, CardTraderPriceResult, CardTraderProduct } from "./types";
+import type {
+  CardPriceInput,
+  CardTraderClientQuote,
+  CardTraderPriceResult,
+  CardTraderProduct,
+} from "./types";
 
 const CONDITION_TO_CARDTRADER: Record<CardCondition, string> = {
   NM: "Near Mint",
@@ -74,6 +83,24 @@ function filterProducts(
   });
 }
 
+function buildQuoteUrl(input: CardPriceInput, blueprintId: number): CardTraderPriceResult {
+  const imageUrl = getBlueprintImageUrl(blueprintId);
+  return {
+    price: null,
+    currency: "USD",
+    blueprintId,
+    url: buildCardTraderCardUrl({
+      blueprintId,
+      name: input.name,
+      setName: input.setName,
+      rarity: input.rarity,
+      imageUrl,
+    }),
+    listingCount: 0,
+    imageUrl,
+  };
+}
+
 export async function getCardTraderPrice(
   input: CardPriceInput
 ): Promise<CardTraderPriceResult | null> {
@@ -86,39 +113,40 @@ export async function getCardTraderPrice(
   const blueprintId = await resolveBlueprintId(input);
   if (!blueprintId) return null;
 
-  const response = await cardTraderFetch<Record<string, CardTraderProduct[]>>(
-    "/marketplace/products",
-    { blueprint_id: String(blueprintId) }
-  );
+  let result = buildQuoteUrl(input, blueprintId);
 
-  const products =
-    response[String(blueprintId)] ??
-    Object.values(response).find((list) => Array.isArray(list) && list.length > 0) ??
-    [];
+  try {
+    const response = await cardTraderFetch<Record<string, CardTraderProduct[]>>(
+      "/marketplace/products",
+      { blueprint_id: String(blueprintId) }
+    );
 
-  const filtered = filterProducts(products, input);
-  const pool = filtered.length > 0 ? filtered : products.filter((p) => productCents(p) != null);
+    const products =
+      response[String(blueprintId)] ??
+      Object.values(response).find((list) => Array.isArray(list) && list.length > 0) ??
+      [];
 
-  const cheapest = [...pool].sort((a, b) => (productCents(a) ?? Infinity) - (productCents(b) ?? 0))[0];
-  if (!cheapest) return null;
+    const filtered = filterProducts(products, input);
+    const pool = filtered.length > 0 ? filtered : products.filter((p) => productCents(p) != null);
 
-  const cents = productCents(cheapest);
-  if (cents == null) return null;
+    const cheapest = [...pool].sort(
+      (a, b) => (productCents(a) ?? Infinity) - (productCents(b) ?? Infinity)
+    )[0];
 
-  const result: CardTraderPriceResult = {
-    price: centsToAmount(cents),
-    currency: productCurrency(cheapest),
-    blueprintId,
-    url: buildCardTraderCardUrl({
-      blueprintId,
-      name: input.name,
-      setName: input.setName,
-      rarity: input.rarity,
-      imageUrl: getBlueprintImageUrl(blueprintId),
-    }),
-    listingCount: pool.length,
-    imageUrl: getBlueprintImageUrl(blueprintId),
-  };
+    if (cheapest) {
+      const cents = productCents(cheapest);
+      if (cents != null) {
+        result = {
+          ...result,
+          price: centsToAmount(cents),
+          currency: productCurrency(cheapest),
+          listingCount: pool.length,
+        };
+      }
+    }
+  } catch {
+    // Keep blueprint URL even when marketplace products fail
+  }
 
   priceCache.set(cacheKey, { result, expires: Date.now() + PRICE_TTL_MS });
   return result;
@@ -127,19 +155,18 @@ export async function getCardTraderPrice(
 export async function getCardTraderPriceForProfile(
   input: CardPriceInput,
   profileCurrency: Currency
-): Promise<{
-  price: number;
-  currency: Currency;
-  url: string;
-  imageUrl: string | null;
-} | null> {
+): Promise<CardTraderClientQuote | null> {
   const quote = await getCardTraderPrice(input);
   if (!quote) return null;
 
   return {
-    price: convertToCurrency(quote.price, quote.currency, profileCurrency),
+    price:
+      quote.price != null
+        ? convertToCurrency(quote.price, quote.currency, profileCurrency)
+        : null,
     currency: profileCurrency,
     url: quote.url,
+    blueprintId: String(quote.blueprintId),
     imageUrl: quote.imageUrl ?? null,
   };
 }

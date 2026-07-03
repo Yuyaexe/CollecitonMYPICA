@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
-import { resolveStoredBlueprintId } from "@/lib/cardtrader";
+import { isCardTraderHostedImage } from "@/lib/cards/preview-image";
 import type { DemoCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 
@@ -16,21 +16,20 @@ function imageNeedsYugiohRepair(
   passcode: string
 ): boolean {
   if (card.gameSlug !== "yugioh") return false;
+  if (card.cardTraderBlueprintId && isCardTraderHostedImage(card.imageUrl)) {
+    return false;
+  }
+  if (isCardTraderHostedImage(card.imageUrl)) {
+    return false;
+  }
   if (!card.imageUrl) return true;
   if (card.imageUrl.includes("ygoprodeck.com")) {
     return !card.imageUrl.includes(`/${passcode}`);
   }
-  if (/cardtrader\.com|product-images\.cardtrader/i.test(card.imageUrl)) {
-    return false;
-  }
-  const wrongBlueprint = resolveStoredBlueprintId(card.externalId, card.imageUrl);
-  if (wrongBlueprint != null && card.externalId === String(wrongBlueprint)) {
-    return true;
-  }
   return false;
 }
 
-/** Persist corrected YGOPRODeck art when passcode is known but stored imageUrl is wrong. */
+/** YGOPRODeck art fallback only when CardTrader art is unavailable. */
 export function useYugiohCardImageRepair(
   ownedCardId: string | undefined,
   card: RepairCardFields,

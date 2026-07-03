@@ -23,7 +23,7 @@ import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
-import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
+import { useCardTraderVariantPrices, useCardTraderOwnedQuote } from "@/features/market/hooks/useCardTraderPrices";
 import { isApiSupported } from "@/features/catalog/services/card-api";
 import {
   findVariantForSelection,
@@ -37,7 +37,7 @@ import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency, cn } from "@/lib/utils";
-import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
+import { resolveCardDisplayImage, isCardTraderHostedImage } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
@@ -129,6 +129,12 @@ export function CardInspectDialog({
 
   useYugiohCardImageRepair(card?.id, card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null }, ygoPasscode);
 
+  const { data: ownedCardQuote, isFetching: ownedQuoteFetching } = useCardTraderOwnedQuote(
+    card,
+    currency,
+    open && !!card
+  );
+
   const printVariants = useMemo(() => {
     if (!cardDetail || !card) return [];
     const relatedPrints = cardDetailData?.relatedPrints ?? [];
@@ -143,9 +149,14 @@ export function CardInspectDialog({
         setCode: v.setCode,
         rarity: v.rarity,
         imageUrl: v.imageUrl,
-        blueprintId: resolveStoredBlueprintId(v.externalId, v.imageUrl),
+        cardTraderBlueprintId: card?.card.cardTraderBlueprintId ?? null,
+        blueprintId: resolveStoredBlueprintId(
+          v.externalId,
+          v.imageUrl,
+          card?.card.cardTraderBlueprintId
+        ),
       })),
-    [printVariants]
+    [printVariants, card?.card.cardTraderBlueprintId]
   );
 
   const { data: variantPrices, isFetching: pricesFetching } = useCardTraderVariantPrices(
@@ -169,8 +180,10 @@ export function CardInspectDialog({
   }, [printVariants, card]);
 
   const activeQuote = activeVariant ? variantPrices?.get(activeVariant.key) : undefined;
+  const resolvedQuote = activeQuote ?? ownedCardQuote ?? null;
 
   const cardTraderProductUrl = useMemo(() => {
+    if (resolvedQuote?.url) return resolvedQuote.url;
     if (!card) return null;
     const variant = activeVariant;
     return resolveCardTraderProductUrl({
@@ -181,7 +194,33 @@ export function CardInspectDialog({
       rarity: variant?.rarity ?? card.card.rarity,
       imageUrl: variant?.imageUrl ?? card.card.imageUrl,
     });
-  }, [card, activeVariant]);
+  }, [card, activeVariant, resolvedQuote?.url]);
+
+  useEffect(() => {
+    if (!card || !open || !resolvedQuote?.blueprintId) return;
+
+    const updates: Partial<DemoOwnedCard["card"]> = {};
+    if (resolvedQuote.blueprintId !== card.card.cardTraderBlueprintId) {
+      updates.cardTraderBlueprintId = resolvedQuote.blueprintId;
+    }
+    if (
+      resolvedQuote.imageUrl &&
+      resolvedQuote.imageUrl !== card.card.imageUrl
+    ) {
+      updates.imageUrl = resolvedQuote.imageUrl;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateOwnedCard(card.id, { card: updates });
+    }
+  }, [
+    card,
+    open,
+    resolvedQuote?.blueprintId,
+    resolvedQuote?.imageUrl,
+    ygoPasscode,
+    updateOwnedCard,
+  ]);
 
   useEffect(() => {
     if (open && tab === "marketplace") {
@@ -191,10 +230,12 @@ export function CardInspectDialog({
 
   if (!card) return null;
 
-  const displayPrice = activeQuote?.price ?? card.card.marketPrice;
+  const displayPrice =
+    resolvedQuote?.price ?? card.card.marketPrice;
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
   const displayImage = resolveCardDisplayImage(card.card, {
+    quoteImage: resolvedQuote?.imageUrl,
     variantImage: activeVariant?.imageUrl,
     detailImage: cardDetail?.imageUrl,
     detailPasscode: ygoPasscode,
@@ -203,7 +244,7 @@ export function CardInspectDialog({
   const listings = buildMarketplaceListings(card.card, {
     cardTraderPrice: displayPrice,
     cardTraderCurrency: currency,
-    cardTraderUrl: activeQuote?.url ?? cardTraderProductUrl,
+    cardTraderUrl: cardTraderProductUrl,
     ygoProDeckPrice: ygoSecondaryPrice,
     ygoProDeckUrl: activeVariant?.ygoProDeckUrl,
   });
@@ -216,15 +257,23 @@ export function CardInspectDialog({
       variant.imageUrl ?? card.card.imageUrl,
       card.card.cardTraderBlueprintId
     );
-    const imageUrl = passcode
-      ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity)) ??
-        variant.imageUrl ??
-        card.card.imageUrl
-      : resolveCardDisplayImage(card.card, {
-          quoteImage: quote?.imageUrl,
-          variantImage: variant.imageUrl,
-          detailPasscode: passcode,
-        });
+    const imageUrl =
+      (quote?.imageUrl && isCardTraderHostedImage(quote.imageUrl)
+        ? quote.imageUrl
+        : null) ??
+      (variant.imageUrl && isCardTraderHostedImage(variant.imageUrl)
+        ? variant.imageUrl
+        : null) ??
+      resolveCardDisplayImage(card.card, {
+        quoteImage: quote?.imageUrl,
+        variantImage: variant.imageUrl,
+        detailPasscode: passcode,
+      }) ??
+      (passcode
+        ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity))
+        : null) ??
+      variant.imageUrl ??
+      card.card.imageUrl;
 
     const blueprintFromVariant = resolveStoredBlueprintId(
       variant.externalId,
@@ -243,7 +292,7 @@ export function CardInspectDialog({
           : (passcode ?? variant.externalId ?? card.card.externalId),
         cardTraderBlueprintId: blueprintFromVariant
           ? String(blueprintFromVariant)
-          : card.card.cardTraderBlueprintId,
+          : quote?.blueprintId ?? card.card.cardTraderBlueprintId,
         imageUrl,
         marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },
@@ -303,14 +352,16 @@ export function CardInspectDialog({
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">CardTrader</dt>
                 <dd>
-                  {pricesFetching && activeQuote?.price == null ? (
+                  {((pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null) ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
                     <PriceBadge price={displayPrice} currency={currency} />
                   )}
                 </dd>
               </div>
-              {ygoSecondaryPrice != null && ygoSecondaryPrice > 0 && (
+              {ygoSecondaryPrice != null &&
+                ygoSecondaryPrice > 0 &&
+                (resolvedQuote?.price == null || displayPrice == null) && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">YGOPRODeck</dt>
                   <dd>

@@ -6,7 +6,10 @@ import {
   resolveYugiohPasscode,
 } from "@/lib/yugioh/passcode";
 
-type CardImageFields = Pick<DemoCard, "imageUrl" | "gameSlug" | "externalId" | "rarity">;
+type CardImageFields = Pick<
+  DemoCard,
+  "imageUrl" | "gameSlug" | "externalId" | "rarity" | "cardTraderBlueprintId"
+>;
 
 function upgradePokemonImageUrl(url: string, preferLarge: boolean): string {
   if (!preferLarge || !url.includes("pokemontcg.io") || url.includes("_hires")) {
@@ -25,10 +28,28 @@ function pokemonImageFromExternalId(externalId: string, preferLarge: boolean): s
   return `https://images.pokemontcg.io/${setId}/${number}${suffix}`;
 }
 
+/** CardTrader art wins over YGOPRODeck when both are available. */
+function pickCardTraderImage(
+  card: CardImageFields,
+  cardTraderImage?: string | null
+): string | null {
+  if (cardTraderImage && isCardTraderHostedImage(cardTraderImage)) {
+    return cardTraderImage;
+  }
+  if (card.imageUrl && isCardTraderHostedImage(card.imageUrl)) {
+    return card.imageUrl;
+  }
+  return null;
+}
+
 function yugiohPreviewUrl(
   card: CardImageFields,
-  detailPasscode?: string | null
+  detailPasscode?: string | null,
+  cardTraderImage?: string | null
 ): string | null {
+  const cardTrader = pickCardTraderImage(card, cardTraderImage);
+  if (cardTrader) return cardTrader;
+
   const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
   if (passcode) {
     return buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
@@ -38,10 +59,6 @@ function yugiohPreviewUrl(
     if (!isYugiohPasscodeId(card.externalId, card.imageUrl)) {
       return null;
     }
-  }
-
-  if (card.imageUrl && isCardTraderHostedImage(card.imageUrl)) {
-    return card.imageUrl;
   }
 
   if (!card.imageUrl) return null;
@@ -63,10 +80,11 @@ function yugiohPreviewUrl(
 function storedPreviewUrl(
   card: CardImageFields,
   preferLarge: boolean,
-  detailPasscode?: string | null
+  detailPasscode?: string | null,
+  cardTraderImage?: string | null
 ): string | null {
   if (card.gameSlug === "yugioh") {
-    return yugiohPreviewUrl(card, detailPasscode);
+    return yugiohPreviewUrl(card, detailPasscode, cardTraderImage);
   }
   if (card.imageUrl) {
     return card.gameSlug === "pokemon"
@@ -82,9 +100,13 @@ function storedPreviewUrl(
 /** Full framed card for hover popover (never cropped Yu-Gi-Oh! art-only). */
 export function getCardHoverPreviewUrl(
   card: CardImageFields,
-  detailPasscode?: string | null
+  detailPasscode?: string | null,
+  cardTraderImage?: string | null
 ): string | null {
   if (card.gameSlug === "yugioh") {
+    const cardTrader = pickCardTraderImage(card, cardTraderImage);
+    if (cardTrader) return cardTrader;
+
     const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
     if (passcode) {
       return buildYgoImageUrl(passcode, "full");
@@ -93,17 +115,18 @@ export function getCardHoverPreviewUrl(
     return null;
   }
   if (card.gameSlug === "pokemon") {
-    return storedPreviewUrl(card, true, detailPasscode);
+    return storedPreviewUrl(card, true, detailPasscode, cardTraderImage);
   }
-  return storedPreviewUrl(card, false, detailPasscode);
+  return storedPreviewUrl(card, false, detailPasscode, cardTraderImage);
 }
 
-/** Prefer full-resolution card art for grid / binder thumbnails. */
+/** Prefer CardTrader art, then YGOPRODeck passcode art for grid / binder thumbnails. */
 export function getCardPreviewImageUrl(
   card: CardImageFields,
-  detailPasscode?: string | null
+  detailPasscode?: string | null,
+  cardTraderImage?: string | null
 ): string | null {
-  return storedPreviewUrl(card, false, detailPasscode);
+  return storedPreviewUrl(card, false, detailPasscode, cardTraderImage);
 }
 
 export interface CardDisplayImageSources {
@@ -113,12 +136,19 @@ export interface CardDisplayImageSources {
   detailPasscode?: string | null;
 }
 
-/** Best image URL for detail modals — never use YGOPRODeck CDN with CardTrader blueprint IDs. */
+/** Best image URL for detail modals — CardTrader first, YGOPRODeck fallback. */
 export function resolveCardDisplayImage(
   card: CardImageFields,
   sources: CardDisplayImageSources = {}
 ): string | null {
   if (card.gameSlug === "yugioh") {
+    const cardTrader = pickCardTraderImage(card, sources.quoteImage);
+    if (cardTrader) return cardTrader;
+
+    if (sources.variantImage && isCardTraderHostedImage(sources.variantImage)) {
+      return sources.variantImage;
+    }
+
     const passcode = resolveYugiohPasscode(
       card.externalId,
       card.imageUrl,
@@ -128,8 +158,14 @@ export function resolveCardDisplayImage(
       const ygoUrl = buildYgoImageUrl(passcode, "full");
       if (ygoUrl) return ygoUrl;
     }
-    if (card.imageUrl) return card.imageUrl;
-    return sources.variantImage ?? sources.quoteImage ?? sources.detailImage ?? null;
+
+    return (
+      sources.variantImage ??
+      sources.detailImage ??
+      card.imageUrl ??
+      sources.quoteImage ??
+      null
+    );
   }
 
   const preferLarge = card.gameSlug === "pokemon";
@@ -137,7 +173,7 @@ export function resolveCardDisplayImage(
     sources.quoteImage,
     sources.variantImage,
     sources.detailImage,
-    storedPreviewUrl(card, preferLarge, sources.detailPasscode),
+    storedPreviewUrl(card, preferLarge, sources.detailPasscode, sources.quoteImage),
   ];
 
   for (const url of candidates) {
@@ -148,4 +184,4 @@ export function resolveCardDisplayImage(
   return null;
 }
 
-export { isYugiohPasscodeId };
+export { isYugiohPasscodeId, isCardTraderHostedImage };

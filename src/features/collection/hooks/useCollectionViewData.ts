@@ -4,7 +4,10 @@ import { useMemo, useCallback, useEffect } from "react";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
 import {
+  cardPriceKey,
   resolveDisplayPrice,
+  resolveCardTraderUrl,
+  resolveCardTraderImage,
   useCardTraderPrices,
 } from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
@@ -23,6 +26,8 @@ export interface CollectionViewData {
   handleQuantityChange: (id: string, quantity: number) => void;
   handleRemove: (id: string) => void;
   resolvePrice: (item: DemoOwnedCard) => number | null;
+  resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
+  openCardTraderLink: (item: DemoOwnedCard) => void;
 }
 
 export function useCollectionViewData(): CollectionViewData {
@@ -103,6 +108,40 @@ export function useCollectionViewData(): CollectionViewData {
     [cardTraderPrices]
   );
 
+  useEffect(() => {
+    if (!cardTraderPrices?.size) return;
+
+    for (const item of collectionCards) {
+      const quote = cardTraderPrices.get(cardPriceKey(item));
+      if (!quote?.blueprintId) continue;
+
+      const updates: Partial<DemoOwnedCard["card"]> = {};
+      if (quote.blueprintId !== item.card.cardTraderBlueprintId) {
+        updates.cardTraderBlueprintId = quote.blueprintId;
+      }
+      if (quote.imageUrl && quote.imageUrl !== item.card.imageUrl) {
+        updates.imageUrl = quote.imageUrl;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        void updateOwnedCard(item.id, { card: updates });
+      }
+    }
+  }, [cardTraderPrices, collectionCards, updateOwnedCard]);
+
+  const resolveCardTraderImageForItem = useCallback(
+    (item: DemoOwnedCard) => resolveCardTraderImage(item, cardTraderPrices),
+    [cardTraderPrices]
+  );
+
+  const openCardTraderLink = useCallback(
+    (item: DemoOwnedCard) => {
+      const url = resolveCardTraderUrl(item, cardTraderPrices);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    },
+    [cardTraderPrices]
+  );
+
   return {
     filtered,
     allIds,
@@ -115,5 +154,7 @@ export function useCollectionViewData(): CollectionViewData {
     handleQuantityChange,
     handleRemove,
     resolvePrice,
+    resolveCardTraderImage: resolveCardTraderImageForItem,
+    openCardTraderLink,
   };
 }

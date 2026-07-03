@@ -21,6 +21,7 @@ interface CollectionRowProps {
   selected: boolean;
   focused: boolean;
   marketPrice?: number | null;
+  cardTraderImage?: string | null;
   onClick: (
     item: DemoOwnedCard,
     modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
@@ -41,6 +42,7 @@ export const CollectionRow = memo(function CollectionRow({
   selected,
   focused,
   marketPrice: marketPriceProp,
+  cardTraderImage,
   onClick,
   onNameClick,
   onMiddleClick,
@@ -55,8 +57,9 @@ export const CollectionRow = memo(function CollectionRow({
   const marketPrice = marketPriceProp ?? item.card.marketPrice;
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
-  const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode);
+  const thumbSrc =
+    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode, cardTraderImage);
 
   const shiftKeyRef = useRef(false);
 

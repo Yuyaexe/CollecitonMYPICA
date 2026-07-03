@@ -14,7 +14,6 @@ import { CollectionRow } from "@/components/shared/CollectionRow";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
-import { openMarketplaceInNewTab } from "@/features/market/services/marketplace";
 import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 
 const ROW_HEIGHT = 56;
@@ -35,7 +34,7 @@ export function CollectionTable({ data }: CollectionTableProps) {
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
 
-  const { filtered, allIds, profileCurrency, resolvePrice, handleQuantityChange, handleRemove } =
+  const { filtered, allIds, profileCurrency, resolvePrice, resolveCardTraderImage, openCardTraderLink, handleQuantityChange, handleRemove } =
     data;
 
   const { peerByCardId } = usePresenceContext();
@@ -126,11 +125,12 @@ export function CollectionTable({ data }: CollectionTableProps) {
                       selected={selectedIds.has(item.id)}
                       focused={focusedRowIndex === virtualRow.index}
                       marketPrice={resolvePrice(item)}
+                      cardTraderImage={resolveCardTraderImage(item)}
                       onClick={(row, modifiers) =>
                         selectRow(row.id, modifiers, allIds, virtualRow.index)
                       }
                       onNameClick={(row) => openCardInspect(row.id, "details")}
-                      onMiddleClick={(row) => openMarketplaceInNewTab(row.card)}
+                      onMiddleClick={(row) => openCardTraderLink(row)}
                       onCheckboxChange={(id, shift) =>
                         toggleSelect(id, shift, allIds, virtualRow.index)
                       }
@@ -155,7 +155,7 @@ export function CollectionTable({ data }: CollectionTableProps) {
                   <ContextMenuItem onClick={() => openCardInspect(item.id, "marketplace")}>
                     Marketplace
                   </ContextMenuItem>
-                  <ContextMenuItem onClick={() => openMarketplaceInNewTab(item.card)}>
+                  <ContextMenuItem onClick={() => openCardTraderLink(item)}>
                     Open marketplace in new tab
                   </ContextMenuItem>
                   <ContextMenuSeparator />

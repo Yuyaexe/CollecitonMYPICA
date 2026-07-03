@@ -16,4 +16,4 @@ export {
   getCardTraderPriceForProfile,
   resolveBestMarketPrice,
 } from "./pricing";
-export type { CardPriceInput, CardTraderPriceResult } from "./types";
+export type { CardPriceInput, CardTraderPriceResult, CardTraderClientQuote } from "./types";

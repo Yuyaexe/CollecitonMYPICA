@@ -9,15 +9,41 @@ import type { Currency } from "@/types/tcg";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 
 interface CardTraderQuote {
-  price: number;
+  price: number | null;
   currency: Currency;
   url: string;
+  blueprintId?: string | null;
   imageUrl?: string | null;
 }
 
 const BATCH_SIZE = 8;
 const MAX_CARDS = 48;
 const SEQUENTIAL_DELAY_MS = 150;
+
+function quoteFromResponse(raw: CardTraderQuote | null | undefined): CardTraderQuote | null {
+  if (!raw?.url) return null;
+  return raw;
+}
+
+export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
+  return {
+    gameSlug: item.card.gameSlug,
+    name: item.card.name,
+    setName: item.card.setName,
+    setCode: item.card.setCode,
+    rarity: item.card.rarity,
+    condition: item.condition,
+    language: item.language,
+    isFoil: item.isFoil,
+    imageUrl: item.card.imageUrl,
+    cardTraderBlueprintId: item.card.cardTraderBlueprintId,
+    blueprintId: resolveStoredBlueprintId(
+      item.card.externalId,
+      item.card.imageUrl,
+      item.card.cardTraderBlueprintId
+    ),
+  };
+}
 
 async function fetchSinglePrice(
   input: CardPriceInput,
@@ -34,7 +60,7 @@ async function fetchSinglePrice(
     prices: Array<CardTraderQuote | null>;
   };
   if (!json.configured) return null;
-  return json.prices[0] ?? null;
+  return quoteFromResponse(json.prices[0]);
 }
 
 async function fetchPriceBatchByInput(
@@ -59,7 +85,7 @@ async function fetchPriceBatchByInput(
   if (!json.configured) return map;
 
   inputs.forEach((_input, index) => {
-    const quote = json.prices[index];
+    const quote = quoteFromResponse(json.prices[index]);
     if (quote) map.set(keys[index], quote);
   });
 
@@ -81,6 +107,7 @@ export function useSequentialVariantPrices(
     rarity?: string | null;
     blueprintId?: number | null;
     imageUrl?: string | null;
+    cardTraderBlueprintId?: string | null;
   }>,
   currency: Currency,
   enabled: boolean
@@ -124,6 +151,7 @@ export function useSequentialVariantPrices(
           rarity: variant.rarity,
           blueprintId: variant.blueprintId,
           imageUrl: variant.imageUrl,
+          cardTraderBlueprintId: variant.cardTraderBlueprintId,
         };
 
         try {
@@ -175,24 +203,39 @@ async function fetchPriceBatch(
   currency: Currency
 ): Promise<Map<string, CardTraderQuote>> {
   const keys = cards.map((item) => cardPriceKey(item));
-  const inputs: CardPriceInput[] = cards.map((item) => ({
-    gameSlug: item.card.gameSlug,
-    name: item.card.name,
-    setName: item.card.setName,
-    setCode: item.card.setCode,
-    rarity: item.card.rarity,
-    condition: item.condition,
-    language: item.language,
-    isFoil: item.isFoil,
-    imageUrl: item.card.imageUrl,
-    cardTraderBlueprintId: item.card.cardTraderBlueprintId,
-    blueprintId: resolveStoredBlueprintId(
-      item.card.externalId,
-      item.card.imageUrl,
-      item.card.cardTraderBlueprintId
-    ),
-  }));
+  const inputs = cards.map((item) => ownedCardToPriceInput(item));
   return fetchPriceBatchByInput(inputs, keys, currency);
+}
+
+/** Resolves CardTrader product URL (and optional price) for one owned card. */
+export function useCardTraderOwnedQuote(
+  card: DemoOwnedCard | null,
+  currency: Currency,
+  enabled: boolean
+) {
+  const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
+
+  const input = useMemo(
+    () => (card ? ownedCardToPriceInput(card) : null),
+    [card]
+  );
+
+  return useQuery({
+    queryKey: [
+      "cardtrader-owned-quote",
+      priceRefreshKey,
+      currency,
+      card?.id,
+      input?.name,
+      input?.setName,
+      input?.setCode,
+      input?.rarity,
+      input?.cardTraderBlueprintId,
+    ],
+    enabled: enabled && !!input,
+    staleTime: 30 * 60 * 1000,
+    queryFn: () => fetchSinglePrice(input!, currency),
+  });
 }
 
 export function useCardTraderVariantPrices(
@@ -205,6 +248,7 @@ export function useCardTraderVariantPrices(
     rarity?: string | null;
     blueprintId?: number | null;
     imageUrl?: string | null;
+    cardTraderBlueprintId?: string | null;
   }>,
   currency: Currency,
   enabled: boolean
@@ -240,6 +284,7 @@ export function useCardTraderVariantPrices(
           rarity: v.rarity,
           blueprintId: v.blueprintId,
           imageUrl: v.imageUrl,
+          cardTraderBlueprintId: v.cardTraderBlueprintId,
         }));
         const batchMap = await fetchPriceBatchByInput(inputs, keys, currency);
         batchMap.forEach((value, key) => merged.set(key, value));
@@ -307,7 +352,7 @@ export function resolveDisplayPrice(
   livePrices: Map<string, CardTraderQuote> | undefined
 ): number | null {
   const live = livePrices?.get(cardPriceKey(item));
-  if (live) return live.price;
+  if (live?.price != null) return live.price;
   return item.card.marketPrice;
 }
 

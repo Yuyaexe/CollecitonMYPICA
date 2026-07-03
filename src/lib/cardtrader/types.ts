@@ -1,4 +1,4 @@
-import type { CardCondition, CardLanguage } from "@/types/tcg";
+import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
 
 export interface CardTraderGame {
   id: number;
@@ -51,10 +51,18 @@ export interface CardPriceInput {
 }
 
 export interface CardTraderPriceResult {
-  price: number;
+  price: number | null;
   currency: string;
   blueprintId: number;
   url: string;
   listingCount: number;
   imageUrl?: string | null;
+}
+
+export interface CardTraderClientQuote {
+  price: number | null;
+  currency: Currency;
+  url: string;
+  blueprintId: string;
+  imageUrl: string | null;
 }

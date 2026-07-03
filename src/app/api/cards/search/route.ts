@@ -4,7 +4,7 @@ import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
   isCardTraderGameSupported,
-  parseCardTraderBlueprintId,
+  resolveStoredBlueprintId,
   searchCardTraderCatalog,
 } from "@/lib/cardtrader";
 
@@ -17,8 +17,7 @@ function sleep(ms: number) {
 async function enrichWithCardTraderPrices(
   results: Awaited<ReturnType<NonNullable<ReturnType<typeof getCardAdapter>>["search"]>>,
   game: string,
-  currency: "USD" | "BRL",
-  preserveCatalogImages: boolean
+  currency: "USD" | "BRL"
 ) {
   const enriched = [];
   for (let i = 0; i < results.length; i++) {
@@ -28,7 +27,11 @@ async function enrichWithCardTraderPrices(
       continue;
     }
     try {
-      const blueprintId = parseCardTraderBlueprintId(result.externalId);
+      const blueprintId = resolveStoredBlueprintId(
+        result.externalId,
+        result.imageUrl,
+        result.metadata?.catalogSource === "cardtrader" ? result.externalId : null
+      );
       const cardTrader = await getCardTraderPriceForProfile(
         {
           gameSlug: game,
@@ -50,9 +53,7 @@ async function enrichWithCardTraderPrices(
       enriched.push({
         ...result,
         price: cardTrader.price ?? result.price,
-        imageUrl: preserveCatalogImages
-          ? result.imageUrl
-          : cardTrader.imageUrl ?? result.imageUrl,
+        imageUrl: cardTrader.imageUrl ?? result.imageUrl,
         metadata: {
           ...result.metadata,
           priceSource: "cardtrader",
@@ -103,12 +104,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (cardTraderReady) {
-      results = await enrichWithCardTraderPrices(
-        results,
-        game,
-        currency,
-        isApiSupported(game)
-      );
+      results = await enrichWithCardTraderPrices(results, game, currency);
     }
 
     return NextResponse.json({
