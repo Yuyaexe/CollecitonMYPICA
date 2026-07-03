@@ -6,6 +6,7 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -31,7 +32,8 @@ export function CollectionCompactCard({
   onQuantityChange,
   onRemove,
 }: CollectionCompactCardProps) {
-  const thumbSrc = getCardPreviewImageUrl(item.card) ?? item.card.imageUrl;
+  const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
+  const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
 
   return (
     <div

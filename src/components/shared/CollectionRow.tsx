@@ -10,6 +10,7 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardHoverPreviewUrl, getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -51,6 +52,9 @@ export const CollectionRow = memo(function CollectionRow({
   style,
 }: CollectionRowProps) {
   const marketPrice = marketPriceProp ?? item.card.marketPrice;
+  const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
+  const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
+  const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode);
 
   const shiftKeyRef = useRef(false);
 
@@ -102,13 +106,13 @@ export const CollectionRow = memo(function CollectionRow({
 
       <CardHoverPreview
         className="shrink-0"
-        src={getCardPreviewImageUrl(item.card) ?? item.card.imageUrl}
-        previewSrc={getCardHoverPreviewUrl(item.card)}
+        src={thumbSrc}
+        previewSrc={hoverSrc}
         alt={item.card.name}
       >
         <div className="relative h-11 w-[1.875rem] shrink-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">
           <CardImage
-            src={getCardPreviewImageUrl(item.card) ?? item.card.imageUrl}
+            src={thumbSrc}
             alt={item.card.name}
             fill
             sizes="44px"

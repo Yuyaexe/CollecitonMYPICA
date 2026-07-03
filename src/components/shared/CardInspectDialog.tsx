@@ -38,6 +38,9 @@ import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency, cn } from "@/lib/utils";
 import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
+import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
+import { isYugiohPasscodeId, resolveYugiohPasscode } from "@/lib/yugioh/passcode";
+import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
 
@@ -65,6 +68,31 @@ async function fetchCardDetail(
   return res.json();
 }
 
+async function fetchCardDetailForOwned(
+  card: DemoOwnedCard["card"]
+): Promise<CardDetailResponse> {
+  if (
+    card.gameSlug === "yugioh" &&
+    card.externalId &&
+    isYugiohPasscodeId(card.externalId, card.imageUrl)
+  ) {
+    return fetchCardDetail(card.externalId, card.gameSlug);
+  }
+
+  if (card.gameSlug === "yugioh") {
+    const byName = await fetchYugiohCardByName(card.name);
+    if (byName) {
+      return { result: byName, relatedPrints: [] };
+    }
+  }
+
+  if (card.externalId && isApiSupported(card.gameSlug)) {
+    return fetchCardDetail(card.externalId, card.gameSlug);
+  }
+
+  return { result: null, relatedPrints: [] };
+}
+
 export function CardInspectDialog({
   card,
   open,
@@ -76,16 +104,18 @@ export function CardInspectDialog({
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
   const { data: cardDetailData } = useQuery({
-    queryKey: ["card-detail", card?.card.externalId, card?.card.gameSlug],
-    queryFn: () => fetchCardDetail(card!.card.externalId!, card!.card.gameSlug),
-    enabled:
-      open &&
-      !!card?.card.externalId &&
-      isApiSupported(card.card.gameSlug),
+    queryKey: ["card-detail", card?.id, card?.card.name, card?.card.externalId, card?.card.gameSlug],
+    queryFn: () => fetchCardDetailForOwned(card!.card),
+    enabled: open && !!card && isApiSupported(card.card.gameSlug),
     staleTime: 10 * 60 * 1000,
   });
 
   const cardDetail = cardDetailData?.result ?? null;
+  const ygoPasscode = resolveYugiohPasscode(
+    card?.card.externalId,
+    card?.card.imageUrl,
+    cardDetail?.externalId
+  );
 
   const printVariants = useMemo(() => {
     if (!cardDetail || !card) return [];
@@ -138,9 +168,9 @@ export function CardInspectDialog({
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
   const displayImage = resolveCardDisplayImage(card.card, {
-    quoteImage: activeQuote?.imageUrl,
     variantImage: activeVariant?.imageUrl,
     detailImage: cardDetail?.imageUrl,
+    detailPasscode: ygoPasscode,
   });
 
   const listings = buildMarketplaceListings(card.card, {
@@ -153,11 +183,16 @@ export function CardInspectDialog({
 
   const handleVariantSelect = (variant: CardPrintVariant) => {
     const quote = variantPrices?.get(variant.key);
-    const imageUrl = resolveCardDisplayImage(card.card, {
-      quoteImage: quote?.imageUrl,
-      variantImage: variant.imageUrl,
-      detailImage: cardDetail?.imageUrl,
-    });
+    const passcode = ygoPasscode ?? resolveYugiohPasscode(card.card.externalId, card.card.imageUrl);
+    const imageUrl = passcode
+      ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity)) ??
+        variant.imageUrl ??
+        card.card.imageUrl
+      : resolveCardDisplayImage(card.card, {
+          quoteImage: quote?.imageUrl,
+          variantImage: variant.imageUrl,
+          detailPasscode: passcode,
+        });
 
     updateOwnedCard(card.id, {
       card: {
@@ -165,7 +200,7 @@ export function CardInspectDialog({
         setName: variant.setName,
         setCode: variant.setCode,
         collectorNumber: variant.setCode ?? card.card.collectorNumber,
-        externalId: variant.externalId ?? card.card.externalId,
+        externalId: passcode ?? card.card.externalId,
         imageUrl,
         marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },

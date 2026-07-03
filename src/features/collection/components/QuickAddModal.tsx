@@ -21,6 +21,9 @@ import { useAppData } from "@/hooks/useAppData";
 import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
 import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
+import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
+import { resolveYugiohPasscode } from "@/lib/yugioh/passcode";
+import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 import {
   applyVariant,
   getSearchResultVariants,
@@ -159,7 +162,31 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   }, [pendingCard, previewVariant, variantPrices, usesCatalogImages]);
 
   const handleAdd = async (result: CardSearchResult) => {
-    await addCardFromSearch(result, game.id, game.slug, game.name);
+    let toAdd = result;
+    if (game.slug === "yugioh") {
+      const passcode = resolveYugiohPasscode(result.externalId, result.imageUrl);
+      if (passcode) {
+        toAdd = {
+          ...result,
+          externalId: passcode,
+          imageUrl:
+            buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(result.rarity)) ??
+            result.imageUrl,
+        };
+      } else {
+        const ygo = await fetchYugiohCardByName(result.name);
+        if (ygo?.externalId) {
+          toAdd = {
+            ...result,
+            externalId: ygo.externalId,
+            imageUrl:
+              buildYgoImageUrl(ygo.externalId, pickYgoImageSizeForRarity(result.rarity)) ??
+              result.imageUrl,
+          };
+        }
+      }
+    }
+    await addCardFromSearch(toAdd, game.id, game.slug, game.name);
     toast.success(`Added ${result.name}`);
     onOpenChange(false);
     setQuery("");

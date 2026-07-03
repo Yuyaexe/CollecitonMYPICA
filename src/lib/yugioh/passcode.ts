@@ -1,0 +1,45 @@
+import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
+
+export function isCardTraderHostedImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return /cardtrader\.com|product-images\.cardtrader/i.test(url);
+}
+
+/**
+ * True when externalId is a Yu-Gi-Oh! Konami passcode (safe for images.ygoprodeck.com).
+ * CardTrader blueprint IDs are numeric too — never treat those as passcodes.
+ */
+export function isYugiohPasscodeId(
+  externalId: string | null | undefined,
+  imageUrl?: string | null
+): boolean {
+  if (!externalId || !/^\d{7,10}$/.test(externalId)) return false;
+  if (isCardTraderHostedImage(imageUrl)) return false;
+  if (imageUrl?.includes("ygoprodeck.com")) return true;
+  if (parseCardTraderBlueprintId(externalId) != null && !imageUrl?.includes("ygoprodeck.com")) {
+    return externalId.length >= 8;
+  }
+  return externalId.length >= 8;
+}
+
+export function resolveYugiohPasscode(
+  externalId: string | null | undefined,
+  imageUrl?: string | null,
+  detailPasscode?: string | null
+): string | null {
+  if (detailPasscode && isYugiohPasscodeId(detailPasscode, null)) {
+    return detailPasscode;
+  }
+  if (isYugiohPasscodeId(externalId, imageUrl)) {
+    return externalId!;
+  }
+  return null;
+}
+
+export function isCardTraderBlueprintExternalId(
+  externalId: string | null | undefined,
+  imageUrl?: string | null
+): boolean {
+  if (parseCardTraderBlueprintId(externalId) == null) return false;
+  return isCardTraderHostedImage(imageUrl) || !isYugiohPasscodeId(externalId, imageUrl);
+}

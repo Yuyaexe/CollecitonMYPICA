@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
   useCollectionUIStore,
@@ -68,6 +69,10 @@ interface BinderSlotProps {
 }
 
 function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlotProps) {
+  const ygoPasscode = useYugiohPasscodeForDisplay(
+    card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
+  );
+
   if (!card) {
     return (
       <div className="flex flex-col gap-1" aria-hidden>
@@ -77,7 +82,7 @@ function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlo
     );
   }
 
-  const thumbSrc = getCardPreviewImageUrl(card.card) ?? card.card.imageUrl;
+  const thumbSrc = getCardPreviewImageUrl(card.card, ygoPasscode) ?? card.card.imageUrl;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
 
   return (
