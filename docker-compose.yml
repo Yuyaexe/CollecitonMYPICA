@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: deckvault-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: deckvault
+      POSTGRES_PASSWORD: deckvault
+      POSTGRES_DB: deckvault
+    ports:
+      - "5432:5432"
+    volumes:
+      - deckvault_pg_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deckvault -d deckvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:4
+    container_name: deckvault-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: deckvault-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://deckvault:deckvault@postgres:5432/deckvault
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - full
+
+volumes:
+  deckvault_pg_data:

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.env*
+!.env.local.example
+!.env.docker.example
+src-tauri/target
+CollecitonMYPICA
+*.log
+.cursor

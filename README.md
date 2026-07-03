@@ -21,6 +21,50 @@ Open [http://localhost:3000/collection](http://localhost:3000/collection)
 
 Without Supabase configured, the app runs in **Demo Mode** with localStorage persistence. Click "Continue in Demo Mode" on the login page.
 
+## Docker (local Postgres — no Supabase cloud)
+
+Run PostgreSQL on your PC and browse collections/cards in **Adminer** (web UI).
+
+**Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+```powershell
+npm install
+npm run docker:setup
+```
+
+This starts Postgres + Adminer, creates tables, and seeds sample Yu-Gi-Oh cards.
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **Adminer** (view DB) | http://localhost:8080 | System: PostgreSQL · Server: `postgres` · User: `deckvault` · Password: `deckvault` · DB: `deckvault` |
+| **Drizzle Studio** | `npm run db:studio` | Uses `DATABASE_URL` from `.env.local` |
+| **App** | http://localhost:3000 | Copy `.env.docker.example` → `.env.local`, then `npm run dev` |
+
+**Useful commands:**
+
+```bash
+npm run docker:up      # start Postgres + Adminer only
+npm run docker:down    # stop containers
+npm run docker:seed    # re-seed demo data (after db:push)
+docker compose --profile full up -d app   # run Next.js inside Docker
+```
+
+**Tables to browse in Adminer:** `collections`, `cards`, `owned_cards`, `profiles`
+
+> The UI still uses Demo Mode (localStorage) by default. Docker stores data in Postgres for sharing, backup, and multi-device use once the app is wired to the database.
+
+## GitHub
+
+Repository: [github.com/Yuyaexe/CollecitonMYPICA](https://github.com/Yuyaexe/CollecitonMYPICA)
+
+```bash
+git clone https://github.com/Yuyaexe/CollecitonMYPICA.git
+cd CollecitonMYPICA
+npm install
+npm run docker:setup   # optional: local database
+npm run dev
+```
+
 ## Supabase Setup
 
 1. Create a project at [supabase.com](https://supabase.com)

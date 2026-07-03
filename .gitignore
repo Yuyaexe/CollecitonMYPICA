@@ -40,3 +40,10 @@ src-tauri/target/
 
 # drizzle
 .drizzle
+
+# logs
+*.log
+deckvault.log
+
+# accidental nested clone
+CollecitonMYPICA/
