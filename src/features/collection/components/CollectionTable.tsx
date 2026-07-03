@@ -48,6 +48,10 @@ export function CollectionTable({ data }: CollectionTableProps) {
   });
 
   useEffect(() => {
+    virtualizer.measure();
+  }, [filtered.length, virtualizer]);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) return;
       if (e.key === "ArrowDown") {

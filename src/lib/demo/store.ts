@@ -19,7 +19,13 @@ function generateId(): string {
 interface DemoStore extends DemoState {
   activeCollectionId: string;
   setActiveCollection: (id: string) => void;
-  addCardFromSearch: (result: CardSearchResult, gameId: string, gameSlug: string, gameName: string) => void;
+  addCardFromSearch: (
+    result: CardSearchResult,
+    gameId: string,
+    gameSlug: string,
+    gameName: string,
+    collectionId?: string
+  ) => void;
   updateOwnedCard: (
     id: string,
     updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoCard> }
@@ -56,11 +62,12 @@ export const useDemoStore = create<DemoStore>()(
 
       setActiveCollection: (id) => set({ activeCollectionId: id }),
 
-      addCardFromSearch: (result, gameId, gameSlug, gameName) => {
+      addCardFromSearch: (result, gameId, gameSlug, gameName, collectionId) => {
         const state = get();
+        const targetCollectionId = collectionId ?? state.activeCollectionId;
         const existing = state.ownedCards.find(
           (oc) =>
-            oc.collectionId === state.activeCollectionId &&
+            oc.collectionId === targetCollectionId &&
             oc.card.externalId === result.externalId &&
             oc.card.gameSlug === gameSlug
         );
@@ -103,7 +110,7 @@ export const useDemoStore = create<DemoStore>()(
         };
         const owned: DemoOwnedCard = {
           id: generateId(),
-          collectionId: get().activeCollectionId,
+          collectionId: targetCollectionId,
           cardId,
           card,
           quantity: 1,

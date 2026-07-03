@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAppData } from "@/hooks/useAppData";
-import { isQuickAddSupported } from "@/features/catalog/services/card-api";
+import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
 import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
 import {
@@ -29,7 +29,7 @@ import {
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
+import { useSequentialVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 
 interface QuickAddModalProps {
   open: boolean;
@@ -127,10 +127,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     setPreviewKey(first?.key ?? null);
   }, [pendingCard, filteredVariants, variants]);
 
+  const usesCatalogImages = isApiSupported(game.slug);
+
   const {
     data: variantPrices,
-    isFetching: pricesFetching,
-  } = useCardTraderVariantPrices(
+    pendingKeys: pricePendingKeys,
+    resolvedKeys: priceResolvedKeys,
+  } = useSequentialVariantPrices(
     pendingCard?.name ?? "",
     game.slug,
     variantInputs,
@@ -145,12 +148,15 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   const previewImage = useMemo(() => {
     if (!pendingCard || !previewVariant) return pendingCard?.imageUrl ?? null;
+    if (usesCatalogImages) {
+      return previewVariant.imageUrl ?? pendingCard.imageUrl;
+    }
     return (
       variantPrices?.get(previewVariant.key)?.imageUrl ??
       previewVariant.imageUrl ??
       pendingCard.imageUrl
     );
-  }, [pendingCard, previewVariant, variantPrices]);
+  }, [pendingCard, previewVariant, variantPrices, usesCatalogImages]);
 
   const handleAdd = async (result: CardSearchResult) => {
     await addCardFromSearch(result, game.id, game.slug, game.name);
@@ -182,12 +188,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const handleVariantPick = (variant: CardPrintVariant) => {
     if (!pendingCard) return;
     const cardTraderPrice = variantPrices?.get(variant.key)?.price;
-    const cardTraderImage = variantPrices?.get(variant.key)?.imageUrl;
     const result = applyVariant(pendingCard, variant);
     void handleAdd({
       ...result,
       price: cardTraderPrice ?? result.price ?? null,
-      imageUrl: cardTraderImage ?? result.imageUrl,
+      imageUrl: usesCatalogImages
+        ? result.imageUrl
+        : variantPrices?.get(variant.key)?.imageUrl ?? result.imageUrl,
     });
   };
 
@@ -200,10 +207,17 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         </span>
       );
     }
-    if (pricesFetching) {
+    if (pricePendingKeys.has(variantKey)) {
       return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
     }
-    return <span className="text-xs text-muted-foreground">—</span>;
+    if (priceResolvedKeys.has(variantKey)) {
+      return (
+        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          NIL
+        </span>
+      );
+    }
+    return null;
   };
 
   return (
@@ -242,7 +256,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                   alt={pendingCard.name}
                   width={152}
                   height={222}
-                  className="rounded-lg shadow-lg ring-1 ring-border/40"
+                  className="rounded-lg object-contain shadow-lg ring-1 ring-border/40"
                 />
                 <p className="mt-3 text-center text-sm font-semibold leading-tight">
                   {pendingCard.name}

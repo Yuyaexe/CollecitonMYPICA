@@ -13,6 +13,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 export function CollectionContent() {
   const data = useCollectionViewData();
   const viewMode = useCollectionUIStore((s) => s.viewMode);
+  const filters = useCollectionUIStore((s) => s.filters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
@@ -39,6 +40,31 @@ export function CollectionContent() {
   }
 
   if (data.filtered.length === 0) {
+    const hasActiveFilters =
+      data.collectionCards.length > 0 &&
+      (filters.search ||
+        filters.gameId ||
+        filters.setCode ||
+        filters.rarity ||
+        filters.language ||
+        filters.condition ||
+        filters.isFoil !== null ||
+        filters.minQuantity !== null ||
+        filters.priceMin !== null ||
+        filters.priceMax !== null);
+
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          icon={Layers}
+          title="No cards match your filters"
+          description="Try clearing the search or resetting filters to see all cards in this collection."
+          actionLabel="Reset filters"
+          onAction={() => useCollectionUIStore.getState().resetFilters()}
+        />
+      );
+    }
+
     return (
       <EmptyState
         icon={Layers}

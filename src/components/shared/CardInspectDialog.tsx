@@ -21,6 +21,7 @@ import {
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
 import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 import { isApiSupported } from "@/features/catalog/services/card-api";
@@ -70,7 +71,7 @@ export function CardInspectDialog({
   onOpenChange,
   currency,
 }: CardInspectDialogProps) {
-  const { updateOwnedCard } = useAppData();
+  const { updateOwnedCard, deleteOwnedCards } = useAppData();
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
   const { data: cardDetailData } = useQuery({
@@ -315,16 +316,17 @@ export function CardInspectDialog({
               )}
 
               <div className="space-y-2">
-                <Label>Quantity</Label>
-                <Input
-                  type="number"
-                  min={1}
+                <Label>Qty</Label>
+                <QuantityStepper
                   value={card.quantity}
-                  onChange={(e) =>
-                    updateOwnedCard(card.id, {
-                      quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
-                    })
-                  }
+                  onChange={(quantity) => {
+                    if (quantity < 1) {
+                      void deleteOwnedCards([card.id]);
+                      onOpenChange(false);
+                      return;
+                    }
+                    updateOwnedCard(card.id, { quantity });
+                  }}
                 />
               </div>
 

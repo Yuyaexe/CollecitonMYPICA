@@ -15,8 +15,17 @@ interface DigimonCard {
   tcgplayer_name?: string | null;
 }
 
+const NON_DIGIMON_SET = /dragon ball|fusion world|one piece|pokemon|magic the gathering|yu-gi-oh|lorcana/i;
+
 function digimonImageUrl(cardId: string): string {
   return `https://images.digimoncard.io/images/cards/${cardId}.jpg`;
+}
+
+function isDigimonGameCard(card: DigimonCard): boolean {
+  const sets = card.set_name ?? [];
+  if (sets.some((s) => NON_DIGIMON_SET.test(s))) return false;
+  if (!card.id || !/^[A-Za-z][A-Za-z0-9]*-\d/.test(card.id)) return false;
+  return true;
 }
 
 function mapDigimonCard(card: DigimonCard): CardSearchResult {
@@ -53,7 +62,16 @@ export const digimonAdapter: CardApiAdapter = {
     if (!res.ok) return [];
     const data = await res.json();
     const cards = Array.isArray(data) ? data : [];
-    return (cards as DigimonCard[]).slice(0, 20).map(mapDigimonCard);
+    const seen = new Set<string>();
+    return (cards as DigimonCard[])
+      .filter(isDigimonGameCard)
+      .filter((card) => {
+        if (seen.has(card.id)) return false;
+        seen.add(card.id);
+        return true;
+      })
+      .slice(0, 20)
+      .map(mapDigimonCard);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {

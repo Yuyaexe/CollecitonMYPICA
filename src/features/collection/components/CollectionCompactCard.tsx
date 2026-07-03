@@ -69,8 +69,13 @@ export function CollectionCompactCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <QuantityStepper
             value={item.quantity}
-            onChange={onQuantityChange}
-            onRemove={onRemove}
+            onChange={(quantity) => {
+              if (quantity < 1) {
+                onRemove();
+                return;
+              }
+              onQuantityChange(quantity);
+            }}
           />
           <PriceBadge price={marketPrice} currency={currency} />
         </div>

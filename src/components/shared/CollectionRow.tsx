@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useRef } from "react";
+import { memo, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
@@ -53,15 +53,6 @@ export const CollectionRow = memo(function CollectionRow({
   const marketPrice = marketPriceProp ?? item.card.marketPrice;
 
   const shiftKeyRef = useRef(false);
-
-  const handleQuantityChange = useCallback(
-    (quantity: number) => {
-      if (quantity !== item.quantity) {
-        onQuantityChange(item.id, quantity);
-      }
-    },
-    [item.id, item.quantity, onQuantityChange]
-  );
 
   return (
     <div
@@ -164,8 +155,11 @@ export const CollectionRow = memo(function CollectionRow({
       <div data-row-action className="flex w-[104px] shrink-0 justify-center">
         <QuantityStepper
           value={item.quantity}
-          onChange={handleQuantityChange}
-          onRemove={onRemove ? () => onRemove(item.id) : undefined}
+          onChange={(quantity) => {
+            if (quantity !== item.quantity) {
+              onQuantityChange(item.id, quantity);
+            }
+          }}
         />
       </div>
 

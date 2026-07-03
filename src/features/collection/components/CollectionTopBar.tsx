@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, UserPlus, RefreshCw } from "lucide-react";
+import { Plus, Upload, Download, LayoutGrid, UserPlus, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CollaboratorPresence } from "@/components/shared/CollaboratorPresence";
@@ -19,8 +19,11 @@ import {
 } from "@/components/ui/select";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
+import { useDataUiStore } from "@/lib/data/ui-store";
+import { mergeCollectionOrder, sortCollectionsByOrder } from "@/lib/collections/order";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { exportCollectionCsv } from "@/features/import/services/export-csv";
+import { filterOwnedCards } from "@/features/collection/utils/filters";
 import {
   resolveDisplayPrice,
   useCardTraderPrices,
@@ -33,6 +36,7 @@ export function CollectionTopBar() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
   const refreshPrices = useCollectionUIStore((s) => s.refreshPrices);
+  const collectionOrder = useDataUiStore((s) => s.collectionOrder);
   const { peers } = usePresenceContext();
 
   const {
@@ -45,6 +49,10 @@ export function CollectionTopBar() {
   } = useAppData();
 
   const activeCollection = collections.find((c) => c.id === activeCollectionId);
+  const sortedCollections = useMemo(
+    () => sortCollectionsByOrder(collections, mergeCollectionOrder(collections, collectionOrder)),
+    [collections, collectionOrder]
+  );
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
 
   const { data: cardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
@@ -63,6 +71,12 @@ export function CollectionTopBar() {
     return { totalCards, totalValue, uniqueSets };
   }, [collectionCards, cardTraderPrices]);
 
+  const hasActiveSearch = filters.search.trim().length > 0;
+  const visibleCount = useMemo(() => {
+    if (!activeCollectionId) return 0;
+    return filterOwnedCards(ownedCards, filters, activeCollectionId).length;
+  }, [ownedCards, filters, activeCollectionId]);
+
   const handleExport = () => {
     exportCollectionCsv(collectionCards, activeCollection?.name ?? "collection");
   };
@@ -73,16 +87,16 @@ export function CollectionTopBar() {
         <div className="flex flex-wrap items-center gap-4 px-6 py-4">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
-              {collections.length > 0 ? (
+              {sortedCollections.length > 0 ? (
                 <Select
-                  value={activeCollectionId ?? collections[0].id}
+                  value={activeCollectionId ?? sortedCollections[0].id}
                   onValueChange={setActiveCollection}
                 >
                   <SelectTrigger className="w-[200px] border-0 bg-transparent text-lg font-semibold shadow-none focus:ring-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {collections.map((c) => (
+                    {sortedCollections.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -171,6 +185,22 @@ export function CollectionTopBar() {
         <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 sm:hidden">
           <CollectionViewSwitcher className="flex-1" />
         </div>
+        {hasActiveSearch && (
+          <div className="flex items-center gap-2 border-t border-border/60 px-6 py-2">
+            <span className="text-xs text-muted-foreground">
+              Showing {visibleCount} of {stats.totalCards} cards matching &quot;{filters.search.trim()}&quot;
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => setFilters({ search: "" })}
+            >
+              <X className="h-3 w-3" />
+              Clear search
+            </Button>
+          </div>
+        )}
       </div>
 
       {activeCollectionId && (

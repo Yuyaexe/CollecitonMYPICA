@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppData } from "@/hooks/useAppData";
-import { DEMO_GAMES } from "@/lib/demo/types";
 import type { DemoProfile } from "@/lib/demo/types";
 import { CURRENCIES } from "@/types/tcg";
 import {
@@ -147,25 +146,6 @@ export default function SettingsPage() {
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Preferences</h2>
-
-          <div className="space-y-2">
-            <Label>Default Game</Label>
-            <Select
-              value={draft.defaultGameId ?? DEMO_GAMES[0].id}
-              onValueChange={(v) => setDraft({ ...draft, defaultGameId: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DEMO_GAMES.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           <div className="space-y-2">
             <Label>Currency</Label>

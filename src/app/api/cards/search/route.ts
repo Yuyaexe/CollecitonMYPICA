@@ -17,7 +17,8 @@ function sleep(ms: number) {
 async function enrichWithCardTraderPrices(
   results: Awaited<ReturnType<NonNullable<ReturnType<typeof getCardAdapter>>["search"]>>,
   game: string,
-  currency: "USD" | "BRL"
+  currency: "USD" | "BRL",
+  preserveCatalogImages: boolean
 ) {
   const enriched = [];
   for (let i = 0; i < results.length; i++) {
@@ -45,8 +46,10 @@ async function enrichWithCardTraderPrices(
       }
       enriched.push({
         ...result,
-        price: cardTrader.price,
-        imageUrl: cardTrader.imageUrl ?? result.imageUrl,
+        price: cardTrader.price ?? result.price,
+        imageUrl: preserveCatalogImages
+          ? result.imageUrl
+          : cardTrader.imageUrl ?? result.imageUrl,
         metadata: {
           ...result.metadata,
           priceSource: "cardtrader",
@@ -97,7 +100,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (cardTraderReady) {
-      results = await enrichWithCardTraderPrices(results, game, currency);
+      results = await enrichWithCardTraderPrices(
+        results,
+        game,
+        currency,
+        isApiSupported(game)
+      );
     }
 
     return NextResponse.json({

@@ -33,7 +33,11 @@ async function fetchAppState(): Promise<AppState> {
 
 export function useAppData() {
   const queryClient = useQueryClient();
-  const demo = useDemoStore();
+  const demoOwnedCards = useDemoStore((s) => s.ownedCards);
+  const demoCollections = useDemoStore((s) => s.collections);
+  const demoProfile = useDemoStore((s) => s.profile);
+  const demoTags = useDemoStore((s) => s.tags);
+  const demoActiveCollectionId = useDemoStore((s) => s.activeCollectionId);
 
   const activeCollectionId = useDataUiStore((s) => s.activeCollectionId);
   const setActiveCollectionId = useDataUiStore((s) => s.setActiveCollectionId);
@@ -62,18 +66,22 @@ export function useAppData() {
     queryClient.invalidateQueries({ queryKey: ["app-state"] });
   }, [queryClient]);
 
-  const profile = isSupabaseMode ? (serverState?.profile ?? demo.profile) : demo.profile;
+  const refreshAppState = useCallback(async () => {
+    await queryClient.refetchQueries({ queryKey: ["app-state"] });
+  }, [queryClient]);
+
+  const profile = isSupabaseMode ? (serverState?.profile ?? demoProfile) : demoProfile;
   const collections = useMemo(
-    () => (isSupabaseMode ? (serverState?.collections ?? []) : demo.collections),
-    [isSupabaseMode, serverState?.collections, demo.collections]
+    () => (isSupabaseMode ? (serverState?.collections ?? []) : demoCollections),
+    [isSupabaseMode, serverState?.collections, demoCollections]
   );
   const ownedCards = useMemo(
-    () => (isSupabaseMode ? (serverState?.ownedCards ?? []) : demo.ownedCards),
-    [isSupabaseMode, serverState?.ownedCards, demo.ownedCards]
+    () => (isSupabaseMode ? (serverState?.ownedCards ?? []) : demoOwnedCards),
+    [isSupabaseMode, serverState?.ownedCards, demoOwnedCards]
   );
   const tags = useMemo(
-    () => (isSupabaseMode ? (serverState?.tags ?? []) : demo.tags),
-    [isSupabaseMode, serverState?.tags, demo.tags]
+    () => (isSupabaseMode ? (serverState?.tags ?? []) : demoTags),
+    [isSupabaseMode, serverState?.tags, demoTags]
   );
 
   const resolvedActiveId = useMemo(() => {
@@ -86,10 +94,10 @@ export function useAppData() {
   }, [activeCollectionId, collections, isSupabaseMode]);
 
   useEffect(() => {
-    if (!isSupabaseMode && !activeCollectionId && demo.activeCollectionId) {
-      setActiveCollectionId(demo.activeCollectionId);
+    if (!isSupabaseMode && !activeCollectionId && demoActiveCollectionId) {
+      setActiveCollectionId(demoActiveCollectionId);
     }
-  }, [isSupabaseMode, activeCollectionId, demo.activeCollectionId, setActiveCollectionId]);
+  }, [isSupabaseMode, activeCollectionId, demoActiveCollectionId, setActiveCollectionId]);
 
   useEffect(() => {
     if (
@@ -148,15 +156,15 @@ export function useAppData() {
   const setActiveCollection = useCallback(
     (id: string) => {
       setActiveCollectionId(id);
-      if (!isSupabaseMode) demo.setActiveCollection(id);
+      if (!isSupabaseMode) useDemoStore.getState().setActiveCollection(id);
     },
-    [setActiveCollectionId, isSupabaseMode, demo]
+    [setActiveCollectionId, isSupabaseMode]
   );
 
   const profileMutation = useMutation({
     mutationFn: async (updates: Partial<DemoProfile>) => {
       if (!isSupabaseMode) {
-        demo.updateProfile(updates);
+        useDemoStore.getState().updateProfile(updates);
         return;
       }
       const res = await fetch("/api/app/profile", {
@@ -172,7 +180,7 @@ export function useAppData() {
   const addCollectionMutation = useMutation({
     mutationFn: async (name: string): Promise<DemoCollection> => {
       if (!isSupabaseMode) {
-        return demo.addCollection(name);
+        return useDemoStore.getState().addCollection(name);
       }
       const res = await fetch("/api/app/collections", {
         method: "POST",
@@ -191,7 +199,7 @@ export function useAppData() {
           return { ...prev, collections: [...prev.collections, created] };
         });
       } else {
-        demo.setActiveCollection(created.id);
+        useDemoStore.getState().setActiveCollection(created.id);
       }
       setActiveCollectionId(created.id);
       void queryClient.invalidateQueries({ queryKey: ["app-state"] });
@@ -201,7 +209,7 @@ export function useAppData() {
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!isSupabaseMode) {
-        demo.toggleCollectionFavorite(id);
+        useDemoStore.getState().toggleCollectionFavorite(id);
         return;
       }
       const res = await fetch("/api/app/collections", {
@@ -217,7 +225,7 @@ export function useAppData() {
   const renameCollectionMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       if (!isSupabaseMode) {
-        demo.renameCollection(id, name);
+        useDemoStore.getState().renameCollection(id, name);
         return;
       }
       const res = await fetch("/api/app/collections", {
@@ -234,7 +242,7 @@ export function useAppData() {
   const deleteCollectionMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!isSupabaseMode) {
-        demo.deleteCollection(id);
+        useDemoStore.getState().deleteCollection(id);
         setActiveCollectionId(useDemoStore.getState().activeCollectionId);
         return;
       }
@@ -257,7 +265,13 @@ export function useAppData() {
       gameName: string;
     }) => {
       if (!isSupabaseMode) {
-        demo.addCardFromSearch(args.result, args.gameId, args.gameSlug, args.gameName);
+        useDemoStore.getState().addCardFromSearch(
+          args.result,
+          args.gameId,
+          args.gameSlug,
+          args.gameName,
+          resolvedActiveId ?? undefined
+        );
         return;
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -270,6 +284,7 @@ export function useAppData() {
         }),
       });
       if (!res.ok) throw new Error("Failed to add card");
+      await refreshAppState();
     },
     onSuccess: invalidate,
   });
@@ -283,7 +298,7 @@ export function useAppData() {
       updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> };
     }) => {
       if (!isSupabaseMode) {
-        demo.updateOwnedCard(id, updates);
+        useDemoStore.getState().updateOwnedCard(id, updates);
         return;
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -328,7 +343,7 @@ export function useAppData() {
   const deleteCardsMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (!isSupabaseMode) {
-        demo.deleteOwnedCards(ids);
+        useDemoStore.getState().deleteOwnedCards(ids);
         return;
       }
       const res = await fetch("/api/app/owned-cards", {
@@ -338,7 +353,27 @@ export function useAppData() {
       });
       if (!res.ok) throw new Error("Failed to delete cards");
     },
-    onSuccess: invalidate,
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: ["app-state"] });
+      const previous = queryClient.getQueryData<AppState>(["app-state"]);
+      if (previous) {
+        queryClient.setQueryData<AppState>(["app-state"], {
+          ...previous,
+          ownedCards: previous.ownedCards.filter((oc) => !ids.includes(oc.id)),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["app-state"], context.previous);
+      }
+    },
+    onSettled: () => {
+      if (isSupabaseMode) {
+        queryClient.invalidateQueries({ queryKey: ["app-state"] });
+      }
+    },
   });
 
   const importMutation = useMutation({
@@ -346,11 +381,11 @@ export function useAppData() {
       rows,
       mergeDuplicates,
     }: {
-      rows: Parameters<typeof demo.importRows>[0];
+      rows: Parameters<ReturnType<typeof useDemoStore.getState>["importRows"]>[0];
       mergeDuplicates: boolean;
     }) => {
       if (!isSupabaseMode) {
-        return demo.importRows(rows, mergeDuplicates);
+        return useDemoStore.getState().importRows(rows, mergeDuplicates);
       }
       const res = await fetch("/api/app/owned-cards", {
         method: "POST",
@@ -364,6 +399,7 @@ export function useAppData() {
       });
       if (!res.ok) throw new Error("Failed to import");
       const json = await res.json();
+      await refreshAppState();
       return json.imported as number;
     },
     onSuccess: invalidate,

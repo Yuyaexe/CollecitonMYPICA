@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import { useAppData } from "@/hooks/useAppData";
@@ -35,7 +36,7 @@ export function CardDetailSheet({
   currency,
   onOpenMarketplace,
 }: CardDetailSheetProps) {
-  const { ownedCards, activeCollectionId, updateOwnedCard } = useAppData();
+  const { ownedCards, activeCollectionId, updateOwnedCard, deleteOwnedCards } = useAppData();
   const card = ownedCardId
     ? (ownedCards.find((oc) => oc.id === ownedCardId) ?? null)
     : null;
@@ -128,16 +129,17 @@ export function CardDetailSheet({
             </div>
 
             <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                min={1}
+              <Label>Qty</Label>
+              <QuantityStepper
                 value={card.quantity}
-                onChange={(e) =>
-                  updateOwnedCard(card.id, {
-                    quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
-                  })
-                }
+                onChange={(quantity) => {
+                  if (quantity < 1) {
+                    void deleteOwnedCards([card.id]);
+                    onOpenChange(false);
+                    return;
+                  }
+                  updateOwnedCard(card.id, { quantity });
+                }}
               />
             </div>
 

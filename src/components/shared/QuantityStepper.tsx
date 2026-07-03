@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 interface QuantityStepperProps {
   value: number;
   onChange: (value: number) => void;
+  /** @deprecated Prefer onChange(0) — kept for callers that delete explicitly */
   onRemove?: () => void;
   min?: number;
   max?: number;
@@ -42,7 +43,7 @@ export function QuantityStepper({
     const parsed = parseInt(draft, 10);
     if (!Number.isNaN(parsed)) {
       if (parsed < min) {
-        onRemove?.();
+        onChange(0);
       } else {
         onChange(clamp(parsed));
       }
@@ -57,14 +58,14 @@ export function QuantityStepper({
 
   const decrement = () => {
     if (value <= min) {
-      onRemove?.();
+      onChange(0);
       return;
     }
     onChange(clamp(value - 1));
   };
   const increment = () => onChange(clamp(value + 1));
 
-  const atMin = value <= min && !onRemove;
+  const atMin = value <= 0;
   const atMax = value >= max;
 
   return (
@@ -80,7 +81,7 @@ export function QuantityStepper({
         type="button"
         disabled={atMin || editing}
         onClick={decrement}
-        aria-label={value <= min && onRemove ? "Remove from collection" : "Decrease quantity"}
+        aria-label={value <= min ? "Remove from collection" : "Decrease quantity"}
         className={cn(
           "flex h-full w-6 shrink-0 items-center justify-center rounded-l-md border-r border-border/60",
           "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",

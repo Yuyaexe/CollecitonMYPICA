@@ -53,10 +53,39 @@ export async function resolveCardTraderGameId(gameSlug: string): Promise<number 
   const patterns = gameSlugPatterns[gameSlug];
   if (!patterns) return null;
   const games = await getGames();
-  const match = games.find((game) =>
-    patterns.some((p) => p.test(game.display_name) || p.test(game.name))
-  );
-  return match?.id ?? null;
+
+  const slugAliases: Record<string, string[]> = {
+    yugioh: ["yu-gi-oh"],
+    pokemon: ["pokemon", "pokémon"],
+    onepiece: ["one piece"],
+    lorcana: ["lorcana", "disney lorcana"],
+    magic: ["magic"],
+  };
+
+  const aliases = slugAliases[gameSlug] ?? [];
+
+  const ranked = games
+    .map((game) => {
+      let score = 0;
+      const nameNorm = normalize(game.name);
+      const displayNorm = normalize(game.display_name);
+
+      for (const alias of aliases) {
+        const aliasNorm = normalize(alias);
+        if (nameNorm === aliasNorm || displayNorm === aliasNorm) score += 200;
+        if (nameNorm.includes(aliasNorm) || displayNorm.includes(aliasNorm)) score += 120;
+      }
+
+      for (const pattern of patterns) {
+        if (pattern.test(game.display_name) || pattern.test(game.name)) score += 80;
+      }
+
+      return { game, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return ranked[0]?.game.id ?? null;
 }
 
 async function getExpansions(gameId: number): Promise<CardTraderExpansion[]> {
@@ -66,7 +95,10 @@ async function getExpansions(gameId: number): Promise<CardTraderExpansion[]> {
   const raw = await cardTraderFetch<unknown>("/expansions", {
     game_id: String(gameId),
   });
-  const data = unwrapCardTraderList<CardTraderExpansion>(raw);
+  // CardTrader returns all expansions regardless of game_id — filter client-side.
+  const data = unwrapCardTraderList<CardTraderExpansion>(raw).filter(
+    (expansion) => expansion.game_id === gameId
+  );
   expansionsByGame.set(gameId, { data, expires: Date.now() + TTL_MS });
   return data;
 }
@@ -144,6 +176,8 @@ function scoreBlueprint(
   return score;
 }
 
+const MIN_BLUEPRINT_SCORE = 72;
+
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
   if (input.blueprintId) return input.blueprintId;
 
@@ -176,7 +210,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
         blueprint,
         score: scoreBlueprint(blueprint, input.name, input.setCode, input.rarity),
       }))
-      .filter((item) => item.score > 0)
+      .filter((item) => item.score >= MIN_BLUEPRINT_SCORE && item.blueprint.game_id === gameId)
       .sort((a, b) => b.score - a.score)[0];
 
     if (best) {
@@ -272,6 +306,7 @@ export async function searchCardTraderCatalog(
       const blueprints = blueprintLists[j];
 
       for (const blueprint of blueprints) {
+        if (blueprint.game_id !== gameId) continue;
         if (!matchesQuery(blueprint.name, terms)) continue;
 
         const dedupeKey = `${blueprint.id}`;

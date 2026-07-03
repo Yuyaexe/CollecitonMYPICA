@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CollectionGridCard } from "@/components/shared/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/shared/CreateCollectionCard";
@@ -16,6 +16,12 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useAppData } from "@/hooks/useAppData";
+import { useDataUiStore } from "@/lib/data/ui-store";
+import {
+  mergeCollectionOrder,
+  reorderCollectionIds,
+  sortCollectionsByOrder,
+} from "@/lib/collections/order";
 import { toast } from "sonner";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
 
@@ -52,16 +58,27 @@ export function CollectionManager() {
   const [deleteTarget, setDeleteTarget] = useState<DemoCollection | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuTarget, setMenuTarget] = useState<DemoCollection | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const sortedCollections = useMemo(() => {
-    return [...collections].sort((a, b) => {
-      const aFav = a.isFavorite ?? false;
-      const bFav = b.isFavorite ?? false;
-      if (aFav !== bFav) return aFav ? -1 : 1;
-      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [collections]);
+  const collectionOrder = useDataUiStore((s) => s.collectionOrder);
+  const setCollectionOrder = useDataUiStore((s) => s.setCollectionOrder);
+
+  useEffect(() => {
+    const merged = mergeCollectionOrder(
+      collections,
+      useDataUiStore.getState().collectionOrder
+    );
+    const current = useDataUiStore.getState().collectionOrder;
+    if (merged.length !== current.length || merged.some((id, i) => id !== current[i])) {
+      setCollectionOrder(merged);
+    }
+  }, [collections, setCollectionOrder]);
+
+  const sortedCollections = useMemo(
+    () => sortCollectionsByOrder(collections, collectionOrder),
+    [collections, collectionOrder]
+  );
 
   const cardCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -137,6 +154,9 @@ export function CollectionManager() {
 
   return (
     <>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Arraste os tiles para reordenar suas coleções.
+      </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {sortedCollections.map((collection, index) => (
           <ContextMenu key={collection.id}>
@@ -146,9 +166,31 @@ export function CollectionManager() {
                   name={collection.name}
                   coverImageUrl={getCollectionCover(collection, ownedCards)}
                   cardCount={cardCounts.get(collection.id) ?? 0}
-                  isFavorite={collection.isFavorite ?? collection.isDefault}
+                  isFavorite={collection.isFavorite ?? false}
                   isActive={collection.id === activeCollectionId}
                   index={index}
+                  draggable
+                  isDragOver={dragOverId === collection.id && draggedId !== collection.id}
+                  onDragStart={() => setDraggedId(collection.id)}
+                  onDragOver={() => {
+                    if (draggedId && draggedId !== collection.id) {
+                      setDragOverId(collection.id);
+                    }
+                  }}
+                  onDragLeave={() => setDragOverId(null)}
+                  onDrop={() => {
+                    if (draggedId && draggedId !== collection.id) {
+                      setCollectionOrder(
+                        reorderCollectionIds(collectionOrder, draggedId, collection.id)
+                      );
+                    }
+                    setDraggedId(null);
+                    setDragOverId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setDragOverId(null);
+                  }}
                   onSelect={() => handleSelect(collection.id)}
                   onToggleFavorite={() => toggleCollectionFavorite(collection.id)}
                   onOpenMenu={() => openMenu(collection)}

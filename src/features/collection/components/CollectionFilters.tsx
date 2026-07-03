@@ -1,8 +1,6 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -12,7 +10,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
@@ -147,58 +144,6 @@ export function CollectionFilters() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Price range</Label>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              placeholder="Min"
-              className="h-8"
-              value={filters.priceMin ?? ""}
-              onChange={(e) =>
-                setFilters({ priceMin: e.target.value ? parseFloat(e.target.value) : null })
-              }
-            />
-            <Input
-              type="number"
-              placeholder="Max"
-              className="h-8"
-              value={filters.priceMax ?? ""}
-              onChange={(e) =>
-                setFilters({ priceMax: e.target.value ? parseFloat(e.target.value) : null })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Min quantity</Label>
-          <Input
-            type="number"
-            min={1}
-            className="h-8"
-            value={filters.minQuantity ?? ""}
-            onChange={(e) =>
-              setFilters({ minQuantity: e.target.value ? parseInt(e.target.value) : null })
-            }
-          />
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="foil-filter"
-              checked={filters.isFoil === true}
-              onCheckedChange={(c) => setFilters({ isFoil: c ? true : null })}
-            />
-            <Label htmlFor="foil-filter" className="text-sm">
-              Foil only
-            </Label>
-          </div>
         </div>
       </div>
     </ScrollArea>

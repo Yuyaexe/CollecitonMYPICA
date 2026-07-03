@@ -15,6 +15,13 @@ export interface CollectionGridCardProps {
   onToggleFavorite?: () => void;
   onOpenMenu?: () => void;
   index?: number;
+  draggable?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: () => void;
+  onDrop?: () => void;
+  onDragEnd?: () => void;
 }
 
 export function CollectionGridCard({
@@ -27,22 +34,51 @@ export function CollectionGridCard({
   onToggleFavorite,
   onOpenMenu,
   index = 0,
+  draggable = false,
+  isDragOver = false,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }: CollectionGridCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.2, delay: index * 0.04 }}
-      whileHover={{ scale: 1.03, y: -2 }}
-      className={cn(
-        "group relative aspect-square w-full overflow-hidden rounded-xl border text-left",
-        "bg-gradient-to-br from-card via-card to-secondary/40",
-        "transition-[border-color,box-shadow] duration-200",
-        isActive
-          ? "border-primary/60 shadow-[0_0_24px_hsla(221,83%,53%,0.25)]"
-          : "border-border/70 hover:border-primary/40 hover:shadow-[0_0_20px_hsla(221,83%,53%,0.12)]"
-      )}
+    <div
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragOver={(e) => {
+        if (!draggable) return;
+        e.preventDefault();
+        onDragOver?.(e);
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        if (!draggable) return;
+        e.preventDefault();
+        onDrop?.();
+      }}
+      onDragEnd={onDragEnd}
+      className={cn(draggable && "cursor-grab active:cursor-grabbing")}
     >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, delay: index * 0.04 }}
+        whileHover={{ scale: draggable ? 1 : 1.03, y: draggable ? 0 : -2 }}
+        className={cn(
+          "group relative aspect-square w-full overflow-hidden rounded-xl border text-left",
+          "bg-gradient-to-br from-card via-card to-secondary/40",
+          "transition-[border-color,box-shadow] duration-200",
+          isDragOver && "border-primary ring-2 ring-primary/40",
+          isActive
+            ? "border-primary/60 shadow-[0_0_24px_hsla(221,83%,53%,0.25)]"
+            : "border-border/70 hover:border-primary/40 hover:shadow-[0_0_20px_hsla(221,83%,53%,0.12)]"
+        )}
+      >
       <button
         type="button"
         onClick={onSelect}
@@ -53,7 +89,13 @@ export function CollectionGridCard({
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 pb-14">
         {coverImageUrl ? (
           <div className="relative h-full w-full max-w-[72%] overflow-hidden rounded-lg shadow-lg ring-1 ring-white/10">
-            <CardImage src={coverImageUrl} alt={name} fill sizes="160px" className="object-cover" />
+            <CardImage
+              src={coverImageUrl}
+              alt={name}
+              fill
+              sizes="160px"
+              className="object-contain p-1"
+            />
           </div>
         ) : (
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-violet-500/10 to-primary/5 ring-1 ring-primary/20 transition-all duration-200 group-hover:from-primary/30 group-hover:ring-primary/40">
@@ -109,6 +151,7 @@ export function CollectionGridCard({
           {cardCount === 1 ? "1 card" : `${cardCount} cards`}
         </p>
       </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
