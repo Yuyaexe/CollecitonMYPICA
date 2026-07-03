@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
+import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -109,6 +110,8 @@ export const CollectionRow = memo(function CollectionRow({
         />
       </div>
 
+      <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
+
       <div className="min-w-0 flex-[2]">
         <p className="truncate text-sm font-medium">{item.card.name}</p>
         <p className="truncate text-xs text-muted-foreground">{item.card.gameName}</p>
@@ -116,10 +119,6 @@ export const CollectionRow = memo(function CollectionRow({
 
       <div className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground md:block">
         {item.card.setName ?? "—"}
-      </div>
-
-      <div className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block">
-        {item.card.rarity ?? "—"}
       </div>
 
       <div className="hidden w-12 text-sm text-muted-foreground xl:block">

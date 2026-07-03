@@ -14,6 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
+import { RarityBadge } from "@/components/shared/RarityBadge";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import { useAppData } from "@/hooks/useAppData";
@@ -66,13 +67,18 @@ export function CardDetailSheet({
         </SheetHeader>
 
         <div className="mx-auto mt-6 flex max-w-sm flex-col items-center space-y-6">
-          <CardImage
-            src={card.card.imageUrl}
-            alt={card.card.name}
-            width={176}
-            height={246}
-            className="rounded-xl shadow-lg ring-1 ring-border/40"
-          />
+          <div className="relative">
+            <CardImage
+              src={card.card.imageUrl}
+              alt={card.card.name}
+              width={176}
+              height={246}
+              className="rounded-xl shadow-lg ring-1 ring-border/40"
+            />
+            <div className="absolute -right-1 top-2">
+              <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} size="md" />
+            </div>
+          </div>
 
           <div className="w-full space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm">
             <div className="flex justify-between gap-4">

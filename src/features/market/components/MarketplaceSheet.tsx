@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
+import { RarityBadge } from "@/components/shared/RarityBadge";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -56,11 +57,11 @@ export function MarketplaceSheet({
               className="shrink-0 rounded-lg"
             />
             <div className="min-w-0 space-y-1">
-              <h3 className="font-semibold leading-tight">{card.card.name}</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold leading-tight">{card.card.name}</h3>
+                <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} />
+              </div>
               <p className="text-sm text-muted-foreground">{card.card.setName ?? "Unknown set"}</p>
-              {card.card.rarity && (
-                <p className="text-xs capitalize text-muted-foreground">{card.card.rarity}</p>
-              )}
               <PriceBadge price={card.card.marketPrice} currency={currency} />
             </div>
           </div>

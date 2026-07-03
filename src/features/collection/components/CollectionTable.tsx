@@ -150,9 +150,10 @@ export function CollectionTable() {
             aria-label="Select all cards"
           />
         </div>
+        <span className="w-7 shrink-0" aria-hidden />
+        <span className="w-9 shrink-0 text-center">Rarity</span>
         <span className="flex-[2]">Name</span>
         <span className="hidden flex-1 md:block">Set</span>
-        <span className="hidden flex-1 lg:block">Rarity</span>
         <span className="hidden w-12 xl:block">#</span>
         <span className="w-[88px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>

@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Loader2 } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CardImage } from "@/components/shared/CardImage";
+import { RarityBadge } from "@/components/shared/RarityBadge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -175,6 +176,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                     onClick={() => handleVariantPick(variant.key)}
                     className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                   >
+                    <RarityBadge rarity={variant.rarity} gameSlug={game.slug} size="md" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{variant.setName ?? "Unknown set"}</p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -246,9 +248,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                         {result.name}
                       </p>
                       {result.rarity && (
-                        <p className="line-clamp-1 text-center text-[10px] text-muted-foreground">
-                          {result.rarity}
-                        </p>
+                        <div className="mt-1 flex justify-center">
+                          <RarityBadge rarity={result.rarity} gameSlug={game.slug} />
+                        </div>
                       )}
                     </button>
                   ))}
