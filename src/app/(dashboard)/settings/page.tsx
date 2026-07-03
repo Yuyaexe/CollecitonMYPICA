@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { Download, Loader2 } from "lucide-react";
+import { Download, HardDriveDownload, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -18,15 +18,31 @@ import { useAppData } from "@/hooks/useAppData";
 import { DEMO_GAMES } from "@/lib/demo/types";
 import type { DemoProfile } from "@/lib/demo/types";
 import { CURRENCIES } from "@/types/tcg";
+import {
+  buildBackupPayload,
+  downloadBackup,
+  fetchBackupFromServer,
+} from "@/features/import/services/backup-export";
 import { checkTauriUpdate, installTauriUpdate } from "@/lib/updater";
 import { toast } from "sonner";
 
 const APP_VERSION = "0.2.0";
 
 export default function SettingsPage() {
-  const { profile, updateProfile, isSupabaseMode, isDatabaseMode } = useAppData();
+  const {
+    profile,
+    collections,
+    ownedCards,
+    wishlistCardIds,
+    tags,
+    updateProfile,
+    isSupabaseMode,
+    isDatabaseMode,
+    isServerMode,
+  } = useAppData();
   const { theme, setTheme } = useTheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
   const [draft, setDraft] = useState<DemoProfile>(profile);
 
   useEffect(() => {
@@ -36,6 +52,29 @@ export default function SettingsPage() {
   const handleSave = async () => {
     await updateProfile(draft);
     toast.success("Settings saved");
+  };
+
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      const backup = isServerMode
+        ? await fetchBackupFromServer()
+        : buildBackupPayload({
+            profile,
+            collections,
+            ownedCards,
+            wishlistCardIds,
+            tags,
+          });
+      downloadBackup(backup);
+      toast.success(
+        `Backup salvo (${backup.ownedCards.length} cartas, ${backup.collections.length} coleções)`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao criar backup");
+    } finally {
+      setBackingUp(false);
+    }
   };
 
   const handleCheckUpdate = async () => {
@@ -143,6 +182,22 @@ export default function SettingsPage() {
             Data is stored in local PostgreSQL (Docker).
           </p>
         )}
+
+        <section className="space-y-4 border-t border-border pt-8">
+          <h2 className="text-lg font-semibold">Backup</h2>
+          <p className="text-sm text-muted-foreground">
+            Baixa um arquivo JSON com perfil, coleções, cartas e wishlist. Guarde em nuvem
+            (Google Drive, OneDrive) ou pendrive.
+          </p>
+          <Button variant="outline" onClick={handleBackup} disabled={backingUp}>
+            {backingUp ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <HardDriveDownload className="h-4 w-4" />
+            )}
+            Baixar backup
+          </Button>
+        </section>
 
         <section className="space-y-4 border-t border-border pt-8">
           <h2 className="text-lg font-semibold">Updates</h2>
