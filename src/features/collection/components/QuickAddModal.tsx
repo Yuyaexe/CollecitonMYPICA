@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAppData } from "@/hooks/useAppData";
 import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
-import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
+import { resolveStoredBlueprintId } from "@/lib/cardtrader";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
 import { resolveYugiohPasscode } from "@/lib/yugioh/passcode";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
@@ -103,7 +103,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         setName: v.setName,
         setCode: v.setCode,
         rarity: v.rarity,
-        blueprintId: parseCardTraderBlueprintId(v.externalId),
+        blueprintId: resolveStoredBlueprintId(v.externalId, v.imageUrl),
       })),
     [variants]
   );

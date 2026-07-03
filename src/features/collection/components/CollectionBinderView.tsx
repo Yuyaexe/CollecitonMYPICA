@@ -7,6 +7,7 @@ import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
   useCollectionUIStore,
@@ -71,6 +72,11 @@ interface BinderSlotProps {
 function BinderSlot({ card, selected, marketPrice, currency, onOpen }: BinderSlotProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
+  );
+  useYugiohCardImageRepair(
+    card?.id,
+    card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null },
+    ygoPasscode
   );
 
   if (!card) {

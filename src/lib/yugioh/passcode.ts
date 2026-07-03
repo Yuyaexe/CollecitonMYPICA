@@ -1,4 +1,4 @@
-import { parseCardTraderBlueprintId } from "@/lib/cardtrader";
+import { resolveStoredBlueprintId } from "@/lib/cardtrader";
 
 export function isCardTraderHostedImage(url: string | null | undefined): boolean {
   if (!url) return false;
@@ -16,7 +16,7 @@ export function isYugiohPasscodeId(
   if (!externalId || !/^\d{7,10}$/.test(externalId)) return false;
   if (isCardTraderHostedImage(imageUrl)) return false;
   if (imageUrl?.includes("ygoprodeck.com")) return true;
-  if (parseCardTraderBlueprintId(externalId) != null && !imageUrl?.includes("ygoprodeck.com")) {
+  if (resolveStoredBlueprintId(externalId, imageUrl) != null && !imageUrl?.includes("ygoprodeck.com")) {
     return externalId.length >= 8;
   }
   return externalId.length >= 8;
@@ -38,8 +38,10 @@ export function resolveYugiohPasscode(
 
 export function isCardTraderBlueprintExternalId(
   externalId: string | null | undefined,
-  imageUrl?: string | null
+  imageUrl?: string | null,
+  cardTraderBlueprintId?: string | null
 ): boolean {
-  if (parseCardTraderBlueprintId(externalId) == null) return false;
-  return isCardTraderHostedImage(imageUrl) || !isYugiohPasscodeId(externalId, imageUrl);
+  return (
+    resolveStoredBlueprintId(externalId, imageUrl, cardTraderBlueprintId) != null
+  );
 }

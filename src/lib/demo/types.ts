@@ -13,6 +13,8 @@ export interface DemoCard {
   rarity: string | null;
   imageUrl: string | null;
   marketPrice: number | null;
+  /** CardTrader catalog blueprint id — separate from Yu-Gi-Oh passcode in externalId */
+  cardTraderBlueprintId?: string | null;
 }
 
 export interface DemoOwnedCard {

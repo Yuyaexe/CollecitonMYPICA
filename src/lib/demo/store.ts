@@ -11,6 +11,10 @@ import {
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import type { DeckVaultBackup } from "@/features/import/services/backup-export";
+import {
+  cardTraderBlueprintFromSearch,
+  repairDemoCard,
+} from "./repair-card";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -95,6 +99,12 @@ export const useDemoStore = create<DemoStore>()(
                       imageUrl: result.imageUrl ?? oc.card.imageUrl,
                       rarity: result.rarity ?? oc.card.rarity,
                       setName: result.setName ?? oc.card.setName,
+                      cardTraderBlueprintId:
+                        cardTraderBlueprintFromSearch(
+                          result.externalId,
+                          result.imageUrl,
+                          result.metadata?.catalogSource as string | undefined
+                        ) ?? oc.card.cardTraderBlueprintId,
                     },
                   }
                 : oc
@@ -117,6 +127,11 @@ export const useDemoStore = create<DemoStore>()(
           rarity: result.rarity,
           imageUrl: result.imageUrl,
           marketPrice: result.price,
+          cardTraderBlueprintId: cardTraderBlueprintFromSearch(
+            result.externalId,
+            result.imageUrl,
+            result.metadata?.catalogSource as string | undefined
+          ),
         };
         const owned: DemoOwnedCard = {
           id: generateId(),
@@ -240,6 +255,12 @@ export const useDemoStore = create<DemoStore>()(
               setCode: result.setCode ?? existing.card.setCode,
               collectorNumber: result.collectorNumber ?? existing.card.collectorNumber,
               externalId: result.externalId ?? existing.card.externalId,
+              cardTraderBlueprintId:
+                cardTraderBlueprintFromSearch(
+                  result.externalId,
+                  result.imageUrl,
+                  result.metadata?.catalogSource as string | undefined
+                ) ?? existing.card.cardTraderBlueprintId,
             };
             imported += quantity;
             continue;
@@ -259,6 +280,11 @@ export const useDemoStore = create<DemoStore>()(
             rarity: result.rarity,
             imageUrl: result.imageUrl,
             marketPrice: result.price,
+            cardTraderBlueprintId: cardTraderBlueprintFromSearch(
+              result.externalId,
+              result.imageUrl,
+              result.metadata?.catalogSource as string | undefined
+            ),
           };
           newOwned.push({
             id: generateId(),
@@ -346,6 +372,22 @@ export const useDemoStore = create<DemoStore>()(
         });
       },
     }),
-    { name: "deckvault-demo" }
+    {
+      name: "deckvault-demo",
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = persisted as DemoState;
+        if (version < 2 && state.ownedCards) {
+          return {
+            ...state,
+            ownedCards: state.ownedCards.map((oc) => ({
+              ...oc,
+              card: repairDemoCard(oc.card),
+            })),
+          };
+        }
+        return state;
+      },
+    }
   )
 );

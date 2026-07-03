@@ -5,6 +5,8 @@ export {
   buildCardTraderSearchUrl,
   buildCardTraderCardUrl,
   resolveCardTraderProductUrl,
+  resolveStoredBlueprintId,
+  extractBlueprintIdFromImageUrl,
   searchCardTraderCatalog,
   parseCardTraderBlueprintId,
 } from "./catalog";

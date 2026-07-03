@@ -45,6 +45,9 @@ export interface CardPriceInput {
   language?: CardLanguage;
   isFoil?: boolean;
   blueprintId?: number | null;
+  /** CardTrader CDN image — used to recover blueprint id when externalId is a YGO passcode */
+  imageUrl?: string | null;
+  cardTraderBlueprintId?: string | null;
 }
 
 export interface CardTraderPriceResult {

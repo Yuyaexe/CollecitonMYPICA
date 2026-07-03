@@ -37,6 +37,9 @@ async function enrichWithCardTraderPrices(
           setCode: result.setCode,
           rarity: result.rarity,
           blueprintId,
+          imageUrl: result.imageUrl,
+          cardTraderBlueprintId:
+            blueprintId != null ? String(blueprintId) : null,
         },
         currency
       );

@@ -39,7 +39,8 @@ import { useAppData } from "@/hooks/useAppData";
 import { formatCurrency, cn } from "@/lib/utils";
 import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { parseCardTraderBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
+import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
 import {
   isCardTraderBlueprintExternalId,
@@ -126,6 +127,8 @@ export function CardInspectDialog({
     cardDetail?.externalId ?? lookedUpPasscode
   );
 
+  useYugiohCardImageRepair(card?.id, card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null }, ygoPasscode);
+
   const printVariants = useMemo(() => {
     if (!cardDetail || !card) return [];
     const relatedPrints = cardDetailData?.relatedPrints ?? [];
@@ -139,7 +142,8 @@ export function CardInspectDialog({
         setName: v.setName,
         setCode: v.setCode,
         rarity: v.rarity,
-        blueprintId: parseCardTraderBlueprintId(v.externalId),
+        imageUrl: v.imageUrl,
+        blueprintId: resolveStoredBlueprintId(v.externalId, v.imageUrl),
       })),
     [printVariants]
   );
@@ -172,6 +176,7 @@ export function CardInspectDialog({
     return resolveCardTraderProductUrl({
       name: card.card.name,
       externalId: variant?.externalId ?? card.card.externalId,
+      cardTraderBlueprintId: card.card.cardTraderBlueprintId,
       setName: variant?.setName ?? card.card.setName,
       rarity: variant?.rarity ?? card.card.rarity,
       imageUrl: variant?.imageUrl ?? card.card.imageUrl,
@@ -208,7 +213,8 @@ export function CardInspectDialog({
     const passcode = ygoPasscode ?? resolveYugiohPasscode(card.card.externalId, card.card.imageUrl);
     const keepBlueprintId = isCardTraderBlueprintExternalId(
       variant.externalId ?? card.card.externalId,
-      variant.imageUrl ?? card.card.imageUrl
+      variant.imageUrl ?? card.card.imageUrl,
+      card.card.cardTraderBlueprintId
     );
     const imageUrl = passcode
       ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity)) ??
@@ -220,6 +226,12 @@ export function CardInspectDialog({
           detailPasscode: passcode,
         });
 
+    const blueprintFromVariant = resolveStoredBlueprintId(
+      variant.externalId,
+      variant.imageUrl,
+      card.card.cardTraderBlueprintId
+    );
+
     updateOwnedCard(card.id, {
       card: {
         rarity: variant.rarity,
@@ -229,6 +241,9 @@ export function CardInspectDialog({
         externalId: keepBlueprintId
           ? (variant.externalId ?? card.card.externalId)
           : (passcode ?? variant.externalId ?? card.card.externalId),
+        cardTraderBlueprintId: blueprintFromVariant
+          ? String(blueprintFromVariant)
+          : card.card.cardTraderBlueprintId,
         imageUrl,
         marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },

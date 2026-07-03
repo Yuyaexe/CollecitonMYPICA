@@ -6,6 +6,7 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -28,6 +29,7 @@ export function CollectionGridCardItem({
   onOpen,
 }: CollectionGridCardItemProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
+  useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
   const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
 
   return (

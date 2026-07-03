@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
-import { parseCardTraderBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -80,6 +80,7 @@ export function useSequentialVariantPrices(
     setCode: string | null;
     rarity?: string | null;
     blueprintId?: number | null;
+    imageUrl?: string | null;
   }>,
   currency: Currency,
   enabled: boolean
@@ -122,6 +123,7 @@ export function useSequentialVariantPrices(
           setCode: variant.setCode,
           rarity: variant.rarity,
           blueprintId: variant.blueprintId,
+          imageUrl: variant.imageUrl,
         };
 
         try {
@@ -182,7 +184,13 @@ async function fetchPriceBatch(
     condition: item.condition,
     language: item.language,
     isFoil: item.isFoil,
-    blueprintId: parseCardTraderBlueprintId(item.card.externalId),
+    imageUrl: item.card.imageUrl,
+    cardTraderBlueprintId: item.card.cardTraderBlueprintId,
+    blueprintId: resolveStoredBlueprintId(
+      item.card.externalId,
+      item.card.imageUrl,
+      item.card.cardTraderBlueprintId
+    ),
   }));
   return fetchPriceBatchByInput(inputs, keys, currency);
 }
@@ -196,6 +204,7 @@ export function useCardTraderVariantPrices(
     setCode: string | null;
     rarity?: string | null;
     blueprintId?: number | null;
+    imageUrl?: string | null;
   }>,
   currency: Currency,
   enabled: boolean
@@ -230,6 +239,7 @@ export function useCardTraderVariantPrices(
           setCode: v.setCode,
           rarity: v.rarity,
           blueprintId: v.blueprintId,
+          imageUrl: v.imageUrl,
         }));
         const batchMap = await fetchPriceBatchByInput(inputs, keys, currency);
         batchMap.forEach((value, key) => merged.set(key, value));
@@ -310,6 +320,7 @@ export function resolveCardTraderUrl(
     resolveCardTraderProductUrl({
       name: item.card.name,
       externalId: item.card.externalId,
+      cardTraderBlueprintId: item.card.cardTraderBlueprintId,
       setName: item.card.setName,
       rarity: item.card.rarity,
       imageUrl: item.card.imageUrl,

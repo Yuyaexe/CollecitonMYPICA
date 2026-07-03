@@ -135,6 +135,54 @@ function slugifyForCardTrader(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** Extract numeric blueprint id from CardTrader CDN image URLs. */
+export function extractBlueprintIdFromImageUrl(
+  imageUrl: string | null | undefined
+): number | null {
+  const slug = extractCardTraderSlugFromImageUrl(imageUrl);
+  if (!slug) return null;
+  const id = Number(slug.split("-")[0]);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/** Yu-Gi-Oh Konami passcodes are 8 digits — not CardTrader blueprint ids. */
+function isLikelyYugiohPasscodeDigits(externalId: string, imageUrl?: string | null): boolean {
+  if (!/^\d{7,10}$/.test(externalId)) return false;
+  if (imageUrl && /cardtrader\.com|product-images\.cardtrader/i.test(imageUrl)) return false;
+  if (imageUrl?.includes("ygoprodeck.com")) return true;
+  return externalId.length >= 8;
+}
+
+function isPlausibleCardTraderBlueprintId(id: number): boolean {
+  if (!Number.isFinite(id) || id <= 0) return false;
+  if (id >= 10_000_000 && id <= 99_999_999) return false;
+  return true;
+}
+
+/**
+ * Blueprint id stored on owned cards — ignores Yu-Gi-Oh passcodes mistaken for blueprint ids.
+ * Prefers explicit cardTraderBlueprintId, then CardTrader CDN image slug, then short numeric externalId.
+ */
+export function resolveStoredBlueprintId(
+  externalId: string | null | undefined,
+  imageUrl?: string | null,
+  cardTraderBlueprintId?: string | null
+): number | null {
+  const explicit = parseCardTraderBlueprintId(cardTraderBlueprintId);
+  if (explicit != null && isPlausibleCardTraderBlueprintId(explicit)) {
+    return explicit;
+  }
+
+  const fromImage = extractBlueprintIdFromImageUrl(imageUrl);
+  if (fromImage != null) return fromImage;
+
+  if (!externalId || !/^\d+$/.test(externalId)) return null;
+  if (isLikelyYugiohPasscodeDigits(externalId, imageUrl)) return null;
+
+  const id = Number(externalId);
+  return isPlausibleCardTraderBlueprintId(id) ? id : null;
+}
+
 /** Extract `{id}-{slug}` from CardTrader CDN blueprint image URLs. */
 export function extractCardTraderSlugFromImageUrl(
   imageUrl: string | null | undefined
@@ -177,11 +225,16 @@ export function buildCardTraderCardUrl(input: {
 export function resolveCardTraderProductUrl(params: {
   name: string;
   externalId?: string | null;
+  cardTraderBlueprintId?: string | null;
   setName?: string | null;
   rarity?: string | null;
   imageUrl?: string | null;
 }): string {
-  const blueprintId = parseCardTraderBlueprintId(params.externalId);
+  const blueprintId = resolveStoredBlueprintId(
+    params.externalId,
+    params.imageUrl,
+    params.cardTraderBlueprintId
+  );
   if (blueprintId != null) {
     return buildCardTraderCardUrl({
       blueprintId,
@@ -249,7 +302,19 @@ function scoreBlueprint(
 const MIN_BLUEPRINT_SCORE = 72;
 
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
-  if (input.blueprintId) return input.blueprintId;
+  const fromDedicated = parseCardTraderBlueprintId(input.cardTraderBlueprintId);
+  if (fromDedicated != null && isPlausibleCardTraderBlueprintId(fromDedicated)) {
+    return fromDedicated;
+  }
+
+  if (input.imageUrl) {
+    const fromImage = extractBlueprintIdFromImageUrl(input.imageUrl);
+    if (fromImage != null) return fromImage;
+  }
+
+  if (input.blueprintId != null && isPlausibleCardTraderBlueprintId(input.blueprintId)) {
+    return input.blueprintId;
+  }
 
   const cacheKey = `${input.gameSlug}|${input.setName ?? ""}|${input.setCode ?? ""}|${input.rarity ?? ""}|${input.name}`;
   const cached = blueprintLookup.get(cacheKey);

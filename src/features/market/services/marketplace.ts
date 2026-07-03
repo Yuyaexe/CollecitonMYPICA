@@ -35,6 +35,7 @@ export function buildMarketplaceListings(
     resolveCardTraderProductUrl({
       name: card.name,
       externalId: card.externalId,
+      cardTraderBlueprintId: card.cardTraderBlueprintId,
       setName: card.setName,
       rarity: card.rarity,
       imageUrl: card.imageUrl,
