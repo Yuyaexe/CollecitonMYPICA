@@ -23,7 +23,7 @@ import {
   CSV_PRESETS,
 } from "@/features/import/services/csv-parser";
 import { DEMO_GAMES } from "@/lib/demo/types";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const [preview, setPreview] = useState<Record<string, string>[]>([]);
   const [fullData, setFullData] = useState<Record<string, string>[]>([]);
   const [mergeDuplicates, setMergeDuplicates] = useState(true);
-  const importRows = useDemoStore((s) => s.importRows);
+  const { importRows } = useAppData();
 
   const handleFile = useCallback((file: File) => {
     Papa.parse<Record<string, string>>(file, {
@@ -64,7 +64,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     setMapping({ ...base, ...CSV_PRESETS[p] });
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!mapping) return;
     const parsed = parseCsvRows(fullData, mapping);
     const rows = parsed.map((row) => {
@@ -88,7 +88,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
         purchasePrice: row.purchasePrice,
       };
     });
-    const count = importRows(rows, mergeDuplicates);
+    const count = await importRows(rows, mergeDuplicates);
     toast.success(`Imported ${count} cards`);
     onOpenChange(false);
     setMapping(null);

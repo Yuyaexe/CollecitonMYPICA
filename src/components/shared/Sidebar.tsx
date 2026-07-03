@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,7 +35,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const profile = useDemoStore((s) => s.profile);
+  const { profile, isDatabaseMode } = useAppData();
 
   return (
     <aside
@@ -111,7 +111,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{profile.displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">Collector</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {isDatabaseMode ? "PostgreSQL" : "Collector"}
+              </p>
             </div>
           )}
         </div>

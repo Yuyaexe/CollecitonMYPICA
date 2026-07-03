@@ -9,7 +9,7 @@ import { ImportModal } from "@/features/import/components/ImportModal";
 import { CardDetailSheet } from "@/components/shared/CardDetailSheet";
 import { MarketplaceSheet } from "@/features/market/components/MarketplaceSheet";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 
 export default function CollectionPage() {
   const detailCardId = useCollectionUIStore((s) => s.detailCardId);
@@ -20,14 +20,14 @@ export default function CollectionPage() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const importOpen = useCollectionUIStore((s) => s.importOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
-  const profile = useDemoStore((s) => s.profile);
+  const { profile, ownedCards } = useAppData();
 
-  const detailCard = useDemoStore((s) =>
-    detailCardId ? s.ownedCards.find((oc) => oc.id === detailCardId) ?? null : null
-  );
-  const marketplaceCard = useDemoStore((s) =>
-    marketplaceCardId ? s.ownedCards.find((oc) => oc.id === marketplaceCardId) ?? null : null
-  );
+  const detailCard = detailCardId
+    ? ownedCards.find((oc) => oc.id === detailCardId) ?? null
+    : null;
+  const marketplaceCard = marketplaceCardId
+    ? ownedCards.find((oc) => oc.id === marketplaceCardId) ?? null
+    : null;
 
   return (
     <div className="flex h-full flex-col">

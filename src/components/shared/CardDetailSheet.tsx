@@ -16,7 +16,7 @@ import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 
 interface CardDetailSheetProps {
   ownedCardId: string | null;
@@ -33,10 +33,10 @@ export function CardDetailSheet({
   currency,
   onOpenMarketplace,
 }: CardDetailSheetProps) {
-  const card = useDemoStore((s) =>
-    ownedCardId ? s.ownedCards.find((oc) => oc.id === ownedCardId) ?? null : null
-  );
-  const updateOwnedCard = useDemoStore((s) => s.updateOwnedCard);
+  const { ownedCards, updateOwnedCard } = useAppData();
+  const card = ownedCardId
+    ? ownedCards.find((oc) => oc.id === ownedCardId) ?? null
+    : null;
 
   if (!card) return null;
 

@@ -64,8 +64,8 @@ async function main() {
     `;
 
     await sql`
-      INSERT INTO collections (id, user_id, name, is_default)
-      VALUES (${DEMO_COLLECTION_ID}, ${DEMO_USER_ID}, 'My Collection', true)
+      INSERT INTO collections (id, user_id, name, is_default, is_favorite)
+      VALUES (${DEMO_COLLECTION_ID}, ${DEMO_USER_ID}, 'My Collection', true, true)
       ON CONFLICT (id) DO NOTHING
     `;
 

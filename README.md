@@ -51,7 +51,7 @@ docker compose --profile full up -d app   # run Next.js inside Docker
 
 **Tables to browse in Adminer:** `collections`, `cards`, `owned_cards`, `profiles`
 
-> The UI still uses Demo Mode (localStorage) by default. Docker stores data in Postgres for sharing, backup, and multi-device use once the app is wired to the database.
+> The UI reads and writes collections through the API when `DATABASE_URL` is set in `.env.local`. Without it, Demo Mode (localStorage) is used.
 
 ## GitHub
 

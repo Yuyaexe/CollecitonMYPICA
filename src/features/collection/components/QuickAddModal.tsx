@@ -9,7 +9,7 @@ import { CardImage } from "@/components/shared/CardImage";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DEMO_GAMES } from "@/lib/demo/types";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { isApiSupported } from "@/features/catalog/services/card-api";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { toast } from "sonner";
@@ -22,8 +22,8 @@ interface QuickAddModalProps {
 export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const addCardFromSearch = useDemoStore((s) => s.addCardFromSearch);
-  const defaultGameId = useDemoStore((s) => s.profile.defaultGameId);
+  const { addCardFromSearch, profile } = useAppData();
+  const defaultGameId = profile.defaultGameId;
   const game = DEMO_GAMES.find((g) => g.id === defaultGameId) ?? DEMO_GAMES[0];
 
   useEffect(() => {
@@ -47,8 +47,8 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const handleAdd = (result: CardSearchResult) => {
-    addCardFromSearch(result, game.id, game.slug, game.name);
+  const handleAdd = async (result: CardSearchResult) => {
+    await addCardFromSearch(result, game.id, game.slug, game.name);
     toast.success(`Added ${result.name}`);
     onOpenChange(false);
     setQuery("");

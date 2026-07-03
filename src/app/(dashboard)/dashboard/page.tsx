@@ -5,7 +5,7 @@ import { Layers, Upload, TrendingUp, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { computeCollectionStats } from "@/features/collection/utils/filters";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -31,9 +31,7 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const ownedCards = useDemoStore((s) => s.ownedCards);
-  const activeCollectionId = useDemoStore((s) => s.activeCollectionId);
-  const profile = useDemoStore((s) => s.profile);
+  const { ownedCards, activeCollectionId, profile, isLoading } = useAppData();
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
@@ -53,7 +51,7 @@ export default function DashboardPage() {
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Cards"
-          value={formatNumber(stats.totalCards)}
+          value={isLoading ? "…" : formatNumber(stats.totalCards)}
           icon={Layers}
         />
         <StatCard

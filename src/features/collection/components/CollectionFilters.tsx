@@ -15,15 +15,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { DEMO_GAMES } from "@/lib/demo/types";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 
 export function CollectionFilters() {
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const resetFilters = useCollectionUIStore((s) => s.resetFilters);
-  const ownedCards = useDemoStore((s) => s.ownedCards);
-  const activeCollectionId = useDemoStore((s) => s.activeCollectionId);
+  const { ownedCards, activeCollectionId } = useAppData();
 
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
   const sets = [...new Set(collectionCards.map((oc) => oc.card.setCode).filter(Boolean))];

@@ -60,6 +60,8 @@ export const collections = pgTable("collections", {
   userId: uuid("user_id").notNull(),
   name: text("name").notNull(),
   isDefault: boolean("is_default").notNull().default(false),
+  isFavorite: boolean("is_favorite").notNull().default(false),
+  coverImageUrl: text("cover_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

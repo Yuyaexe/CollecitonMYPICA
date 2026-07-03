@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { computeCollectionStats } from "@/features/collection/utils/filters";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { exportCollectionCsv } from "@/features/import/services/export-csv";
@@ -24,11 +24,14 @@ export function CollectionTopBar() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
-  const ownedCards = useDemoStore((s) => s.ownedCards);
-  const collections = useDemoStore((s) => s.collections);
-  const activeCollectionId = useDemoStore((s) => s.activeCollectionId);
-  const setActiveCollection = useDemoStore((s) => s.setActiveCollection);
-  const profile = useDemoStore((s) => s.profile);
+  const {
+    ownedCards,
+    collections,
+    activeCollectionId,
+    setActiveCollection,
+    profile,
+    isDatabaseMode,
+  } = useAppData();
 
   const activeCollection = collections.find((c) => c.id === activeCollectionId);
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
@@ -44,17 +47,22 @@ export function CollectionTopBar() {
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
             <Select value={activeCollectionId} onValueChange={setActiveCollection}>
-              <SelectTrigger className="w-[200px] border-0 bg-transparent text-lg font-semibold shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {collections.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SelectTrigger className="w-[200px] border-0 bg-transparent text-lg font-semibold shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {collections.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isDatabaseMode && (
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+              Postgres
+            </span>
+          )}
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
               <Link href="/collections" aria-label="Manage collections">
                 <LayoutGrid className="h-4 w-4" />

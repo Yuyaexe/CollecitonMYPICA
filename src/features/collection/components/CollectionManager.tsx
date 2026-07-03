@@ -8,7 +8,7 @@ import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
 
 function getCollectionCover(
@@ -24,12 +24,14 @@ function getCollectionCover(
 
 export function CollectionManager() {
   const router = useRouter();
-  const collections = useDemoStore((s) => s.collections);
-  const ownedCards = useDemoStore((s) => s.ownedCards);
-  const activeCollectionId = useDemoStore((s) => s.activeCollectionId);
-  const setActiveCollection = useDemoStore((s) => s.setActiveCollection);
-  const addCollection = useDemoStore((s) => s.addCollection);
-  const toggleCollectionFavorite = useDemoStore((s) => s.toggleCollectionFavorite);
+  const {
+    collections,
+    ownedCards,
+    activeCollectionId,
+    setActiveCollection,
+    addCollection,
+    toggleCollectionFavorite,
+  } = useAppData();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -57,10 +59,10 @@ export function CollectionManager() {
     router.push("/collection");
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    addCollection(trimmed);
+    await addCollection(trimmed);
     setNewName("");
     setCreateOpen(false);
   };

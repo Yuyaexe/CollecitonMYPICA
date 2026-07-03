@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Download, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -14,8 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
 import { DEMO_GAMES } from "@/lib/demo/types";
+import type { DemoProfile } from "@/lib/demo/types";
 import { CURRENCIES } from "@/types/tcg";
 import { checkTauriUpdate, installTauriUpdate } from "@/lib/updater";
 import { toast } from "sonner";
@@ -23,12 +24,17 @@ import { toast } from "sonner";
 const APP_VERSION = "0.2.0";
 
 export default function SettingsPage() {
-  const profile = useDemoStore((s) => s.profile);
-  const updateProfile = useDemoStore((s) => s.updateProfile);
+  const { profile, updateProfile, isDatabaseMode } = useAppData();
   const { theme, setTheme } = useTheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [draft, setDraft] = useState<DemoProfile>(profile);
 
-  const handleSave = () => {
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
+
+  const handleSave = async () => {
+    await updateProfile(draft);
     toast.success("Settings saved");
   };
 
@@ -62,8 +68,8 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Display Name</Label>
             <Input
-              value={profile.displayName}
-              onChange={(e) => updateProfile({ displayName: e.target.value })}
+              value={draft.displayName}
+              onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
             />
           </div>
         </section>
@@ -74,8 +80,8 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Default Game</Label>
             <Select
-              value={profile.defaultGameId ?? DEMO_GAMES[0].id}
-              onValueChange={(v) => updateProfile({ defaultGameId: v })}
+              value={draft.defaultGameId ?? DEMO_GAMES[0].id}
+              onValueChange={(v) => setDraft({ ...draft, defaultGameId: v })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -93,8 +99,10 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Currency</Label>
             <Select
-              value={profile.currency}
-              onValueChange={(v) => updateProfile({ currency: v as typeof profile.currency })}
+              value={draft.currency}
+              onValueChange={(v) =>
+                setDraft({ ...draft, currency: v as typeof draft.currency })
+              }
             >
               <SelectTrigger>
                 <SelectValue />
@@ -124,6 +132,12 @@ export default function SettingsPage() {
         </section>
 
         <Button onClick={handleSave}>Save Settings</Button>
+
+        {isDatabaseMode && (
+          <p className="text-sm text-muted-foreground">
+            Data is stored in local PostgreSQL (Docker).
+          </p>
+        )}
 
         <section className="space-y-4 border-t border-border pt-8">
           <h2 className="text-lg font-semibold">Updates</h2>

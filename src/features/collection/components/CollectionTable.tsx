@@ -16,19 +16,24 @@ import { CollectionRow } from "@/components/shared/CollectionRow";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
-import { useDemoStore } from "@/lib/demo/store";
+import { useAppData } from "@/hooks/useAppData";
+import { Skeleton } from "@/components/ui/skeleton";
 import { openMarketplaceInNewTab } from "@/features/market/services/marketplace";
 
 const ROW_HEIGHT = 52;
 
 export function CollectionTable() {
   const parentRef = useRef<HTMLDivElement>(null);
-  const ownedCards = useDemoStore((s) => s.ownedCards);
-  const activeCollectionId = useDemoStore((s) => s.activeCollectionId);
-  const wishlistCardIds = useDemoStore((s) => s.wishlistCardIds);
-  const profile = useDemoStore((s) => s.profile);
-  const deleteOwnedCards = useDemoStore((s) => s.deleteOwnedCards);
-  const toggleWishlist = useDemoStore((s) => s.toggleWishlist);
+  const {
+    ownedCards,
+    activeCollectionId,
+    wishlistCardIds,
+    profile,
+    deleteOwnedCards,
+    toggleWishlist,
+    isLoading,
+    isError,
+  } = useAppData();
 
   const filters = useCollectionUIStore((s) => s.filters);
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
@@ -81,6 +86,26 @@ export function CollectionTable() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [filtered, focusedRowIndex, setDetailCardId, setFocusedRowIndex]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2 p-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={Layers}
+        title="Could not load collection"
+        description="Check that Docker Postgres is running and DATABASE_URL is set in .env.local."
+      />
+    );
+  }
 
   if (filtered.length === 0) {
     return (
