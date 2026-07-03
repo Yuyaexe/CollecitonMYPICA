@@ -22,7 +22,7 @@ import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeCollectionOrder, sortCollectionsByOrder } from "@/lib/collections/order";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
-import { exportCollectionCsv } from "@/features/import/services/export-csv";
+import { ExportDeckModal } from "@/features/import/components/ExportDeckModal";
 import { filterOwnedCards } from "@/features/collection/utils/filters";
 import {
   resolveDisplayPrice,
@@ -31,6 +31,7 @@ import {
 
 export function CollectionTopBar() {
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -78,7 +79,7 @@ export function CollectionTopBar() {
   }, [ownedCards, filters, activeCollectionId]);
 
   const handleExport = () => {
-    exportCollectionCsv(collectionCards, activeCollection?.name ?? "collection");
+    setExportOpen(true);
   };
 
   return (
@@ -211,6 +212,13 @@ export function CollectionTopBar() {
           collectionName={activeCollection?.name ?? "Collection"}
         />
       )}
+
+      <ExportDeckModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        cards={collectionCards}
+        collectionName={activeCollection?.name ?? "collection"}
+      />
     </>
   );
 }

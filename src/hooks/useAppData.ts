@@ -405,6 +405,35 @@ export function useAppData() {
     onSuccess: invalidate,
   });
 
+  const importDeckMutation = useMutation({
+    mutationFn: async ({
+      items,
+      mergeDuplicates,
+    }: {
+      items: Parameters<ReturnType<typeof useDemoStore.getState>["importFromSearchResults"]>[0];
+      mergeDuplicates: boolean;
+    }) => {
+      if (!isSupabaseMode) {
+        return useDemoStore.getState().importFromSearchResults(items, mergeDuplicates);
+      }
+      const res = await fetch("/api/app/owned-cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "import-deck",
+          collectionId: resolvedActiveId,
+          items,
+          mergeDuplicates,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to import deck");
+      const json = await res.json();
+      await refreshAppState();
+      return json.imported as number;
+    },
+    onSuccess: invalidate,
+  });
+
   return {
     mode,
     isSupabaseMode,
@@ -450,5 +479,9 @@ export function useAppData() {
       }>,
       mergeDuplicates: boolean
     ) => importMutation.mutateAsync({ rows, mergeDuplicates }),
+    importDeckFromSearch: (
+      items: Parameters<ReturnType<typeof useDemoStore.getState>["importFromSearchResults"]>[0],
+      mergeDuplicates: boolean
+    ) => importDeckMutation.mutateAsync({ items, mergeDuplicates }),
   };
 }

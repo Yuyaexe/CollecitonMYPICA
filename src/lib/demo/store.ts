@@ -46,6 +46,16 @@ interface DemoStore extends DemoState {
     }>,
     mergeDuplicates: boolean
   ) => number;
+  importFromSearchResults: (
+    items: Array<{
+      result: CardSearchResult;
+      quantity: number;
+      gameId: string;
+      gameSlug: string;
+      gameName: string;
+    }>,
+    mergeDuplicates: boolean
+  ) => number;
   updateProfile: (updates: Partial<DemoState["profile"]>) => void;
   addCollection: (name: string) => DemoCollection;
   renameCollection: (id: string, name: string) => void;
@@ -192,6 +202,78 @@ export const useDemoStore = create<DemoStore>()(
             tagIds: [],
           });
           imported++;
+        }
+
+        set({ ownedCards: newOwned });
+        return imported;
+      },
+
+      importFromSearchResults: (items, mergeDuplicates) => {
+        let imported = 0;
+        const state = get();
+        const newOwned = [...state.ownedCards];
+
+        for (const item of items) {
+          const { result, quantity, gameId, gameSlug, gameName } = item;
+          const existing = mergeDuplicates
+            ? newOwned.find((oc) => {
+                if (oc.collectionId !== state.activeCollectionId) return false;
+                if (oc.card.gameSlug !== gameSlug) return false;
+                if (result.externalId) {
+                  return oc.card.externalId === result.externalId;
+                }
+                return (
+                  oc.card.name.toLowerCase() === result.name.toLowerCase() &&
+                  (oc.card.setName ?? "").toLowerCase() === (result.setName ?? "").toLowerCase()
+                );
+              })
+            : undefined;
+
+          if (existing) {
+            existing.quantity += quantity;
+            existing.card = {
+              ...existing.card,
+              marketPrice: result.price ?? existing.card.marketPrice,
+              imageUrl: result.imageUrl ?? existing.card.imageUrl,
+              rarity: result.rarity ?? existing.card.rarity,
+              setName: result.setName ?? existing.card.setName,
+              setCode: result.setCode ?? existing.card.setCode,
+              collectorNumber: result.collectorNumber ?? existing.card.collectorNumber,
+              externalId: result.externalId ?? existing.card.externalId,
+            };
+            imported += quantity;
+            continue;
+          }
+
+          const cardId = generateId();
+          const card: DemoCard = {
+            id: cardId,
+            gameId,
+            gameSlug,
+            gameName,
+            externalId: result.externalId,
+            name: result.name,
+            setCode: result.setCode,
+            setName: result.setName,
+            collectorNumber: result.collectorNumber,
+            rarity: result.rarity,
+            imageUrl: result.imageUrl,
+            marketPrice: result.price,
+          };
+          newOwned.push({
+            id: generateId(),
+            collectionId: state.activeCollectionId,
+            cardId,
+            card,
+            quantity,
+            condition: "NM",
+            language: "EN",
+            isFoil: false,
+            purchasePrice: null,
+            notes: null,
+            tagIds: [],
+          });
+          imported += quantity;
         }
 
         set({ ownedCards: newOwned });

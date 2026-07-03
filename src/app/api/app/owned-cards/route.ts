@@ -7,6 +7,7 @@ import {
 import {
   addSupabaseCardFromSearch,
   deleteSupabaseOwnedCards,
+  importSupabaseFromSearchResults,
   importSupabaseRows,
   updateSupabaseOwnedCard,
 } from "@/lib/data/server/supabase-service";
@@ -50,6 +51,36 @@ export async function POST(request: NextRequest) {
         currency
       );
       return NextResponse.json({ ok: true });
+    }
+
+    if (action === "import-deck") {
+      const { collectionId, items, mergeDuplicates } = body as {
+        collectionId: string;
+        items: Array<{
+          result: CardSearchResult;
+          quantity: number;
+          gameId: string;
+          gameSlug: string;
+        }>;
+        mergeDuplicates: boolean;
+      };
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("currency")
+        .eq("user_id", requireUserId(ctx))
+        .maybeSingle();
+
+      const currency = (profileRow?.currency as Currency | undefined) ?? "USD";
+
+      const count = await importSupabaseFromSearchResults(
+        supabase,
+        collectionId,
+        items,
+        mergeDuplicates,
+        currency
+      );
+      return NextResponse.json({ imported: count });
     }
 
     if (action === "import") {

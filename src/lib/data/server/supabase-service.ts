@@ -547,6 +547,66 @@ export async function deleteSupabaseOwnedCards(supabase: SupabaseClient, ids: st
   if (error) throw error;
 }
 
+export async function importSupabaseFromSearchResults(
+  supabase: SupabaseClient,
+  collectionId: string,
+  items: Array<{
+    result: CardSearchResult;
+    quantity: number;
+    gameId: string;
+    gameSlug: string;
+  }>,
+  mergeDuplicates: boolean,
+  currency: Currency
+) {
+  let imported = 0;
+
+  for (const item of items) {
+    const { result, quantity, gameId, gameSlug } = item;
+    const cardId = await findOrCreateSupabaseCard(
+      supabase,
+      gameId,
+      result,
+      gameSlug,
+      currency
+    );
+
+    if (mergeDuplicates) {
+      const { data: existingOwned } = await supabase
+        .from("owned_cards")
+        .select("id, quantity, card_id")
+        .eq("collection_id", collectionId)
+        .eq("card_id", cardId)
+        .maybeSingle();
+
+      if (existingOwned) {
+        await supabase
+          .from("owned_cards")
+          .update({
+            quantity: existingOwned.quantity + quantity,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingOwned.id);
+        imported += quantity;
+        continue;
+      }
+    }
+
+    const { error } = await supabase.from("owned_cards").insert({
+      collection_id: collectionId,
+      card_id: cardId,
+      quantity,
+      condition: "NM",
+      language: "EN",
+      is_foil: false,
+    });
+    if (error) throw error;
+    imported += quantity;
+  }
+
+  return imported;
+}
+
 export async function importSupabaseRows(
   supabase: SupabaseClient,
   collectionId: string,
