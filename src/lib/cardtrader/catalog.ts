@@ -3,8 +3,16 @@ import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTrad
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 
 const SEARCH_RESULT_LIMIT = 24;
-const MAX_EXPANSIONS_SCAN = 8;
-const PARALLEL_EXPANSION_BATCH = 3;
+/** Supplemental merge (Digimon/YGO/Pokemon + CT) — keep fast. */
+const MERGE_MAX_EXPANSIONS = 10;
+/** One Piece / Lorcana / Magic rely only on CardTrader — scan many sets. */
+export const CARDTRADER_PRIMARY_MAX_EXPANSIONS = 48;
+const PARALLEL_EXPANSION_BATCH = 4;
+
+export type CardTraderSearchOptions = {
+  limit?: number;
+  maxExpansions?: number;
+};
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -407,12 +415,14 @@ function matchesQuery(name: string, terms: string[]): boolean {
   return terms.every((term) => normalized.includes(term));
 }
 
-/** Search CardTrader blueprints by name (scans recent expansions, cached). */
+/** Search CardTrader blueprints by name (scans expansions newest-first, cached). */
 export async function searchCardTraderCatalog(
   gameSlug: string,
   query: string,
-  limit = SEARCH_RESULT_LIMIT
+  options?: CardTraderSearchOptions
 ): Promise<CardSearchResult[]> {
+  const limit = options?.limit ?? SEARCH_RESULT_LIMIT;
+  const maxExpansions = options?.maxExpansions ?? MERGE_MAX_EXPANSIONS;
   const gameId = await resolveCardTraderGameId(gameSlug);
   if (!gameId) return [];
 
@@ -422,7 +432,7 @@ export async function searchCardTraderCatalog(
   if (terms.length === 0) return [];
 
   const expansions = await getExpansions(gameId);
-  const ranked = [...expansions].sort((a, b) => b.id - a.id).slice(0, MAX_EXPANSIONS_SCAN);
+  const ranked = [...expansions].sort((a, b) => b.id - a.id).slice(0, maxExpansions);
 
   const results: CardSearchResult[] = [];
   const seen = new Set<string>();

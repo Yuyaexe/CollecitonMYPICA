@@ -4,14 +4,42 @@ import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
   isCardTraderGameSupported,
+  isCardTraderPrimarySearch,
   resolveStoredBlueprintId,
   searchCardTraderCatalog,
+  CARDTRADER_PRIMARY_MAX_EXPANSIONS,
 } from "@/lib/cardtrader";
+import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 
 const ENRICH_LIMIT = 8;
+const SEARCH_RESULT_LIMIT = 24;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function mergeSearchResults(
+  primary: CardSearchResult[],
+  supplemental: CardSearchResult[],
+  limit = SEARCH_RESULT_LIMIT
+): CardSearchResult[] {
+  const merged = [...primary];
+  const seen = new Set(
+    primary.map(
+      (r) =>
+        `${r.metadata?.catalogSource ?? "catalog"}:${r.externalId}:${r.setName ?? ""}:${r.name}`
+    )
+  );
+
+  for (const result of supplemental) {
+    const key = `${result.metadata?.catalogSource ?? "catalog"}:${result.externalId}:${result.setName ?? ""}:${result.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(result);
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
 }
 
 async function enrichWithCardTraderPrices(
@@ -91,6 +119,11 @@ export async function GET(request: NextRequest) {
   try {
     let results;
     let source: "catalog" | "cardtrader" = "catalog";
+    const ctSearchOpts = {
+      maxExpansions: isCardTraderPrimarySearch(game)
+        ? CARDTRADER_PRIMARY_MAX_EXPANSIONS
+        : 10,
+    };
 
     if (isApiSupported(game)) {
       const adapter = getCardAdapter(game);
@@ -98,8 +131,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unknown game" }, { status: 400 });
       }
       results = await adapter.search(query);
+
+      if (cardTraderReady) {
+        const cardTraderResults = await searchCardTraderCatalog(game, query, ctSearchOpts);
+        if (results.length === 0) {
+          results = cardTraderResults;
+          source = "cardtrader";
+        } else if (cardTraderResults.length > 0) {
+          results = mergeSearchResults(results, cardTraderResults);
+        }
+      }
     } else {
-      results = await searchCardTraderCatalog(game, query);
+      results = await searchCardTraderCatalog(game, query, ctSearchOpts);
       source = "cardtrader";
     }
 
