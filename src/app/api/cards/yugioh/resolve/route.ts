@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { yugiohAdapter } from "@/features/catalog/services/card-api/yugioh.adapter";
 import { cloneSearchResultForJson } from "@/features/catalog/services/serialize-search-results";
 import { yugiohCardNamesMatch } from "@/lib/yugioh/lookup";
+import { resolveYugiohPasscodeForCard } from "@/lib/yugioh/resolve-passcode";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -19,6 +20,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (name) {
+      const passcode = await resolveYugiohPasscodeForCard({ name });
+      if (passcode) {
+        const detail = await yugiohAdapter.getById(passcode);
+        if (detail && yugiohCardNamesMatch(detail.name, name)) {
+          return NextResponse.json({ result: cloneSearchResultForJson(detail) });
+        }
+      }
+
       const results = await yugiohAdapter.searchByNameOnly(name);
       const match =
         results.find((result) => yugiohCardNamesMatch(result.name, name)) ?? null;

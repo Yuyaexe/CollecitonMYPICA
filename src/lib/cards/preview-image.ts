@@ -42,41 +42,18 @@ function pickCardTraderImage(
 function yugiohPreviewUrl(
   card: CardImageFields,
   detailPasscode?: string | null | undefined,
-  cardTraderImage?: string | null
+  _cardTraderImage?: string | null
 ): string | null {
   if (detailPasscode === undefined) {
     return null;
   }
 
-  const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
-  if (passcode) {
-    const ygoUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
+  if (detailPasscode) {
+    const ygoUrl = buildYgoImageUrl(detailPasscode, pickYgoImageSizeForRarity(card.rarity));
     if (ygoUrl) return ygoUrl;
   }
 
-  const cardTrader = pickCardTraderImage(card, cardTraderImage);
-  if (cardTrader) return cardTrader;
-
-  if (card.imageUrl?.includes("ygoprodeck.com") && !passcode) {
-    if (!isYugiohPasscodeId(card.externalId, card.imageUrl)) {
-      return null;
-    }
-  }
-
-  if (!card.imageUrl) return null;
-
-  if (card.imageUrl.includes("cards_small") || card.imageUrl.includes("_small")) {
-    return card.imageUrl
-      .replace("/cards_small/", "/cards/")
-      .replace("cards_small", "cards")
-      .replace("_small", "");
-  }
-
-  if (card.imageUrl.includes("cards_cropped")) {
-    return card.imageUrl.replace("/cards_cropped/", "/cards/").replace("cards_cropped", "cards");
-  }
-
-  return card.imageUrl;
+  return null;
 }
 
 function storedPreviewUrl(
@@ -110,16 +87,11 @@ export function getCardHoverPreviewUrl(
       return null;
     }
 
-    const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
-    if (passcode) {
-      const ygoUrl = buildYgoImageUrl(passcode, "full");
+    if (detailPasscode) {
+      const ygoUrl = buildYgoImageUrl(detailPasscode, "full");
       if (ygoUrl) return ygoUrl;
     }
 
-    const cardTrader = pickCardTraderImage(card, cardTraderImage);
-    if (cardTrader) return cardTrader;
-
-    if (card.imageUrl) return card.imageUrl;
     return null;
   }
   if (card.gameSlug === "pokemon") {
@@ -143,12 +115,9 @@ export function getYugiohPasscodeFallbackUrl(
 export function resolveCollectionThumbUrl(
   card: CardImageFields,
   passcode: string | null | undefined,
-  cardTraderImage?: string | null
+  _cardTraderImage?: string | null
 ): string | null {
-  const preview = getCardPreviewImageUrl(card, passcode, cardTraderImage);
-  if (preview) return preview;
-  if (card.gameSlug === "yugioh" && passcode === undefined) return null;
-  return card.imageUrl ?? null;
+  return getCardPreviewImageUrl(card, passcode, null);
 }
 
 export function getCardPreviewImageUrl(
@@ -177,30 +146,12 @@ export function resolveCardDisplayImage(
       return null;
     }
 
-    const passcode = resolveYugiohPasscode(
-      card.externalId,
-      card.imageUrl,
-      sources.detailPasscode
-    );
-    if (passcode) {
-      const ygoUrl = buildYgoImageUrl(passcode, "full");
+    if (sources.detailPasscode) {
+      const ygoUrl = buildYgoImageUrl(sources.detailPasscode, "full");
       if (ygoUrl) return ygoUrl;
     }
 
-    const cardTrader = pickCardTraderImage(card, sources.quoteImage);
-    if (cardTrader) return cardTrader;
-
-    if (sources.variantImage && isCardTraderHostedImage(sources.variantImage)) {
-      return sources.variantImage;
-    }
-
-    return (
-      sources.variantImage ??
-      sources.detailImage ??
-      card.imageUrl ??
-      sources.quoteImage ??
-      null
-    );
+    return sources.detailImage ?? null;
   }
 
   const preferLarge = card.gameSlug === "pokemon";

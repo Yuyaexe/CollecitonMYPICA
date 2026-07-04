@@ -5,6 +5,10 @@ import {
   fetchYugiohPasscodeForCard,
   passcodeFromYgoImageUrl,
 } from "@/lib/yugioh/lookup";
+import {
+  resolvePasscodeFromContext,
+  useYugiohPasscodeContext,
+} from "@/features/collection/context/yugioh-passcode-context";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { DemoCard } from "@/lib/demo/types";
 
@@ -20,8 +24,13 @@ type CardPasscodeFields = Pick<
  * - `null` when resolution failed
  */
 export function useYugiohPasscodeForDisplay(
-  card: CardPasscodeFields
+  card: CardPasscodeFields,
+  ownedCardId?: string
 ): string | null | undefined {
+  const batchContext = useYugiohPasscodeContext();
+  const fromBatch = resolvePasscodeFromContext(ownedCardId, batchContext);
+  const useIndividualLookup = fromBatch === undefined;
+
   const { data: resolvedPasscode, isFetched } = useQuery({
     queryKey: ["ygo-passcode", card.name, card.setCode, card.collectorNumber],
     queryFn: () =>
@@ -30,9 +39,12 @@ export function useYugiohPasscodeForDisplay(
         setCode: card.setCode,
         collectorNumber: card.collectorNumber,
       }),
-    enabled: card.gameSlug === "yugioh" && Boolean(card.name.trim()),
+    enabled:
+      useIndividualLookup && card.gameSlug === "yugioh" && Boolean(card.name.trim()),
     staleTime: 24 * 60 * 60 * 1000,
   });
+
+  if (fromBatch !== undefined) return fromBatch;
 
   if (card.gameSlug !== "yugioh") return null;
   if (!isFetched) return undefined;

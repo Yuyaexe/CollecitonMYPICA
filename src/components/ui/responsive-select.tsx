@@ -65,7 +65,7 @@ export function ResponsiveSelect({
       <SelectTrigger className={cn("h-9", triggerClassName)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" className="z-[300]">
         {options.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}

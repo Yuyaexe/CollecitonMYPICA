@@ -134,7 +134,8 @@ export function CardInspectDialog({
       imageUrl: null,
       setCode: null,
       collectorNumber: null,
-    }
+    },
+    card?.id
   );
 
   useYugiohCardImageRepair(

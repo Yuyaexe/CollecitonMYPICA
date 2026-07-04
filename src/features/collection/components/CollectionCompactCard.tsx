@@ -38,7 +38,7 @@ export function CollectionCompactCard({
   onQuantityChange,
   onRemove,
 }: CollectionCompactCardProps) {
-  const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
+  const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
   const dragOver = dragHandlers.isDragOver(item.id);

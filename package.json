@@ -10,6 +10,7 @@
     "lint": "next lint",
     "verify": "node scripts/verify-deckvault.mjs",
     "verify:backup": "node scripts/verify-backup-import.mjs",
+    "test:ygo-images": "node scripts/test-yugioh-passcodes.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:sql": "node scripts/run-sql.mjs",

@@ -93,7 +93,8 @@ function BinderSlot({
       imageUrl: null,
       setCode: null,
       collectorNumber: null,
-    }
+    },
+    card?.id
   );
   useYugiohCardImageRepair(
     card?.id,

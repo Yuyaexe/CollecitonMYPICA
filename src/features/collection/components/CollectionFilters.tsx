@@ -1,13 +1,6 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,6 +9,7 @@ import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface CollectionFiltersProps {
   /** Sheet on mobile — native selects avoid Radix crashes. */
@@ -27,40 +21,21 @@ function FilterSelect({
   value,
   onValueChange,
   options,
-  placeholder,
 }: {
   inSheet: boolean;
   value: string;
   onValueChange: (value: string) => void;
   options: { value: string; label: string }[];
-  placeholder?: string;
 }) {
-  if (inSheet) {
-    return (
-      <ResponsiveSelect
-        preferNative
-        value={value}
-        onValueChange={onValueChange}
-        options={options}
-        placeholder={placeholder}
-        triggerClassName="h-8"
-      />
-    );
-  }
-
+  const isMobile = useMediaQuery("(max-width: 767px)");
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="h-8">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <ResponsiveSelect
+      preferNative={inSheet || isMobile}
+      value={value}
+      onValueChange={onValueChange}
+      options={options}
+      triggerClassName="h-8"
+    />
   );
 }
 
@@ -101,7 +76,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             inSheet={inSheet}
             value={filters.gameId ?? "all"}
             onValueChange={(v) => setFilters({ gameId: v === "all" ? null : v })}
-            placeholder="All games"
             options={[
               { value: "all", label: "All games" },
               ...DEMO_GAMES.map((g) => ({ value: g.id, label: g.name })),
@@ -115,7 +89,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             inSheet={inSheet}
             value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
-            placeholder="All sets"
             options={[
               { value: "all", label: "All sets" },
               ...sets.map((s) => ({ value: s!, label: s! })),
@@ -129,7 +102,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             inSheet={inSheet}
             value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
-            placeholder="All rarities"
             options={[
               { value: "all", label: "All rarities" },
               ...rarities.map((r) => ({ value: r!, label: r! })),
@@ -145,7 +117,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             onValueChange={(v) =>
               setFilters({ language: v === "all" ? null : (v as typeof filters.language) })
             }
-            placeholder="All"
             options={[
               { value: "all", label: "All" },
               ...CARD_LANGUAGES.map((l) => ({ value: l, label: l })),
@@ -161,7 +132,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             onValueChange={(v) =>
               setFilters({ condition: v === "all" ? null : (v as typeof filters.condition) })
             }
-            placeholder="All"
             options={[
               { value: "all", label: "All" },
               ...CARD_CONDITIONS.map((c) => ({ value: c, label: c })),

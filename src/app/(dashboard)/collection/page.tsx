@@ -9,6 +9,10 @@ import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
 import { ImportModal } from "@/features/import/components/ImportModal";
 import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { CollectionPresenceProvider } from "@/features/collection/context/presence-context";
+import {
+  YugiohPasscodeProvider,
+  YugiohPasscodeSync,
+} from "@/features/collection/context/yugioh-passcode-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { filterOwnedCards } from "@/features/collection/utils/filters";
@@ -47,33 +51,37 @@ export default function CollectionPage() {
     : null;
 
   return (
-    <CollectionPresenceProvider
-      collectionId={activeCollectionId}
-      displayName={profile.displayName ?? "Collector"}
-      selectedOwnedCardId={presenceCardId}
-      enabled={isSupabaseMode}
-    >
-      <div className="flex h-full flex-col">
-        <CollectionTopBar />
-        <div className="flex flex-1 overflow-hidden">
-          <aside className="hidden w-56 shrink-0 border-r border-border bg-card/30 lg:block">
-            <CollectionFilters />
-          </aside>
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <CollectionContent />
+    <YugiohPasscodeProvider cards={ownedCards}>
+      <YugiohPasscodeSync cards={ownedCards}>
+        <CollectionPresenceProvider
+          collectionId={activeCollectionId}
+          displayName={profile.displayName ?? "Collector"}
+          selectedOwnedCardId={presenceCardId}
+          enabled={isSupabaseMode}
+        >
+          <div className="flex h-full flex-col">
+            <CollectionTopBar />
+            <div className="flex flex-1 overflow-hidden">
+              <aside className="hidden w-56 shrink-0 border-r border-border bg-card/30 lg:block">
+                <CollectionFilters />
+              </aside>
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <CollectionContent />
+              </div>
+            </div>
+            <BulkActionsBar />
+            <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+            <ImportModal open={importOpen} onOpenChange={setImportOpen} />
+            <CardInspectDialog
+              card={inspectCard}
+              open={!!inspectCardId && !!inspectCard}
+              tab={inspectTab}
+              onOpenChange={(open) => !open && closeCardInspect()}
+              currency={profile.currency}
+            />
           </div>
-        </div>
-        <BulkActionsBar />
-        <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
-        <ImportModal open={importOpen} onOpenChange={setImportOpen} />
-        <CardInspectDialog
-          card={inspectCard}
-          open={!!inspectCardId && !!inspectCard}
-          tab={inspectTab}
-          onOpenChange={(open) => !open && closeCardInspect()}
-          currency={profile.currency}
-        />
-      </div>
-    </CollectionPresenceProvider>
+        </CollectionPresenceProvider>
+      </YugiohPasscodeSync>
+    </YugiohPasscodeProvider>
   );
 }

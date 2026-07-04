@@ -37,13 +37,13 @@ export function useYugiohCardImageRepair(
 
   useEffect(() => {
     if (!ownedCardId || !passcode || card.gameSlug !== "yugioh") return;
-    if (repairedRef.current === ownedCardId) return;
+    if (repairedRef.current === `${ownedCardId}:${passcode}`) return;
     if (!imageNeedsYugiohRepair(card, passcode)) return;
 
     const imageUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
     if (!imageUrl) return;
 
-    repairedRef.current = ownedCardId;
+    repairedRef.current = `${ownedCardId}:${passcode}`;
     const cardUpdates: Partial<RepairCardFields> = { imageUrl };
     if (
       card.externalId !== passcode &&
