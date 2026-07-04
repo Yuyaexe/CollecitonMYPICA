@@ -1,7 +1,6 @@
 # DeckVault
 
-Modern TCG Collection Manager for Yu-Gi-Oh, Pokemon, Digimon, Magic, One Piece, and Lorcana.
-
+The project is a web-based Trading Card Game (TCG) collection manager that allows users to organize their entire card collection, build and save decks, and automatically check which cards they already own and which are missing. Users can export decks in multiple formats, including TXT, CSV, and .ydk (compatible with EdoPro), as well as generate shopping lists containing only the missing cards. The goal is to provide an all-in-one platform for collection management, deck building, and purchase planning, making it easier and more efficient for both players and collectors to manage their cards.
 ## Quick Start
 
 **Windows:** double-click `DeckVault.bat` (Node.js 20+ required).
