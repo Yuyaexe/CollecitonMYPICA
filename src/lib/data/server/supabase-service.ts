@@ -149,6 +149,37 @@ export async function updateSupabaseProfile(
   if (error) throw error;
 }
 
+export async function acceptCollectionInvites(userId: string, email: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return;
+
+  const { data: invites, error: fetchErr } = await admin
+    .from("collection_invites")
+    .select("collection_id, role")
+    .eq("email", normalized);
+
+  if (fetchErr || !invites?.length) return;
+
+  const { error: insertErr } = await admin.from("collection_members").upsert(
+    invites.map((invite) => ({
+      collection_id: invite.collection_id,
+      user_id: userId,
+      role: invite.role,
+    })),
+    { onConflict: "collection_id,user_id", ignoreDuplicates: true }
+  );
+  if (insertErr) throw insertErr;
+
+  const { error: deleteErr } = await admin
+    .from("collection_invites")
+    .delete()
+    .eq("email", normalized);
+  if (deleteErr) throw deleteErr;
+}
+
 export async function createSupabaseCollection(
   supabase: SupabaseClient,
   userId: string,
@@ -190,31 +221,6 @@ export async function createSupabaseCollection(
     return mapRow(data);
   }
 
-  // 2) RPC with user JWT (run migration 0004)
-  const { data: rpcRow, error: rpcError } = await supabase
-    .rpc("create_collection", { p_name: trimmed })
-    .maybeSingle<CollectionRow>();
-
-  if (!rpcError && rpcRow) {
-    return mapRow(rpcRow);
-  }
-
-  const rpcMissing =
-    rpcError?.code === "42883" ||
-    rpcError?.code === "PGRST202" ||
-    rpcError?.message?.includes("create_collection");
-
-  if (rpcMissing) {
-    throw new Error(
-      "Sem permissão para criar coleção. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel ou rode a migration 0004_create_collection_rpc.sql no Supabase."
-    );
-  }
-
-  if (rpcError) {
-    throw rpcError;
-  }
-
-  // 3) Direct insert (requires valid session JWT on the server client)
   const { data, error } = await supabase
     .from("collections")
     .insert({ user_id: userId, name: trimmed, is_default: false })
@@ -223,7 +229,7 @@ export async function createSupabaseCollection(
   if (error) {
     if (error.message.includes("row-level security")) {
       throw new Error(
-        "Sem permissão para criar coleção. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel ou rode a migration 0004_create_collection_rpc.sql no Supabase."
+        "Sem permissão para criar coleção. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel."
       );
     }
     throw error;
