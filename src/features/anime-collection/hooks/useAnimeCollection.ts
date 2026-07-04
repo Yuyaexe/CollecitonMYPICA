@@ -26,6 +26,7 @@ export function useAnimeCollection() {
   const updateAnimeCharacterCardSetName = useDemoStore(
     (s) => s.updateAnimeCharacterCardSetName
   );
+  const updateAnimeCharacterCard = useDemoStore((s) => s.updateAnimeCharacterCard);
 
   const sortedSeries = useMemo(
     () => [...animeSeries].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -78,5 +79,6 @@ export function useAnimeCollection() {
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
     updateAnimeCharacterCardSetName,
+    updateAnimeCharacterCard,
   };
 }

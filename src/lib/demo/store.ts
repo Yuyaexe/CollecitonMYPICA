@@ -98,6 +98,10 @@ interface DemoStore extends DemoState {
   removeAnimeCharacterCard: (id: string) => void;
   updateAnimeCharacterCardQuantity: (id: string, quantity: number) => void;
   updateAnimeCharacterCardSetName: (id: string, setName: string | null) => void;
+  updateAnimeCharacterCard: (
+    id: string,
+    updates: Partial<Omit<AnimeCharacterCard, "card">> & { card?: Partial<DemoCard> }
+  ) => void;
 }
 
 export const useDemoStore = create<DemoStore>()(
@@ -569,6 +573,9 @@ export const useDemoStore = create<DemoStore>()(
           characterId,
           card,
           quantity: 1,
+          condition: "NM",
+          language: "EN",
+          isFoil: false,
         };
         set((s) => ({ animeCharacterCards: [...s.animeCharacterCards, entry] }));
       },
@@ -601,10 +608,24 @@ export const useDemoStore = create<DemoStore>()(
           ),
         }));
       },
+
+      updateAnimeCharacterCard: (id, updates) => {
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) => {
+            if (entry.id !== id) return entry;
+            const { card: cardUpdates, ...rest } = updates;
+            const next: AnimeCharacterCard = { ...entry, ...rest };
+            if (cardUpdates) {
+              next.card = { ...entry.card, ...cardUpdates };
+            }
+            return next;
+          }),
+        }));
+      },
     }),
     {
       name: "deckvault-demo",
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -630,6 +651,17 @@ export const useDemoStore = create<DemoStore>()(
           state = {
             ...state,
             animeCharacterCards: state.animeCharacterCards ?? [],
+          };
+        }
+        if (version < 5) {
+          state = {
+            ...state,
+            animeCharacterCards: (state.animeCharacterCards ?? []).map((entry) => ({
+              ...entry,
+              condition: entry.condition ?? "NM",
+              language: entry.language ?? "EN",
+              isFoil: entry.isFoil ?? false,
+            })),
           };
         }
         return state;

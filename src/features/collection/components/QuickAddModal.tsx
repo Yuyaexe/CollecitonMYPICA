@@ -31,6 +31,11 @@ import {
 } from "@/features/catalog/services/card-api/variants";
 import { digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+import type { SearchDebugEntry } from "@/features/catalog/services/search-debug";
+import {
+  SearchDebugConsole,
+  SearchDebugToggle,
+} from "@/features/catalog/components/SearchDebugConsole";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSequentialVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
@@ -65,6 +70,9 @@ export function QuickAddModal({
   const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
     defaultGameSlug ?? QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
   );
+  const [debugEnabled, setDebugEnabled] = useState(true);
+  const [searchDebug, setSearchDebug] = useState<SearchDebugEntry[]>([]);
+  const [searchErrorDetail, setSearchErrorDetail] = useState<string | null>(null);
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
 
@@ -96,17 +104,29 @@ export function QuickAddModal({
     setPreviewKey(null);
   }, [selectedGameSlug]);
 
-  const { data, isLoading, isError, isFetching } = useQuery({
-    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency],
+  const { data, isLoading, isError, isFetching, error } = useQuery({
+    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, debugEnabled],
     queryFn: async () => {
+      setSearchErrorDetail(null);
+      const debugParam = debugEnabled ? "&debug=1" : "";
       const res = await fetch(
-        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}`
+        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}${debugParam}`
       );
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error ?? json.message ?? "Search failed");
+      const json = (await res.json()) as {
+        results?: CardSearchResult[];
+        error?: string;
+        message?: string;
+        debug?: SearchDebugEntry[];
+      };
+      if (json.debug?.length) {
+        setSearchDebug(json.debug);
       }
-      return (json.results ?? []) as CardSearchResult[];
+      if (!res.ok) {
+        const detail = json.message ?? json.error ?? "Search failed";
+        setSearchErrorDetail(detail);
+        throw new Error(detail);
+      }
+      return json.results ?? [];
     },
     enabled: debouncedQuery.length >= 2 && isQuickAddSupported(game.slug),
     staleTime: 5 * 60 * 1000,
@@ -442,6 +462,10 @@ export function QuickAddModal({
                 enableShortcut={false}
                 className="flex-1"
               />
+              <SearchDebugToggle
+                enabled={debugEnabled}
+                onToggle={() => setDebugEnabled((v) => !v)}
+              />
             </div>
 
             {!isQuickAddSupported(game.slug) && (
@@ -450,7 +474,18 @@ export function QuickAddModal({
               </p>
             )}
 
-            <ScrollArea className="h-[420px] pr-3">
+            {debugEnabled && (
+              <SearchDebugConsole
+                entries={searchDebug}
+                errorMessage={
+                  isError
+                    ? (error instanceof Error ? error.message : searchErrorDetail)
+                    : null
+                }
+              />
+            )}
+
+            <ScrollArea className="h-[360px] pr-3">
               {(isLoading || isFetching) && debouncedQuery.length >= 2 && (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -488,9 +523,9 @@ export function QuickAddModal({
                 </div>
               )}
 
-              {isError && (
+              {isError && !debugEnabled && (
                 <p className="py-12 text-center text-sm text-destructive">
-                  Search failed. Check your connection and try again.
+                  Search failed. Enable Console for details.
                 </p>
               )}
 

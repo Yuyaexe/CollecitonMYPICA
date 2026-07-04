@@ -51,12 +51,18 @@ import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
 
+export type OwnedCardUpdates = Partial<Omit<DemoOwnedCard, "card">> & {
+  card?: Partial<DemoOwnedCard["card"]>;
+};
+
 interface CardInspectDialogProps {
   card: DemoOwnedCard | null;
   open: boolean;
   tab?: CardInspectTab;
   onOpenChange: (open: boolean) => void;
   currency: Currency;
+  onUpdate?: (id: string, updates: OwnedCardUpdates) => void;
+  onDelete?: (ids: string[]) => void;
 }
 
 interface CardDetailResponse {
@@ -106,8 +112,12 @@ export function CardInspectDialog({
   tab = "details",
   onOpenChange,
   currency,
+  onUpdate,
+  onDelete,
 }: CardInspectDialogProps) {
-  const { updateOwnedCard, deleteOwnedCards } = useAppData();
+  const { updateOwnedCard: defaultUpdate, deleteOwnedCards: defaultDelete } = useAppData();
+  const updateOwnedCard = onUpdate ?? defaultUpdate;
+  const deleteOwnedCards = onDelete ?? defaultDelete;
   const marketplaceRef = useRef<HTMLDivElement>(null);
 
   const { data: cardDetailData } = useQuery({

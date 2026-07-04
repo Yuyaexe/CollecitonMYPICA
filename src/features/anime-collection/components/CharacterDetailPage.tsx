@@ -14,9 +14,15 @@ import {
   EditCharacterPhotoModal,
 } from "@/features/anime-collection/components/EditCharacterPhotoModal";
 import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
+import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import {
+  animeCharacterCardToOwned,
+  ownedUpdatesToAnimeCharacter,
+} from "@/features/anime-collection/utils/character-card-inspect";
+import { useCharacterCardTraderSync } from "@/features/anime-collection/hooks/useCharacterCardTraderSync";
 import { useDemoStore } from "@/lib/demo/store";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export interface CharacterDetailPageProps {
@@ -33,24 +39,38 @@ export function CharacterDetailPage({
   const {
     getSeriesBySlug,
     getCharacterById,
-    getCardsForCharacter,
     renameAnimeCharacter,
     updateAnimeCharacterImage,
     deleteAnimeCharacter,
     addAnimeCharacterCardFromSearch,
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
-    updateAnimeCharacterCardSetName,
+    updateAnimeCharacterCard,
   } = useAnimeCollection();
 
   const series = getSeriesBySlug(seriesSlug);
   const character = getCharacterById(characterId);
-  const characterCards = character ? getCardsForCharacter(character.id) : [];
+  const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
+  const characterCards = useMemo(
+    () =>
+      character
+        ? animeCharacterCards.filter((c) => c.characterId === character.id)
+        : [],
+    [character, animeCharacterCards]
+  );
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
+  const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+
+  const inspectEntry = useMemo(
+    () => characterCards.find((c) => c.id === inspectCardId) ?? null,
+    [characterCards, inspectCardId]
+  );
+
+  useCharacterCardTraderSync(characterCards, profile.currency, updateAnimeCharacterCard);
 
   if (!series || !character || character.seriesId !== series.id) {
     return (
@@ -170,10 +190,24 @@ export function CharacterDetailPage({
             currency={profile.currency}
             onRemove={handleRemoveCard}
             onQuantityChange={updateAnimeCharacterCardQuantity}
-            onEditEdition={updateAnimeCharacterCardSetName}
+            onOpenCard={(item) => setInspectCardId(item.id)}
           />
         )}
       </div>
+
+      <CardInspectDialog
+        card={inspectEntry ? animeCharacterCardToOwned(inspectEntry) : null}
+        open={!!inspectCardId && !!inspectEntry}
+        onOpenChange={(open) => {
+          if (!open) setInspectCardId(null);
+        }}
+        currency={profile.currency}
+        onUpdate={(id, updates) => updateAnimeCharacterCard(id, ownedUpdatesToAnimeCharacter(updates))}
+        onDelete={(ids) => {
+          ids.forEach((id) => removeAnimeCharacterCard(id));
+          setInspectCardId(null);
+        }}
+      />
 
       <QuickAddModal
         open={addCardOpen}

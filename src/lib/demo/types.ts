@@ -62,6 +62,9 @@ export interface AnimeCharacterCard {
   characterId: string;
   card: DemoCard;
   quantity: number;
+  condition: CardCondition;
+  language: CardLanguage;
+  isFoil: boolean;
 }
 
 export interface DemoState {

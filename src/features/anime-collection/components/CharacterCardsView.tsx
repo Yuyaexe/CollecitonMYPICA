@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, ChevronLeft, ChevronRight, LayoutGrid, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, LayoutGrid, Minus, Plus, Trash2 } from "lucide-react";
 import { CardImage } from "@/components/shared/CardImage";
-import { Modal } from "@/components/shared/Modal";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
@@ -86,25 +83,41 @@ interface CharacterCardsViewProps {
   currency: Currency;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
-  onEditEdition: (id: string, setName: string | null) => void;
+  onOpenCard: (item: AnimeCharacterCard) => void;
 }
 
 function CharacterCardThumb({
   item,
   className,
+  onClick,
 }: {
   item: AnimeCharacterCard;
   className?: string;
+  onClick?: () => void;
 }) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
   const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
 
-  return (
-    <div className={cn("relative aspect-[59/86] overflow-hidden rounded-lg bg-muted/30 ring-1 ring-border/30", className)}>
-      <CardImage src={thumbSrc} alt={item.card.name} fill sizes="140px" className="object-contain p-1" />
-    </div>
+  const image = (
+    <CardImage src={thumbSrc} alt={item.card.name} fill sizes="140px" className="object-contain p-1" />
   );
+
+  const classes = cn(
+    "relative aspect-[59/86] overflow-hidden rounded-lg bg-muted/30 ring-1 ring-border/30 transition-all",
+    onClick && "cursor-pointer hover:ring-primary/40 hover:shadow-md",
+    className
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={classes} aria-label={`Open ${item.card.name}`}>
+        {image}
+      </button>
+    );
+  }
+
+  return <div className={classes}>{image}</div>;
 }
 
 function CharacterGridCard({
@@ -112,13 +125,13 @@ function CharacterGridCard({
   currency,
   onRemove,
   onQuantityChange,
-  onEditEdition,
+  onOpenCard,
 }: {
   item: AnimeCharacterCard;
   currency: Currency;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
-  onEditEdition: (item: AnimeCharacterCard) => void;
+  onOpenCard: (item: AnimeCharacterCard) => void;
 }) {
   return (
     <div className="group relative flex flex-col rounded-xl border border-border/60 bg-card/40 p-2 transition-all hover:border-primary/40 hover:shadow-md">
@@ -131,7 +144,11 @@ function CharacterGridCard({
         <Trash2 className="h-3.5 w-3.5" />
       </button>
 
-      <CharacterCardThumb item={item} className="mx-auto w-full max-w-[140px]" />
+      <CharacterCardThumb
+        item={item}
+        className="mx-auto w-full max-w-[140px]"
+        onClick={() => onOpenCard(item)}
+      />
 
       <div className="mt-2 space-y-1.5 px-1">
         <div className="flex items-center justify-center gap-1.5">
@@ -142,25 +159,41 @@ function CharacterGridCard({
             </span>
           )}
         </div>
-        <p className="line-clamp-2 text-center text-xs font-semibold leading-tight">{item.card.name}</p>
         <button
           type="button"
-          onClick={() => onEditEdition(item)}
-          className="group/edit mx-auto flex max-w-full items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
-          title="Edit edition"
+          onClick={() => onOpenCard(item)}
+          className="w-full text-center hover:text-primary"
         >
-          <span className="truncate">{item.card.setName ?? "Add edition…"}</span>
-          <Pencil className="h-2.5 w-2.5 shrink-0 opacity-0 group-hover/edit:opacity-100" />
+          <p className="line-clamp-2 text-xs font-semibold leading-tight">{item.card.name}</p>
+          <p className="truncate text-[10px] text-muted-foreground">
+            {item.card.setName ?? "—"}
+          </p>
         </button>
         <div className="flex justify-center pt-0.5">
           <PriceBadge price={item.card.marketPrice} currency={currency} />
         </div>
         <div className="flex items-center justify-center gap-1 pt-1">
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7" aria-label="Decrease quantity" onClick={() => onQuantityChange(item.id, item.quantity - 1)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="Decrease quantity"
+            onClick={() => onQuantityChange(item.id, item.quantity - 1)}
+          >
             <Minus className="h-3 w-3" />
           </Button>
-          <span className="min-w-[2ch] text-center text-sm font-medium tabular-nums">{item.quantity}</span>
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7" aria-label="Increase quantity" onClick={() => onQuantityChange(item.id, item.quantity + 1)}>
+          <span className="min-w-[2ch] text-center text-sm font-medium tabular-nums">
+            {item.quantity}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="Increase quantity"
+            onClick={() => onQuantityChange(item.id, item.quantity + 1)}
+          >
             <Plus className="h-3 w-3" />
           </Button>
         </div>
@@ -172,11 +205,11 @@ function CharacterGridCard({
 function CharacterBinderSlot({
   item,
   currency,
-  onEditEdition,
+  onOpenCard,
 }: {
   item: AnimeCharacterCard | null;
   currency: Currency;
-  onEditEdition: (item: AnimeCharacterCard) => void;
+  onOpenCard: (item: AnimeCharacterCard) => void;
 }) {
   if (!item) {
     return (
@@ -187,21 +220,23 @@ function CharacterBinderSlot({
     );
   }
 
-  const setLine = item.card.setName ?? "Add edition…";
+  const setLine = item.card.setName ?? "—";
 
   return (
-    <div className="group flex flex-col gap-1 rounded-lg transition-all duration-150">
-      <div className="relative aspect-[59/86] w-full overflow-hidden rounded-md bg-stone-900/10 shadow-sm ring-1 ring-stone-900/10 dark:bg-stone-950/40 dark:ring-stone-100/10">
-        <CharacterCardThumb item={item} className="h-full w-full rounded-md ring-0" />
-        {item.quantity > 1 && (
-          <span className="absolute right-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white">
-            ×{item.quantity}
-          </span>
-        )}
-      </div>
+    <div className="group relative flex flex-col gap-1 rounded-lg transition-all duration-150">
+      <CharacterCardThumb
+        item={item}
+        className="w-full rounded-md ring-stone-900/10 dark:ring-stone-100/10"
+        onClick={() => onOpenCard(item)}
+      />
+      {item.quantity > 1 && (
+        <span className="absolute right-1 top-1 z-10 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white">
+          ×{item.quantity}
+        </span>
+      )}
       <button
         type="button"
-        onClick={() => onEditEdition(item)}
+        onClick={() => onOpenCard(item)}
         className="flex w-full flex-col gap-0.5 rounded-md bg-zinc-900/90 px-1.5 py-1 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
       >
         <div className="flex items-center justify-between gap-1">
@@ -210,7 +245,9 @@ function CharacterBinderSlot({
             {item.card.marketPrice != null ? formatCurrency(item.card.marketPrice, currency) : "—"}
           </span>
         </div>
-        <p className="truncate text-[9px] font-medium text-white/75 group-hover:text-white">{item.card.name}</p>
+        <p className="truncate text-[9px] font-medium text-white/75 group-hover:text-white">
+          {item.card.name}
+        </p>
         <p className="truncate text-[8px] text-white/50 group-hover:text-white/70">{setLine}</p>
       </button>
     </div>
@@ -222,13 +259,13 @@ function CharacterBinderView({
   currency,
   layout,
   onLayoutChange,
-  onEditEdition,
+  onOpenCard,
 }: {
   cards: AnimeCharacterCard[];
   currency: Currency;
   layout: BinderLayout;
   onLayoutChange: (layout: BinderLayout) => void;
-  onEditEdition: (item: AnimeCharacterCard) => void;
+  onOpenCard: (item: AnimeCharacterCard) => void;
 }) {
   const [spreadIndex, setSpreadIndex] = useState(0);
   const { cols, rows, label, maxWidth } = BINDER_LAYOUTS[layout];
@@ -259,7 +296,9 @@ function CharacterBinderView({
       className={cn(
         "relative flex min-w-0 flex-1 flex-col p-2 sm:p-4",
         "bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200/90 dark:from-stone-800 dark:via-stone-900 dark:to-stone-950",
-        side === "left" ? "rounded-t-xl md:rounded-l-2xl md:rounded-tr-none" : "rounded-b-xl md:rounded-r-2xl md:rounded-bl-none"
+        side === "left"
+          ? "rounded-t-xl md:rounded-l-2xl md:rounded-tr-none"
+          : "rounded-b-xl md:rounded-r-2xl md:rounded-bl-none"
       )}
     >
       <div
@@ -274,7 +313,7 @@ function CharacterBinderView({
             key={item?.id ?? `${side}-empty-${index}`}
             item={item}
             currency={currency}
-            onEditEdition={onEditEdition}
+            onOpenCard={onOpenCard}
           />
         ))}
       </div>
@@ -311,19 +350,38 @@ function CharacterBinderView({
 
           <div className="flex flex-col overflow-hidden rounded-xl shadow-2xl ring-1 ring-black/20 md:flex-row md:rounded-2xl">
             {renderPage(leftPage, "left")}
-            <div className="relative h-2 w-full shrink-0 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 md:h-auto md:w-3 md:bg-gradient-to-b lg:w-4" aria-hidden />
+            <div
+              className="relative h-2 w-full shrink-0 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 md:h-auto md:w-3 md:bg-gradient-to-b lg:w-4"
+              aria-hidden
+            />
             {renderPage(rightPage, "right")}
           </div>
 
           {totalSpreads > 1 && (
             <div className="mt-3 flex items-center justify-center gap-2">
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" disabled={spreadIndex === 0} onClick={() => setSpreadIndex((i) => i - 1)} aria-label="Previous spread">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={spreadIndex === 0}
+                onClick={() => setSpreadIndex((i) => i - 1)}
+                aria-label="Previous spread"
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-xs tabular-nums text-muted-foreground">
                 Spread {spreadIndex + 1} / {totalSpreads}
               </span>
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" disabled={spreadIndex >= totalSpreads - 1} onClick={() => setSpreadIndex((i) => i + 1)} aria-label="Next spread">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={spreadIndex >= totalSpreads - 1}
+                onClick={() => setSpreadIndex((i) => i + 1)}
+                aria-label="Next spread"
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -347,7 +405,11 @@ function ViewModeSwitcher({
   ];
 
   return (
-    <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5" role="group" aria-label="Card view mode">
+    <div
+      className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5"
+      role="group"
+      aria-label="Card view mode"
+    >
       {modes.map(({ id, label, icon: Icon }) => (
         <Button
           key={id}
@@ -372,26 +434,10 @@ export function CharacterCardsView({
   currency,
   onRemove,
   onQuantityChange,
-  onEditEdition,
+  onOpenCard,
 }: CharacterCardsViewProps) {
   const [viewMode, setViewMode] = usePersistedViewMode();
   const [binderLayout, setBinderLayout] = usePersistedBinderLayout();
-  const [editionOpen, setEditionOpen] = useState(false);
-  const [editionTarget, setEditionTarget] = useState<AnimeCharacterCard | null>(null);
-  const [editionValue, setEditionValue] = useState("");
-
-  const openEditionEditor = (item: AnimeCharacterCard) => {
-    setEditionTarget(item);
-    setEditionValue(item.card.setName ?? "");
-    setEditionOpen(true);
-  };
-
-  const handleSaveEdition = () => {
-    if (!editionTarget) return;
-    onEditEdition(editionTarget.id, editionValue.trim() || null);
-    setEditionOpen(false);
-    setEditionTarget(null);
-  };
 
   return (
     <>
@@ -408,7 +454,7 @@ export function CharacterCardsView({
               currency={currency}
               onRemove={onRemove}
               onQuantityChange={onQuantityChange}
-              onEditEdition={openEditionEditor}
+              onOpenCard={onOpenCard}
             />
           ))}
         </div>
@@ -418,35 +464,9 @@ export function CharacterCardsView({
           currency={currency}
           layout={binderLayout}
           onLayoutChange={setBinderLayout}
-          onEditEdition={openEditionEditor}
+          onOpenCard={onOpenCard}
         />
       )}
-
-      <Modal
-        open={editionOpen}
-        onOpenChange={setEditionOpen}
-        title="Edit edition"
-        description={editionTarget ? `Set or edition for ${editionTarget.card.name}` : undefined}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditionOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdition}>Save</Button>
-          </>
-        }
-      >
-        <div className="space-y-2 py-2">
-          <Label htmlFor="card-edition">Edition / set name</Label>
-          <Input
-            id="card-edition"
-            value={editionValue}
-            onChange={(e) => setEditionValue(e.target.value)}
-            placeholder="e.g. Dragons of Legend"
-            autoFocus
-          />
-        </div>
-      </Modal>
     </>
   );
 }
