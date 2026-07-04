@@ -201,7 +201,12 @@ export function useCollectionViewData(): CollectionViewData {
       if (blueprintValid && quote.blueprintId !== item.card.cardTraderBlueprintId) {
         updates.cardTraderBlueprintId = quote.blueprintId;
       }
-      if (quote.imageUrl && quote.imageUrl !== item.card.imageUrl) {
+      if (
+        quote.imageUrl &&
+        quote.imageUrl !== item.card.imageUrl &&
+        blueprintValid &&
+        item.card.gameSlug !== "yugioh"
+      ) {
         updates.imageUrl = quote.imageUrl;
       }
 

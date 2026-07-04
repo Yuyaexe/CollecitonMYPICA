@@ -8,9 +8,9 @@ import type { DemoCard } from "@/lib/demo/types";
 type CardPasscodeFields = Pick<DemoCard, "name" | "gameSlug" | "externalId" | "imageUrl">;
 
 export function useYugiohPasscodeForDisplay(card: CardPasscodeFields): string | null {
-  const storedPasscode = resolveYugiohPasscode(card.externalId, card.imageUrl);
-  const needsLookup =
-    card.gameSlug === "yugioh" && Boolean(card.name.trim()) && !storedPasscode;
+  const storedPasscode = isYugiohPasscodeId(card.externalId, card.imageUrl)
+    ? card.externalId!
+    : null;
 
   const { data: lookedUpPasscode } = useQuery({
     queryKey: ["ygo-passcode", card.name],
@@ -18,11 +18,20 @@ export function useYugiohPasscodeForDisplay(card: CardPasscodeFields): string | 
       const result = await fetchYugiohCardByName(card.name);
       return result?.externalId ?? null;
     },
-    enabled: needsLookup,
+    enabled: card.gameSlug === "yugioh" && Boolean(card.name.trim()),
     staleTime: 24 * 60 * 60 * 1000,
   });
 
-  return resolveYugiohPasscode(card.externalId, card.imageUrl, lookedUpPasscode);
+  const namePasscode =
+    lookedUpPasscode && isYugiohPasscodeId(lookedUpPasscode, null) ? lookedUpPasscode : null;
+
+  // Card name wins when stored passcode points at a different card (bad import / CardTrader mix-up).
+  if (namePasscode && storedPasscode && namePasscode !== storedPasscode) {
+    return namePasscode;
+  }
+  if (namePasscode) return namePasscode;
+  if (storedPasscode) return storedPasscode;
+  return null;
 }
 
 export function needsYugiohPasscodeLookup(card: CardPasscodeFields): boolean {

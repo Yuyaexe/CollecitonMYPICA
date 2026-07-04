@@ -12,14 +12,18 @@ function isSelectPortalTarget(target: EventTarget | null): boolean {
   );
 }
 
+function outsideEventTarget(event: CustomEvent<{ originalEvent: Event }>): EventTarget | null {
+  return event.detail?.originalEvent?.target ?? null;
+}
+
 const overlayPointerGuard = {
-  onPointerDownOutside: (event: { preventDefault: () => void; detail: { originalEvent: PointerEvent } }) => {
-    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+  onPointerDownOutside: (event: CustomEvent<{ originalEvent: PointerEvent }>) => {
+    if (isSelectPortalTarget(outsideEventTarget(event))) {
       event.preventDefault();
     }
   },
-  onInteractOutside: (event: { preventDefault: () => void; detail: { originalEvent: Event } }) => {
-    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+  onInteractOutside: (event: CustomEvent<{ originalEvent: Event }>) => {
+    if (isSelectPortalTarget(outsideEventTarget(event))) {
       event.preventDefault();
     }
   },

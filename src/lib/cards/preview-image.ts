@@ -44,13 +44,14 @@ function yugiohPreviewUrl(
   detailPasscode?: string | null,
   cardTraderImage?: string | null
 ): string | null {
-  const cardTrader = pickCardTraderImage(card, cardTraderImage);
-  if (cardTrader) return cardTrader;
-
   const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
   if (passcode) {
-    return buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
+    const ygoUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
+    if (ygoUrl) return ygoUrl;
   }
+
+  const cardTrader = pickCardTraderImage(card, cardTraderImage);
+  if (cardTrader) return cardTrader;
 
   if (card.imageUrl?.includes("ygoprodeck.com") && !passcode) {
     if (!isYugiohPasscodeId(card.externalId, card.imageUrl)) {
@@ -101,13 +102,15 @@ export function getCardHoverPreviewUrl(
   cardTraderImage?: string | null
 ): string | null {
   if (card.gameSlug === "yugioh") {
+    const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
+    if (passcode) {
+      const ygoUrl = buildYgoImageUrl(passcode, "full");
+      if (ygoUrl) return ygoUrl;
+    }
+
     const cardTrader = pickCardTraderImage(card, cardTraderImage);
     if (cardTrader) return cardTrader;
 
-    const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
-    if (passcode) {
-      return buildYgoImageUrl(passcode, "full");
-    }
     if (card.imageUrl) return card.imageUrl;
     return null;
   }
@@ -149,13 +152,6 @@ export function resolveCardDisplayImage(
   sources: CardDisplayImageSources = {}
 ): string | null {
   if (card.gameSlug === "yugioh") {
-    const cardTrader = pickCardTraderImage(card, sources.quoteImage);
-    if (cardTrader) return cardTrader;
-
-    if (sources.variantImage && isCardTraderHostedImage(sources.variantImage)) {
-      return sources.variantImage;
-    }
-
     const passcode = resolveYugiohPasscode(
       card.externalId,
       card.imageUrl,
@@ -164,6 +160,13 @@ export function resolveCardDisplayImage(
     if (passcode) {
       const ygoUrl = buildYgoImageUrl(passcode, "full");
       if (ygoUrl) return ygoUrl;
+    }
+
+    const cardTrader = pickCardTraderImage(card, sources.quoteImage);
+    if (cardTrader) return cardTrader;
+
+    if (sources.variantImage && isCardTraderHostedImage(sources.variantImage)) {
+      return sources.variantImage;
     }
 
     return (

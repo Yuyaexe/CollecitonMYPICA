@@ -9,15 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
@@ -225,7 +218,8 @@ export function CardInspectDialog({
     }
     if (
       resolvedQuote.imageUrl &&
-      resolvedQuote.imageUrl !== card.card.imageUrl
+      resolvedQuote.imageUrl !== card.card.imageUrl &&
+      card.card.gameSlug !== "yugioh"
     ) {
       updates.imageUrl = resolvedQuote.imageUrl;
     }
@@ -255,12 +249,22 @@ export function CardInspectDialog({
     normalizeCatalogPrice(card.card.marketPrice, currency);
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
-  const displayImage = resolveCardDisplayImage(card.card, {
-    quoteImage: resolvedQuote?.imageUrl,
-    variantImage: activeVariant?.imageUrl,
-    detailImage: cardDetail?.imageUrl,
-    detailPasscode: ygoPasscode,
-  });
+  let displayImage: string | null;
+  if (card.card.gameSlug === "yugioh" && ygoPasscode) {
+    displayImage =
+      buildYgoImageUrl(ygoPasscode, "full") ??
+      resolveCardDisplayImage(card.card, {
+        detailImage: cardDetail?.imageUrl,
+        detailPasscode: ygoPasscode,
+      });
+  } else {
+    displayImage = resolveCardDisplayImage(card.card, {
+      quoteImage: resolvedQuote?.imageUrl,
+      variantImage: activeVariant?.imageUrl,
+      detailImage: cardDetail?.imageUrl,
+      detailPasscode: ygoPasscode,
+    });
+  }
 
   const listings = buildMarketplaceListings(card.card, {
     cardTraderPrice: displayPrice,
@@ -340,63 +344,77 @@ export function CardInspectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,100%)] w-[calc(100%-1rem)] max-w-3xl gap-0 overflow-y-auto p-0 sm:max-w-4xl">
+      <DialogContent
+        className={cn(
+          "gap-0 overflow-x-hidden overflow-y-auto p-0",
+          "inset-x-0 bottom-0 top-auto max-h-[92dvh] w-full max-w-[100vw] translate-x-0 translate-y-0 rounded-t-xl border-t",
+          "sm:inset-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[min(90dvh,100%)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:border md:max-w-4xl"
+        )}
+      >
         <DialogTitle className="sr-only">{card.card.name}</DialogTitle>
 
         <div className="flex flex-col md:flex-row">
-          <div className="flex shrink-0 flex-col items-center border-b border-border/60 bg-muted/20 p-6 md:w-[240px] md:border-b-0 md:border-r">
-            <CardImage
-              src={displayImage}
-              alt={card.card.name}
-              width={160}
-              height={224}
-              className="rounded-lg shadow-lg ring-1 ring-border/40 transition-opacity duration-200"
-            />
-            <h2 className="mt-4 text-center text-lg font-semibold leading-tight">
-              {card.card.name}
-            </h2>
-            {card.card.rarity && (
-              <div className="mt-2">
-                <RarityBadge
-                  rarity={activeVariant?.rarity ?? card.card.rarity}
-                  gameSlug={card.card.gameSlug}
-                  size="md"
-                />
-              </div>
-            )}
-            <dl className="mt-4 w-full space-y-2 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Set</dt>
-                <dd className="text-right font-medium">{activeVariant?.setName ?? card.card.setName ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Number</dt>
-                <dd className="font-medium">{activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">CardTrader</dt>
-                <dd>
-                  {((pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null) ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : (
-                    <PriceBadge price={displayPrice} currency={currency} />
-                  )}
-                </dd>
-              </div>
-              {ygoSecondaryPrice != null &&
-                ygoSecondaryPrice > 0 &&
-                (resolvedQuote?.price == null || displayPrice == null) && (
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">YGOPRODeck</dt>
-                  <dd>
-                    <PriceBadge price={ygoSecondaryPrice} currency="USD" />
-                  </dd>
+          <div className="flex shrink-0 gap-3 border-b border-border/60 bg-muted/20 p-3 sm:flex-col sm:items-center sm:p-4 md:w-[220px] md:border-b-0 md:border-r md:p-6">
+            <div className="relative h-[123px] w-[88px] shrink-0 overflow-hidden rounded-md shadow-md ring-1 ring-border/40 sm:h-[140px] sm:w-[100px] sm:rounded-lg sm:shadow-lg md:h-[224px] md:w-[160px]">
+              <CardImage
+                src={displayImage}
+                alt={card.card.name}
+                fill
+                sizes="160px"
+                className="object-contain p-0.5"
+              />
+            </div>
+            <div className="min-w-0 flex-1 sm:w-full sm:text-center">
+              <h2 className="text-sm font-semibold leading-snug sm:text-base md:text-lg">
+                {card.card.name}
+              </h2>
+              {card.card.rarity && (
+                <div className="mt-1.5 sm:flex sm:justify-center md:mt-2">
+                  <RarityBadge
+                    rarity={activeVariant?.rarity ?? card.card.rarity}
+                    gameSlug={card.card.gameSlug}
+                    size="sm"
+                  />
                 </div>
               )}
-            </dl>
+              <dl className="mt-2 space-y-1 text-xs sm:mt-3 sm:space-y-1.5 sm:text-sm md:mt-4">
+                <div className="flex justify-between gap-2 sm:gap-3">
+                  <dt className="shrink-0 text-muted-foreground">Set</dt>
+                  <dd className="min-w-0 truncate text-right font-medium">
+                    {activeVariant?.setName ?? card.card.setName ?? "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2 sm:gap-3">
+                  <dt className="shrink-0 text-muted-foreground">Number</dt>
+                  <dd className="min-w-0 truncate font-medium">
+                    {activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  <dt className="shrink-0 text-muted-foreground">CardTrader</dt>
+                  <dd>
+                    {(pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <PriceBadge price={displayPrice} currency={currency} />
+                    )}
+                  </dd>
+                </div>
+                {ygoSecondaryPrice != null &&
+                  ygoSecondaryPrice > 0 &&
+                  (resolvedQuote?.price == null || displayPrice == null) && (
+                    <div className="flex items-center justify-between gap-2 sm:gap-3">
+                      <dt className="shrink-0 text-muted-foreground">YGOPRODeck</dt>
+                      <dd>
+                        <PriceBadge price={ygoSecondaryPrice} currency="USD" />
+                      </dd>
+                    </div>
+                  )}
+              </dl>
+            </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6">
             <div ref={marketplaceRef} className="space-y-3">
               <h3 className="text-sm font-semibold">Marketplace</h3>
               <div className="space-y-2">
@@ -406,9 +424,9 @@ export function CardInspectDialog({
                     href={listing.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40 sm:px-4 sm:py-3"
                   >
-                    <span className="text-sm font-medium">
+                    <span className="min-w-0 truncate text-xs font-medium sm:text-sm">
                       {listing.name}
                       {listing.primary && (
                         <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
@@ -487,46 +505,29 @@ export function CardInspectDialog({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Condition</Label>
-                  <Select
+                  <Label className="text-xs sm:text-sm">Condition</Label>
+                  <ResponsiveSelect
                     value={card.condition}
                     onValueChange={(v) =>
                       updateOwnedCard(card.id, { condition: v as typeof card.condition })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CARD_CONDITIONS.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {CONDITION_LABELS[c]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={CARD_CONDITIONS.map((c) => ({
+                      value: c,
+                      label: CONDITION_LABELS[c],
+                    }))}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Language</Label>
-                  <Select
+                  <Label className="text-xs sm:text-sm">Language</Label>
+                  <ResponsiveSelect
                     value={card.language}
                     onValueChange={(v) =>
                       updateOwnedCard(card.id, { language: v as typeof card.language })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CARD_LANGUAGES.map((l) => (
-                        <SelectItem key={l} value={l}>
-                          {l}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={CARD_LANGUAGES.map((l) => ({ value: l, label: l }))}
+                  />
                 </div>
               </div>
             </div>

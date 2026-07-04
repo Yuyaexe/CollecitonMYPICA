@@ -25,7 +25,7 @@ export function CollaboratorPresence({ peers }: CollaboratorPresenceProps) {
                 className="text-[10px] font-medium text-white"
                 style={{ backgroundColor: peer.color }}
               >
-                {peer.displayName.slice(0, 2).toUpperCase()}
+                {peer.displayName?.slice(0, 2).toUpperCase() ?? "?"}
               </AvatarFallback>
             </Avatar>
           </TooltipTrigger>

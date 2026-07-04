@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 import { isCardTraderHostedImage, isCardTraderPlaceholderImage } from "@/lib/cardtrader/images";
+import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { DemoCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 
@@ -17,12 +18,7 @@ function imageNeedsYugiohRepair(
 ): boolean {
   if (card.gameSlug !== "yugioh") return false;
   if (isCardTraderPlaceholderImage(card.imageUrl)) return true;
-  if (card.cardTraderBlueprintId && isCardTraderHostedImage(card.imageUrl)) {
-    return false;
-  }
-  if (isCardTraderHostedImage(card.imageUrl)) {
-    return false;
-  }
+  if (isCardTraderHostedImage(card.imageUrl)) return true;
   if (!card.imageUrl) return true;
   if (card.imageUrl.includes("ygoprodeck.com")) {
     return !card.imageUrl.includes(`/${passcode}`);
@@ -48,6 +44,13 @@ export function useYugiohCardImageRepair(
     if (!imageUrl) return;
 
     repairedRef.current = ownedCardId;
-    updateOwnedCard(ownedCardId, { card: { imageUrl } });
+    const cardUpdates: Partial<RepairCardFields> = { imageUrl };
+    if (
+      card.externalId !== passcode &&
+      isYugiohPasscodeId(card.externalId, card.imageUrl)
+    ) {
+      cardUpdates.externalId = passcode;
+    }
+    updateOwnedCard(ownedCardId, { card: cardUpdates });
   }, [ownedCardId, card, passcode, updateOwnedCard]);
 }

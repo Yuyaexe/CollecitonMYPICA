@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -17,8 +18,50 @@ import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 
 interface CollectionFiltersProps {
-  /** When rendered inside a Sheet/Dialog, Select must be non-modal to avoid mobile crashes. */
+  /** Sheet on mobile — native selects avoid Radix crashes. */
   inSheet?: boolean;
+}
+
+function FilterSelect({
+  inSheet,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+}: {
+  inSheet: boolean;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  if (inSheet) {
+    return (
+      <ResponsiveSelect
+        preferNative
+        value={value}
+        onValueChange={onValueChange}
+        options={options}
+        placeholder={placeholder}
+        triggerClassName="h-8"
+      />
+    );
+  }
+
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="h-8">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
@@ -54,106 +97,76 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Game</Label>
-          <Select
+          <FilterSelect
+            inSheet={inSheet}
             value={filters.gameId ?? "all"}
             onValueChange={(v) => setFilters({ gameId: v === "all" ? null : v })}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="All games" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All games</SelectItem>
-              {DEMO_GAMES.map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All games"
+            options={[
+              { value: "all", label: "All games" },
+              ...DEMO_GAMES.map((g) => ({ value: g.id, label: g.name })),
+            ]}
+          />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Set</Label>
-          <Select
+          <FilterSelect
+            inSheet={inSheet}
             value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="All sets" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sets</SelectItem>
-              {sets.map((s) => (
-                <SelectItem key={s} value={s!}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All sets"
+            options={[
+              { value: "all", label: "All sets" },
+              ...sets.map((s) => ({ value: s!, label: s! })),
+            ]}
+          />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Rarity</Label>
-          <Select
+          <FilterSelect
+            inSheet={inSheet}
             value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="All rarities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All rarities</SelectItem>
-              {rarities.map((r) => (
-                <SelectItem key={r} value={r!}>
-                  {r}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All rarities"
+            options={[
+              { value: "all", label: "All rarities" },
+              ...rarities.map((r) => ({ value: r!, label: r! })),
+            ]}
+          />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Language</Label>
-          <Select
+          <FilterSelect
+            inSheet={inSheet}
             value={filters.language ?? "all"}
             onValueChange={(v) =>
               setFilters({ language: v === "all" ? null : (v as typeof filters.language) })
             }
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {CARD_LANGUAGES.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All"
+            options={[
+              { value: "all", label: "All" },
+              ...CARD_LANGUAGES.map((l) => ({ value: l, label: l })),
+            ]}
+          />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Condition</Label>
-          <Select
+          <FilterSelect
+            inSheet={inSheet}
             value={filters.condition ?? "all"}
             onValueChange={(v) =>
               setFilters({ condition: v === "all" ? null : (v as typeof filters.condition) })
             }
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {CARD_CONDITIONS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All"
+            options={[
+              { value: "all", label: "All" },
+              ...CARD_CONDITIONS.map((c) => ({ value: c, label: c })),
+            ]}
+          />
         </div>
       </div>
     </ScrollArea>

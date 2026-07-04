@@ -49,7 +49,7 @@ export default function CollectionPage() {
   return (
     <CollectionPresenceProvider
       collectionId={activeCollectionId}
-      displayName={profile.displayName}
+      displayName={profile.displayName ?? "Collector"}
       selectedOwnedCardId={presenceCardId}
       enabled={isSupabaseMode}
     >

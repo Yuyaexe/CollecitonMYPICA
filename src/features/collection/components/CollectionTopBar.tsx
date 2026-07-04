@@ -10,6 +10,7 @@ import { MobileFilters } from "@/features/collection/components/MobileFilters";
 import { ShareCollectionModal } from "@/features/collection/components/ShareCollectionModal";
 import { CollectionViewSwitcher } from "@/features/collection/components/CollectionViewSwitcher";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
@@ -41,6 +43,7 @@ export function CollectionTopBar() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
   const collectionOrder = useDataUiStore((s) => s.collectionOrder);
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const { peers } = usePresenceContext();
 
   const {
@@ -105,21 +108,31 @@ export function CollectionTopBar() {
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
             <div className="flex min-w-0 items-center gap-2">
               {sortedCollections.length > 0 && collectionSelectValue ? (
-                <Select
-                  value={collectionSelectValue}
-                  onValueChange={setActiveCollection}
-                >
-                  <SelectTrigger className="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortedCollections.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                isMobile ? (
+                  <ResponsiveSelect
+                    preferNative
+                    value={collectionSelectValue}
+                    onValueChange={setActiveCollection}
+                    options={sortedCollections.map((c) => ({ value: c.id, label: c.name }))}
+                    triggerClassName="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg"
+                  />
+                ) : (
+                  <Select
+                    value={collectionSelectValue}
+                    onValueChange={setActiveCollection}
+                  >
+                    <SelectTrigger className="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortedCollections.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
               ) : (
                 <span className="text-lg font-semibold text-muted-foreground">Carregando...</span>
               )}
