@@ -30,6 +30,7 @@ import {
 } from "@/features/import/services/backup-import";
 import { useDemoStore } from "@/lib/demo/store";
 import { useDataUiStore } from "@/lib/data/ui-store";
+import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -53,7 +54,14 @@ export default function SettingsPage() {
   }, [profile]);
 
   const handleSave = async () => {
+    const currencyChanged = draft.currency !== profile.currency;
     await updateProfile(draft);
+    if (currencyChanged) {
+      useCollectionUIStore.getState().refreshPrices();
+      await queryClient.invalidateQueries({ queryKey: ["cardtrader-prices"] });
+      await queryClient.invalidateQueries({ queryKey: ["cardtrader-owned-quote"] });
+      await queryClient.invalidateQueries({ queryKey: ["cardtrader-variant-prices"] });
+    }
     toast.success("Settings saved");
   };
 

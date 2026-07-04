@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
+import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
+import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
-import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 
 interface CardTraderQuote {
   price: number | null;
@@ -378,11 +379,12 @@ export function useCardTraderPrices(
 
 export function resolveDisplayPrice(
   item: DemoOwnedCard,
-  livePrices: Map<string, CardTraderQuote> | undefined
+  livePrices: Map<string, CardTraderQuote> | undefined,
+  profileCurrency: Currency = "USD"
 ): number | null {
   const live = livePrices?.get(cardPriceKey(item));
   if (live?.price != null) return live.price;
-  return item.card.marketPrice;
+  return normalizeCatalogPrice(item.card.marketPrice, profileCurrency);
 }
 
 export function resolveCardTraderUrl(

@@ -16,6 +16,7 @@ import {
   resolveAnimeBackupFields,
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
+import { reorderIds, reorderIdsToIndex } from "@/lib/collections/card-order";
 import {
   buildSeedState,
   slugifyAnimeName,
@@ -83,6 +84,7 @@ interface DemoStore extends DemoState {
     coverColor?: string | null;
   }) => AnimeSeries;
   renameAnimeSeries: (id: string, name: string) => void;
+  updateAnimeSeriesCover: (id: string, coverImageUrl: string | null) => void;
   deleteAnimeSeries: (id: string) => void;
   addAnimeCharacter: (input: {
     seriesId: string;
@@ -106,6 +108,16 @@ interface DemoStore extends DemoState {
   updateAnimeCharacterCard: (
     id: string,
     updates: Partial<Omit<AnimeCharacterCard, "card">> & { card?: Partial<DemoCard> }
+  ) => void;
+  reorderAnimeCharacterCard: (
+    characterId: string,
+    draggedId: string,
+    targetId: string | null
+  ) => void;
+  reorderAnimeCharacterCardToIndex: (
+    characterId: string,
+    draggedId: string,
+    targetIndex: number
   ) => void;
 }
 
@@ -466,6 +478,14 @@ export const useDemoStore = create<DemoStore>()(
         }));
       },
 
+      updateAnimeSeriesCover: (id, coverImageUrl) => {
+        set((s) => ({
+          animeSeries: s.animeSeries.map((series) =>
+            series.id === id ? { ...series, coverImageUrl } : series
+          ),
+        }));
+      },
+
       deleteAnimeSeries: (id) => {
         set((s) => {
           const characterIds = s.animeCharacters
@@ -591,6 +611,8 @@ export const useDemoStore = create<DemoStore>()(
           condition: "NM",
           language: "EN",
           isFoil: false,
+          sortOrder: state.animeCharacterCards.filter((c) => c.characterId === characterId)
+            .length,
         };
         set((s) => ({ animeCharacterCards: [...s.animeCharacterCards, entry] }));
       },
@@ -637,10 +659,44 @@ export const useDemoStore = create<DemoStore>()(
           }),
         }));
       },
+
+      reorderAnimeCharacterCard: (characterId, draggedId, targetId) => {
+        const state = get();
+        const characterCards = state.animeCharacterCards
+          .filter((c) => c.characterId === characterId)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+        const ids = characterCards.map((c) => c.id);
+        const nextIds = reorderIds(ids, draggedId, targetId);
+        const orderMap = new Map(nextIds.map((id, index) => [id, index]));
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) =>
+            entry.characterId === characterId && orderMap.has(entry.id)
+              ? { ...entry, sortOrder: orderMap.get(entry.id)! }
+              : entry
+          ),
+        }));
+      },
+
+      reorderAnimeCharacterCardToIndex: (characterId, draggedId, targetIndex) => {
+        const state = get();
+        const characterCards = state.animeCharacterCards
+          .filter((c) => c.characterId === characterId)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+        const ids = characterCards.map((c) => c.id);
+        const nextIds = reorderIdsToIndex(ids, draggedId, targetIndex);
+        const orderMap = new Map(nextIds.map((id, index) => [id, index]));
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) =>
+            entry.characterId === characterId && orderMap.has(entry.id)
+              ? { ...entry, sortOrder: orderMap.get(entry.id)! }
+              : entry
+          ),
+        }));
+      },
     }),
     {
       name: "deckvault-demo",
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -677,6 +733,17 @@ export const useDemoStore = create<DemoStore>()(
               language: entry.language ?? "EN",
               isFoil: entry.isFoil ?? false,
             })),
+          };
+        }
+        if (version < 6) {
+          const byCharacter = new Map<string, number>();
+          state = {
+            ...state,
+            animeCharacterCards: (state.animeCharacterCards ?? []).map((entry) => {
+              const order = byCharacter.get(entry.characterId) ?? 0;
+              byCharacter.set(entry.characterId, order + 1);
+              return { ...entry, sortOrder: entry.sortOrder ?? order };
+            }),
           };
         }
         return state;

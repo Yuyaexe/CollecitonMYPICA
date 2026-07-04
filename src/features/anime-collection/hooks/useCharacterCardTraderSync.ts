@@ -74,9 +74,6 @@ export function useCharacterCardTraderSync(
           if (quote.imageUrl && isCardTraderHostedImage(quote.imageUrl)) {
             updates.imageUrl = quote.imageUrl;
           }
-          if (quote.price != null && quote.price !== entry.card.marketPrice) {
-            updates.marketPrice = quote.price;
-          }
 
           if (Object.keys(updates).length > 0) {
             onUpdateRef.current(entry.id, { card: updates });

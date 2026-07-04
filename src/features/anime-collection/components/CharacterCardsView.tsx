@@ -10,6 +10,7 @@ import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -84,20 +85,27 @@ interface CharacterCardsViewProps {
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
+  onReorder: (draggedId: string, targetId: string | null) => void;
+  onReorderToIndex: (draggedId: string, targetIndex: number) => void;
+  resolvePrice: (item: AnimeCharacterCard) => number | null;
+  resolveImage?: (item: AnimeCharacterCard) => string | null;
 }
 
 function CharacterCardThumb({
   item,
   className,
   onClick,
+  cardTraderImage,
 }: {
   item: AnimeCharacterCard;
   className?: string;
   onClick?: () => void;
+  cardTraderImage?: string | null;
 }) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc = getCardPreviewImageUrl(item.card, ygoPasscode) ?? item.card.imageUrl;
+  const thumbSrc =
+    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
 
   const image = (
     <CardImage src={thumbSrc} alt={item.card.name} fill sizes="140px" className="object-contain p-1" />
@@ -123,18 +131,32 @@ function CharacterCardThumb({
 function CharacterGridCard({
   item,
   currency,
+  marketPrice,
+  cardTraderImage,
   onRemove,
   onQuantityChange,
   onOpenCard,
+  dragHandlers,
 }: {
   item: AnimeCharacterCard;
   currency: Currency;
+  marketPrice: number | null;
+  cardTraderImage?: string | null;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
 }) {
+  const dragOver = dragHandlers.isDragOver(item.id);
+
   return (
-    <div className="group relative flex flex-col rounded-xl border border-border/60 bg-card/40 p-2 transition-all hover:border-primary/40 hover:shadow-md">
+    <div
+      {...dragHandleProps(dragHandlers, item.id)}
+      className={cn(
+        "group relative flex flex-col rounded-xl border border-border/60 bg-card/40 p-2 transition-all hover:border-primary/40 hover:shadow-md cursor-grab active:cursor-grabbing",
+        dragOver && "border-primary ring-2 ring-primary/30"
+      )}
+    >
       <button
         type="button"
         aria-label={`Remove ${item.card.name}`}
@@ -147,6 +169,7 @@ function CharacterGridCard({
       <CharacterCardThumb
         item={item}
         className="mx-auto w-full max-w-[140px]"
+        cardTraderImage={cardTraderImage}
         onClick={() => onOpenCard(item)}
       />
 
@@ -170,7 +193,7 @@ function CharacterGridCard({
           </p>
         </button>
         <div className="flex justify-center pt-0.5">
-          <PriceBadge price={item.card.marketPrice} currency={currency} />
+          <PriceBadge price={marketPrice} currency={currency} />
         </div>
         <div className="flex items-center justify-center gap-1 pt-1">
           <Button
@@ -205,15 +228,32 @@ function CharacterGridCard({
 function CharacterBinderSlot({
   item,
   currency,
+  marketPrice,
+  cardTraderImage,
   onOpenCard,
+  dragHandlers,
+  slotKey,
+  onDropAtIndex,
 }: {
   item: AnimeCharacterCard | null;
   currency: Currency;
+  marketPrice: number | null;
+  cardTraderImage?: string | null;
   onOpenCard: (item: AnimeCharacterCard) => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  slotKey: string;
+  onDropAtIndex?: (draggedId: string) => void;
 }) {
   if (!item) {
     return (
-      <div className="flex flex-col gap-1" aria-hidden>
+      <div
+        className={cn(
+          "flex flex-col gap-1 rounded-md transition-colors",
+          dragHandlers.isDragOver(slotKey) && "ring-2 ring-primary/40"
+        )}
+        aria-hidden
+        {...emptySlotDragProps(dragHandlers, slotKey, onDropAtIndex)}
+      >
         <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
         <div className="h-9 rounded-md border border-dashed border-stone-400/20 bg-stone-500/5 dark:border-stone-600/25 dark:bg-stone-950/15" />
       </div>
@@ -221,12 +261,20 @@ function CharacterBinderSlot({
   }
 
   const setLine = item.card.setName ?? "—";
+  const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
-    <div className="group relative flex flex-col gap-1 rounded-lg transition-all duration-150">
+    <div
+      {...dragHandleProps(dragHandlers, item.id)}
+      className={cn(
+        "group relative flex flex-col gap-1 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
+        dragOver && "ring-2 ring-primary/40"
+      )}
+    >
       <CharacterCardThumb
         item={item}
         className="w-full rounded-md ring-stone-900/10 dark:ring-stone-100/10"
+        cardTraderImage={cardTraderImage}
         onClick={() => onOpenCard(item)}
       />
       {item.quantity > 1 && (
@@ -242,7 +290,7 @@ function CharacterBinderSlot({
         <div className="flex items-center justify-between gap-1">
           <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} size="sm" />
           <span className="min-w-0 truncate text-[10px] font-semibold tabular-nums text-white">
-            {item.card.marketPrice != null ? formatCurrency(item.card.marketPrice, currency) : "—"}
+            {marketPrice != null ? formatCurrency(marketPrice, currency) : "—"}
           </span>
         </div>
         <p className="truncate text-[9px] font-medium text-white/75 group-hover:text-white">
@@ -260,12 +308,20 @@ function CharacterBinderView({
   layout,
   onLayoutChange,
   onOpenCard,
+  dragHandlers,
+  onReorderToIndex,
+  resolvePrice,
+  resolveImage,
 }: {
   cards: AnimeCharacterCard[];
   currency: Currency;
   layout: BinderLayout;
   onLayoutChange: (layout: BinderLayout) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  onReorderToIndex: (draggedId: string, targetIndex: number) => void;
+  resolvePrice: (item: AnimeCharacterCard) => number | null;
+  resolveImage?: (item: AnimeCharacterCard) => string | null;
 }) {
   const [spreadIndex, setSpreadIndex] = useState(0);
   const { cols, rows, label, maxWidth } = BINDER_LAYOUTS[layout];
@@ -291,7 +347,11 @@ function CharacterBinderView({
   const spreadStart = spreadIndex * spreadSize + 1;
   const spreadEnd = Math.min((spreadIndex + 1) * spreadSize, cards.length);
 
-  const renderPage = (pageCards: (AnimeCharacterCard | null)[], side: "left" | "right") => (
+  const renderPage = (
+    pageCards: (AnimeCharacterCard | null)[],
+    side: "left" | "right",
+    pageOffset: number
+  ) => (
     <div
       className={cn(
         "relative flex min-w-0 flex-1 flex-col p-2 sm:p-4",
@@ -308,14 +368,23 @@ function CharacterBinderView({
           gridTemplateRows: `repeat(${rows}, minmax(0, auto))`,
         }}
       >
-        {pageCards.map((item, index) => (
-          <CharacterBinderSlot
-            key={item?.id ?? `${side}-empty-${index}`}
-            item={item}
-            currency={currency}
-            onOpenCard={onOpenCard}
-          />
-        ))}
+        {pageCards.map((item, index) => {
+          const globalIndex = spreadIndex * spreadSize + pageOffset + index;
+          const slotKey = item?.id ?? `${side}-slot-${globalIndex}`;
+          return (
+            <CharacterBinderSlot
+              key={slotKey}
+              item={item}
+              currency={currency}
+              marketPrice={item ? resolvePrice(item) : null}
+              cardTraderImage={item && resolveImage ? resolveImage(item) : null}
+              onOpenCard={onOpenCard}
+              dragHandlers={dragHandlers}
+              slotKey={slotKey}
+              onDropAtIndex={(draggedId) => onReorderToIndex(draggedId, globalIndex)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -349,12 +418,12 @@ function CharacterBinderView({
           </div>
 
           <div className="flex flex-col overflow-hidden rounded-xl shadow-2xl ring-1 ring-black/20 md:flex-row md:rounded-2xl">
-            {renderPage(leftPage, "left")}
+            {renderPage(leftPage, "left", 0)}
             <div
               className="relative h-2 w-full shrink-0 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 md:h-auto md:w-3 md:bg-gradient-to-b lg:w-4"
               aria-hidden
             />
-            {renderPage(rightPage, "right")}
+            {renderPage(rightPage, "right", pageSize)}
           </div>
 
           {totalSpreads > 1 && (
@@ -365,7 +434,7 @@ function CharacterBinderView({
                 size="icon"
                 className="h-8 w-8"
                 disabled={spreadIndex === 0}
-                onClick={() => setSpreadIndex((i) => i - 1)}
+                onClick={() => setSpreadIndex(spreadIndex - 1)}
                 aria-label="Previous spread"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -379,7 +448,7 @@ function CharacterBinderView({
                 size="icon"
                 className="h-8 w-8"
                 disabled={spreadIndex >= totalSpreads - 1}
-                onClick={() => setSpreadIndex((i) => i + 1)}
+                onClick={() => setSpreadIndex(spreadIndex + 1)}
                 aria-label="Next spread"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -435,13 +504,20 @@ export function CharacterCardsView({
   onRemove,
   onQuantityChange,
   onOpenCard,
+  onReorder,
+  onReorderToIndex,
+  resolvePrice,
+  resolveImage,
 }: CharacterCardsViewProps) {
   const [viewMode, setViewMode] = usePersistedViewMode();
   const [binderLayout, setBinderLayout] = usePersistedBinderLayout();
 
+  const dragHandlers = useDragReorder(onReorder);
+
   return (
     <>
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Drag cards to reorder</p>
         <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
       </div>
 
@@ -452,9 +528,12 @@ export function CharacterCardsView({
               key={item.id}
               item={item}
               currency={currency}
+              marketPrice={resolvePrice(item)}
+              cardTraderImage={resolveImage?.(item)}
               onRemove={onRemove}
               onQuantityChange={onQuantityChange}
               onOpenCard={onOpenCard}
+              dragHandlers={dragHandlers}
             />
           ))}
         </div>
@@ -465,6 +544,10 @@ export function CharacterCardsView({
           layout={binderLayout}
           onLayoutChange={setBinderLayout}
           onOpenCard={onOpenCard}
+          dragHandlers={dragHandlers}
+          onReorderToIndex={onReorderToIndex}
+          resolvePrice={resolvePrice}
+          resolveImage={resolveImage}
         />
       )}
     </>

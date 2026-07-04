@@ -12,8 +12,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { CollectionRow } from "@/components/shared/CollectionRow";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
+import { useDragReorder, dragHandleProps } from "@/hooks/useDragReorder";
 import { useAppData } from "@/hooks/useAppData";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
+import { cn } from "@/lib/utils";
 import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 
 const ROW_HEIGHT = 56;
@@ -34,8 +36,10 @@ export function CollectionTable({ data }: CollectionTableProps) {
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
 
-  const { filtered, allIds, profileCurrency, resolvePrice, resolveCardTraderImage, openCardTraderLink, handleQuantityChange, handleRemove } =
+  const { filtered, allIds, profileCurrency, resolvePrice, resolveCardTraderImage, openCardTraderLink, handleQuantityChange, handleRemove, reorderCard } =
     data;
+
+  const dragHandlers = useDragReorder(reorderCard);
 
   const { peerByCardId } = usePresenceContext();
 
@@ -111,6 +115,7 @@ export function CollectionTable({ data }: CollectionTableProps) {
               <ContextMenu key={item.id}>
                 <ContextMenuTrigger asChild>
                   <div
+                    {...dragHandleProps(dragHandlers, item.id)}
                     style={{
                       position: "absolute",
                       top: 0,
@@ -119,6 +124,10 @@ export function CollectionTable({ data }: CollectionTableProps) {
                       height: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
+                    className={cn(
+                      "cursor-grab active:cursor-grabbing",
+                      dragHandlers.isDragOver(item.id) && "ring-2 ring-inset ring-primary/40"
+                    )}
                   >
                     <CollectionRow
                       item={item}

@@ -9,6 +9,7 @@ import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
+import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -18,6 +19,7 @@ interface CollectionCompactCardProps {
   marketPrice: number | null;
   cardTraderImage?: string | null;
   currency: Currency;
+  dragHandlers: ReturnType<typeof useDragReorder>;
   onSelect: () => void;
   onOpen: () => void;
   onQuantityChange: (quantity: number) => void;
@@ -30,6 +32,7 @@ export function CollectionCompactCard({
   marketPrice,
   cardTraderImage,
   currency,
+  dragHandlers,
   onSelect,
   onOpen,
   onQuantityChange,
@@ -39,12 +42,15 @@ export function CollectionCompactCard({
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
   const thumbSrc =
     getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
     <div
+      {...dragHandleProps(dragHandlers, item.id)}
       className={cn(
-        "flex gap-3 rounded-xl border border-border/60 bg-card/40 p-3 transition-colors",
-        selected && "border-primary/50 bg-primary/[0.06]"
+        "flex gap-3 rounded-xl border border-border/60 bg-card/40 p-3 transition-colors cursor-grab active:cursor-grabbing",
+        selected && "border-primary/50 bg-primary/[0.06]",
+        dragOver && "border-primary ring-2 ring-primary/30"
       )}
     >
       <div className="flex shrink-0 items-start pt-1">

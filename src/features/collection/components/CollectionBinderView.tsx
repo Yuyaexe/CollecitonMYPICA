@@ -9,6 +9,7 @@ import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
 import {
   useCollectionUIStore,
   type BinderGridLayout,
@@ -68,9 +69,22 @@ interface BinderSlotProps {
   cardTraderImage?: string | null;
   currency: Currency;
   onOpen: () => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  slotKey: string;
+  onDropAtIndex?: (draggedId: string) => void;
 }
 
-function BinderSlot({ card, selected, marketPrice, cardTraderImage, currency, onOpen }: BinderSlotProps) {
+function BinderSlot({
+  card,
+  selected,
+  marketPrice,
+  cardTraderImage,
+  currency,
+  onOpen,
+  dragHandlers,
+  slotKey,
+  onDropAtIndex,
+}: BinderSlotProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
   );
@@ -82,7 +96,14 @@ function BinderSlot({ card, selected, marketPrice, cardTraderImage, currency, on
 
   if (!card) {
     return (
-      <div className="flex flex-col gap-1" aria-hidden>
+      <div
+        className={cn(
+          "flex flex-col gap-1 rounded-md transition-colors",
+          dragHandlers.isDragOver(slotKey) && "ring-2 ring-primary/40"
+        )}
+        aria-hidden
+        {...emptySlotDragProps(dragHandlers, slotKey, onDropAtIndex)}
+      >
         <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
         <div className="h-9 rounded-md border border-dashed border-stone-400/20 bg-stone-500/5 dark:border-stone-600/25 dark:bg-stone-950/15" />
       </div>
@@ -92,12 +113,15 @@ function BinderSlot({ card, selected, marketPrice, cardTraderImage, currency, on
   const thumbSrc =
     getCardPreviewImageUrl(card.card, ygoPasscode, cardTraderImage) ?? card.card.imageUrl;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
+  const dragOver = dragHandlers.isDragOver(card.id);
 
   return (
     <div
+      {...dragHandleProps(dragHandlers, card.id)}
       className={cn(
-        "group flex flex-col gap-1 rounded-lg transition-all duration-150",
-        selected && "ring-2 ring-primary ring-offset-1 ring-offset-stone-200 dark:ring-offset-stone-900"
+        "group flex flex-col gap-1 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
+        selected && "ring-2 ring-primary ring-offset-1 ring-offset-stone-200 dark:ring-offset-stone-900",
+        dragOver && "ring-2 ring-primary/40"
       )}
     >
       <button
@@ -154,11 +178,16 @@ interface BinderPageProps {
   side: "left" | "right";
   cols: number;
   rows: number;
+  pageOffset: number;
+  spreadIndex: number;
+  spreadSize: number;
   selectedIds: Set<string>;
   currency: Currency;
   resolvePrice: (item: DemoOwnedCard) => number | null;
   resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
   onOpen: (id: string) => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  onReorderToIndex: (draggedId: string, targetIndex: number) => void;
 }
 
 function BinderPage({
@@ -166,11 +195,16 @@ function BinderPage({
   side,
   cols,
   rows,
+  pageOffset,
+  spreadIndex,
+  spreadSize,
   selectedIds,
   currency,
   resolvePrice,
   resolveCardTraderImage,
   onOpen,
+  dragHandlers,
+  onReorderToIndex,
 }: BinderPageProps) {
   return (
     <div
@@ -198,17 +232,24 @@ function BinderPage({
           gridTemplateRows: `repeat(${rows}, minmax(0, auto))`,
         }}
       >
-        {cards.map((card, index) => (
-          <BinderSlot
-            key={card?.id ?? `${side}-empty-${index}`}
-            card={card}
-            selected={card ? selectedIds.has(card.id) : false}
-            marketPrice={card ? resolvePrice(card) : null}
-            cardTraderImage={card ? resolveCardTraderImage(card) : null}
-            currency={currency}
-            onOpen={() => card && onOpen(card.id)}
-          />
-        ))}
+        {cards.map((card, index) => {
+          const globalIndex = spreadIndex * spreadSize + pageOffset + index;
+          const slotKey = card?.id ?? `${side}-slot-${globalIndex}`;
+          return (
+            <BinderSlot
+              key={slotKey}
+              card={card}
+              selected={card ? selectedIds.has(card.id) : false}
+              marketPrice={card ? resolvePrice(card) : null}
+              cardTraderImage={card ? resolveCardTraderImage(card) : null}
+              currency={currency}
+              onOpen={() => card && onOpen(card.id)}
+              dragHandlers={dragHandlers}
+              slotKey={slotKey}
+              onDropAtIndex={(draggedId) => onReorderToIndex(draggedId, globalIndex)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -253,6 +294,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
   const binderGridLayout = useCollectionUIStore((s) => s.binderGridLayout);
   const setBinderGridLayout = useCollectionUIStore((s) => s.setBinderGridLayout);
   const [spreadIndex, setSpreadIndex] = useState(0);
+  const dragHandlers = useDragReorder(data.reorderCard);
 
   const { cols, rows, label, maxWidth } = LAYOUT_CONFIG[binderGridLayout];
   const pageSize = cols * rows;
@@ -306,11 +348,16 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               side="left"
               cols={cols}
               rows={rows}
+              pageOffset={0}
+              spreadIndex={spreadIndex}
+              spreadSize={spreadSize}
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
               resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
+              dragHandlers={dragHandlers}
+              onReorderToIndex={data.reorderCardToIndex}
             />
 
             <div
@@ -325,11 +372,16 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               side="right"
               cols={cols}
               rows={rows}
+              pageOffset={pageSize}
+              spreadIndex={spreadIndex}
+              spreadSize={spreadSize}
               selectedIds={selectedIds}
               currency={data.profileCurrency}
               resolvePrice={data.resolvePrice}
               resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
+              dragHandlers={dragHandlers}
+              onReorderToIndex={data.reorderCardToIndex}
             />
           </div>
         </div>

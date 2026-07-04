@@ -11,6 +11,8 @@ import {
   useCardTraderPrices,
 } from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
+import { useDataUiStore } from "@/lib/data/ui-store";
+import { mergeIdOrder } from "@/lib/collections/card-order";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -28,6 +30,9 @@ export interface CollectionViewData {
   resolvePrice: (item: DemoOwnedCard) => number | null;
   resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
   openCardTraderLink: (item: DemoOwnedCard) => void;
+  activeCollectionId: string | null;
+  reorderCard: (draggedId: string, targetId: string | null) => void;
+  reorderCardToIndex: (draggedId: string, targetIndex: number) => void;
 }
 
 export function useCollectionViewData(): CollectionViewData {
@@ -46,6 +51,10 @@ export function useCollectionViewData(): CollectionViewData {
   const sortDir = useCollectionUIStore((s) => s.sortDir);
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
+  const cardOrderByCollection = useDataUiStore((s) => s.cardOrderByCollection);
+  const setCardOrder = useDataUiStore((s) => s.setCardOrder);
+  const reorderCardInStore = useDataUiStore((s) => s.reorderCard);
+  const reorderCardToIndexInStore = useDataUiStore((s) => s.reorderCardToIndex);
 
   const collectionCards = useMemo(
     () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
@@ -60,14 +69,27 @@ export function useCollectionViewData(): CollectionViewData {
 
   const filtered = useMemo(() => {
     const f = filterOwnedCards(ownedCards, filters, activeCollectionId);
-    const sorted = sortOwnedCards(f, sortField, sortDir);
-    if (sortField !== "marketPrice") return sorted;
+    let sorted = sortOwnedCards(f, sortField, sortDir);
+    if (sortField === "marketPrice") {
+      sorted = [...sorted].sort((a, b) => {
+        const av = resolveDisplayPrice(a, cardTraderPrices, profile.currency) ?? 0;
+        const bv = resolveDisplayPrice(b, cardTraderPrices, profile.currency) ?? 0;
+        return sortDir === "asc" ? av - bv : bv - av;
+      });
+    }
 
-    return [...sorted].sort((a, b) => {
-      const av = resolveDisplayPrice(a, cardTraderPrices) ?? a.card.marketPrice ?? 0;
-      const bv = resolveDisplayPrice(b, cardTraderPrices) ?? b.card.marketPrice ?? 0;
-      return sortDir === "asc" ? av - bv : bv - av;
-    });
+    if (!activeCollectionId) return sorted;
+    const savedOrder = cardOrderByCollection[activeCollectionId];
+    if (!savedOrder?.length) return sorted;
+
+    const merged = mergeIdOrder(
+      savedOrder,
+      sorted.map((item) => item.id)
+    );
+    const byId = new Map(sorted.map((item) => [item.id, item]));
+    return merged
+      .map((id) => byId.get(id))
+      .filter((item): item is DemoOwnedCard => item != null);
   }, [
     ownedCards,
     filters,
@@ -75,6 +97,8 @@ export function useCollectionViewData(): CollectionViewData {
     sortField,
     sortDir,
     cardTraderPrices,
+    profile.currency,
+    cardOrderByCollection,
   ]);
 
   const allIds = useMemo(() => filtered.map((oc) => oc.id), [filtered]);
@@ -104,8 +128,46 @@ export function useCollectionViewData(): CollectionViewData {
   );
 
   const resolvePrice = useCallback(
-    (item: DemoOwnedCard) => resolveDisplayPrice(item, cardTraderPrices),
-    [cardTraderPrices]
+    (item: DemoOwnedCard) => resolveDisplayPrice(item, cardTraderPrices, profile.currency),
+    [cardTraderPrices, profile.currency]
+  );
+
+  const reorderCard = useCallback(
+    (draggedId: string, targetId: string | null) => {
+      if (!activeCollectionId) return;
+      const current =
+        cardOrderByCollection[activeCollectionId] ?? filtered.map((item) => item.id);
+      if (!cardOrderByCollection[activeCollectionId]) {
+        setCardOrder(activeCollectionId, current);
+      }
+      reorderCardInStore(activeCollectionId, draggedId, targetId);
+    },
+    [
+      activeCollectionId,
+      cardOrderByCollection,
+      filtered,
+      setCardOrder,
+      reorderCardInStore,
+    ]
+  );
+
+  const reorderCardToIndex = useCallback(
+    (draggedId: string, targetIndex: number) => {
+      if (!activeCollectionId) return;
+      const current =
+        cardOrderByCollection[activeCollectionId] ?? filtered.map((item) => item.id);
+      if (!cardOrderByCollection[activeCollectionId]) {
+        setCardOrder(activeCollectionId, current);
+      }
+      reorderCardToIndexInStore(activeCollectionId, draggedId, targetIndex);
+    },
+    [
+      activeCollectionId,
+      cardOrderByCollection,
+      filtered,
+      setCardOrder,
+      reorderCardToIndexInStore,
+    ]
   );
 
   useEffect(() => {
@@ -121,9 +183,6 @@ export function useCollectionViewData(): CollectionViewData {
       }
       if (quote.imageUrl && quote.imageUrl !== item.card.imageUrl) {
         updates.imageUrl = quote.imageUrl;
-      }
-      if (quote.price != null && quote.price !== item.card.marketPrice) {
-        updates.marketPrice = quote.price;
       }
 
       if (Object.keys(updates).length > 0) {
@@ -159,5 +218,8 @@ export function useCollectionViewData(): CollectionViewData {
     resolvePrice,
     resolveCardTraderImage: resolveCardTraderImageForItem,
     openCardTraderLink,
+    activeCollectionId,
+    reorderCard,
+    reorderCardToIndex,
   };
 }

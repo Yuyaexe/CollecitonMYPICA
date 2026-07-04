@@ -3,6 +3,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CollectionCompactCard } from "@/features/collection/components/CollectionCompactCard";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
+import { useDragReorder } from "@/hooks/useDragReorder";
 import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 
 interface CollectionCompactViewProps {
@@ -13,6 +14,7 @@ export function CollectionCompactView({ data }: CollectionCompactViewProps) {
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
+  const dragHandlers = useDragReorder(data.reorderCard);
 
   return (
     <ScrollArea className="h-full">
@@ -25,6 +27,7 @@ export function CollectionCompactView({ data }: CollectionCompactViewProps) {
             marketPrice={data.resolvePrice(item)}
             cardTraderImage={data.resolveCardTraderImage(item)}
             currency={data.profileCurrency}
+            dragHandlers={dragHandlers}
             onSelect={() => toggleSelect(item.id, false, data.allIds, index)}
             onOpen={() => openCardInspect(item.id, "details")}
             onQuantityChange={(qty) => data.handleQuantityChange(item.id, qty)}

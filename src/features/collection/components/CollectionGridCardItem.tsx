@@ -8,6 +8,7 @@ import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
+import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -17,6 +18,7 @@ interface CollectionGridCardItemProps {
   marketPrice: number | null;
   cardTraderImage?: string | null;
   currency: Currency;
+  dragHandlers: ReturnType<typeof useDragReorder>;
   onSelect: () => void;
   onOpen: () => void;
 }
@@ -27,6 +29,7 @@ export function CollectionGridCardItem({
   marketPrice,
   cardTraderImage,
   currency,
+  dragHandlers,
   onSelect,
   onOpen,
 }: CollectionGridCardItemProps) {
@@ -34,12 +37,15 @@ export function CollectionGridCardItem({
   useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
   const thumbSrc =
     getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
     <div
+      {...dragHandleProps(dragHandlers, item.id)}
       className={cn(
-        "group relative flex flex-col rounded-xl border border-border/60 bg-card/40 p-2 transition-all hover:border-primary/40 hover:shadow-md",
-        selected && "border-primary/50 ring-1 ring-primary/30"
+        "group relative flex flex-col rounded-xl border border-border/60 bg-card/40 p-2 transition-all hover:border-primary/40 hover:shadow-md cursor-grab active:cursor-grabbing",
+        selected && "border-primary/50 ring-1 ring-primary/30",
+        dragOver && "border-primary ring-2 ring-primary/30"
       )}
     >
       <div className="absolute left-2 top-2 z-10">

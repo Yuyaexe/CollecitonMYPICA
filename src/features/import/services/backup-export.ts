@@ -41,12 +41,18 @@ export function defaultAnimeBackupFields(): Pick<
 export function normalizeAnimeCharacterCards(
   cards: AnimeCharacterCard[] | undefined | null
 ): AnimeCharacterCard[] {
-  return (cards ?? []).map((entry) => ({
-    ...entry,
-    condition: entry.condition ?? "NM",
-    language: entry.language ?? "EN",
-    isFoil: entry.isFoil ?? false,
-  }));
+  const byCharacter = new Map<string, number>();
+  return (cards ?? []).map((entry) => {
+    const order = entry.sortOrder ?? byCharacter.get(entry.characterId) ?? 0;
+    byCharacter.set(entry.characterId, order + 1);
+    return {
+      ...entry,
+      sortOrder: order,
+      condition: entry.condition ?? "NM",
+      language: entry.language ?? "EN",
+      isFoil: entry.isFoil ?? false,
+    };
+  });
 }
 
 export function resolveAnimeBackupFields(

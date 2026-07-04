@@ -22,8 +22,13 @@ import {
   ownedUpdatesToAnimeCharacter,
 } from "@/features/anime-collection/utils/character-card-inspect";
 import { useCharacterCardTraderSync } from "@/features/anime-collection/hooks/useCharacterCardTraderSync";
+import {
+  useCardTraderPrices,
+  resolveDisplayPrice,
+  resolveCardTraderImage,
+} from "@/features/market/hooks/useCardTraderPrices";
 import { useDemoStore } from "@/lib/demo/store";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
 
 export interface CharacterDetailPageProps {
@@ -47,6 +52,8 @@ export function CharacterDetailPage({
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
     updateAnimeCharacterCard,
+    reorderAnimeCharacterCard,
+    reorderAnimeCharacterCardToIndex,
   } = useAnimeCollection();
 
   const series = getSeriesBySlug(seriesSlug);
@@ -55,9 +62,34 @@ export function CharacterDetailPage({
   const characterCards = useMemo(
     () =>
       character
-        ? animeCharacterCards.filter((c) => c.characterId === character.id)
+        ? animeCharacterCards
+            .filter((c) => c.characterId === character.id)
+            .sort((a, b) => a.sortOrder - b.sortOrder)
         : [],
     [character, animeCharacterCards]
+  );
+
+  const ownedForPrices = useMemo(
+    () => characterCards.map(animeCharacterCardToOwned),
+    [characterCards]
+  );
+
+  const { data: cardTraderPrices } = useCardTraderPrices(
+    ownedForPrices,
+    profile.currency,
+    characterCards.length > 0
+  );
+
+  const resolvePrice = useCallback(
+    (item: (typeof characterCards)[number]) =>
+      resolveDisplayPrice(animeCharacterCardToOwned(item), cardTraderPrices, profile.currency),
+    [cardTraderPrices, profile.currency]
+  );
+
+  const resolveImage = useCallback(
+    (item: (typeof characterCards)[number]) =>
+      resolveCardTraderImage(animeCharacterCardToOwned(item), cardTraderPrices),
+    [cardTraderPrices]
   );
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -208,6 +240,14 @@ export function CharacterDetailPage({
             onRemove={handleRemoveCard}
             onQuantityChange={updateAnimeCharacterCardQuantity}
             onOpenCard={(item) => setInspectCardId(item.id)}
+            onReorder={(draggedId, targetId) =>
+              reorderAnimeCharacterCard(character.id, draggedId, targetId)
+            }
+            onReorderToIndex={(draggedId, targetIndex) =>
+              reorderAnimeCharacterCardToIndex(character.id, draggedId, targetIndex)
+            }
+            resolvePrice={resolvePrice}
+            resolveImage={resolveImage}
           />
         )}
       </div>

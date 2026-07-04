@@ -65,12 +65,12 @@ export function CollectionTopBar() {
   const stats = useMemo(() => {
     const totalCards = collectionCards.reduce((sum, oc) => sum + oc.quantity, 0);
     const totalValue = collectionCards.reduce((sum, oc) => {
-      const price = resolveDisplayPrice(oc, cardTraderPrices) ?? oc.card.marketPrice ?? 0;
+      const price = resolveDisplayPrice(oc, cardTraderPrices, profile.currency) ?? 0;
       return sum + price * oc.quantity;
     }, 0);
     const uniqueSets = new Set(collectionCards.map((oc) => oc.card.setName).filter(Boolean)).size;
     return { totalCards, totalValue, uniqueSets };
-  }, [collectionCards, cardTraderPrices]);
+  }, [collectionCards, cardTraderPrices, profile.currency]);
 
   const hasActiveSearch = filters.search.trim().length > 0;
   const visibleCount = useMemo(() => {

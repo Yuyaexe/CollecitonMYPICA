@@ -11,6 +11,7 @@ export function useAnimeCollection() {
   const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
   const addAnimeSeries = useDemoStore((s) => s.addAnimeSeries);
   const renameAnimeSeries = useDemoStore((s) => s.renameAnimeSeries);
+  const updateAnimeSeriesCover = useDemoStore((s) => s.updateAnimeSeriesCover);
   const deleteAnimeSeries = useDemoStore((s) => s.deleteAnimeSeries);
   const addAnimeCharacter = useDemoStore((s) => s.addAnimeCharacter);
   const renameAnimeCharacter = useDemoStore((s) => s.renameAnimeCharacter);
@@ -27,6 +28,10 @@ export function useAnimeCollection() {
     (s) => s.updateAnimeCharacterCardSetName
   );
   const updateAnimeCharacterCard = useDemoStore((s) => s.updateAnimeCharacterCard);
+  const reorderAnimeCharacterCard = useDemoStore((s) => s.reorderAnimeCharacterCard);
+  const reorderAnimeCharacterCardToIndex = useDemoStore(
+    (s) => s.reorderAnimeCharacterCardToIndex
+  );
 
   const sortedSeries = useMemo(
     () => [...animeSeries].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -56,7 +61,9 @@ export function useAnimeCollection() {
   }
 
   function getCardsForCharacter(characterId: string): AnimeCharacterCard[] {
-    return animeCharacterCards.filter((c) => c.characterId === characterId);
+    return animeCharacterCards
+      .filter((c) => c.characterId === characterId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   return {
@@ -70,6 +77,7 @@ export function useAnimeCollection() {
     getCardsForCharacter,
     addAnimeSeries,
     renameAnimeSeries,
+    updateAnimeSeriesCover,
     deleteAnimeSeries,
     addAnimeCharacter,
     renameAnimeCharacter,
@@ -80,5 +88,7 @@ export function useAnimeCollection() {
     updateAnimeCharacterCardQuantity,
     updateAnimeCharacterCardSetName,
     updateAnimeCharacterCard,
+    reorderAnimeCharacterCard,
+    reorderAnimeCharacterCardToIndex,
   };
 }

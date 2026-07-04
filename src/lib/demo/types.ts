@@ -65,6 +65,7 @@ export interface AnimeCharacterCard {
   condition: CardCondition;
   language: CardLanguage;
   isFoil: boolean;
+  sortOrder: number;
 }
 
 export interface DemoState {

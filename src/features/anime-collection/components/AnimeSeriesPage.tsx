@@ -13,6 +13,7 @@ import {
   AnimeSeriesCard,
   AddAnimeSeriesCard,
 } from "@/features/anime-collection/components/AnimeSeriesCard";
+import { EditSeriesCoverModal } from "@/features/anime-collection/components/EditSeriesCoverModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
 import type { AnimeSeries } from "@/features/anime-collection/types";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ export function AnimeSeriesPage() {
     characterCountBySeries,
     addAnimeSeries,
     renameAnimeSeries,
+    updateAnimeSeriesCover,
     deleteAnimeSeries,
   } = useAnimeCollection();
 
@@ -33,6 +35,8 @@ export function AnimeSeriesPage() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState("");
   const [renameTarget, setRenameTarget] = useState<AnimeSeries | null>(null);
+  const [coverOpen, setCoverOpen] = useState(false);
+  const [coverTarget, setCoverTarget] = useState<AnimeSeries | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnimeSeries | null>(null);
 
@@ -63,6 +67,11 @@ export function AnimeSeriesPage() {
     setRenameOpen(false);
     setRenameTarget(null);
     toast.success("Series renamed");
+  };
+
+  const openCoverEdit = (series: AnimeSeries) => {
+    setCoverTarget(series);
+    setCoverOpen(true);
   };
 
   const openDelete = (series: AnimeSeries) => {
@@ -112,6 +121,7 @@ export function AnimeSeriesPage() {
                 characterCount={characterCountBySeries.get(series.id) ?? 0}
                 index={index}
                 onSelect={() => router.push(`/anime-collection/${series.slug}`)}
+                onEditCover={() => openCoverEdit(series)}
               />
               {!series.isSeeded && (
                 <button
@@ -199,6 +209,17 @@ export function AnimeSeriesPage() {
           />
         </div>
       </Modal>
+
+      <EditSeriesCoverModal
+        open={coverOpen}
+        onOpenChange={setCoverOpen}
+        seriesName={coverTarget?.name ?? ""}
+        currentCoverUrl={coverTarget?.coverImageUrl ?? null}
+        coverColor={coverTarget?.coverColor ?? null}
+        onSave={(url) => {
+          if (coverTarget) updateAnimeSeriesCover(coverTarget.id, url);
+        }}
+      />
 
       <Modal
         open={deleteOpen}

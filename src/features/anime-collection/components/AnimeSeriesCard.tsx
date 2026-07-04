@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Camera, Plus } from "lucide-react";
+import { CardImage } from "@/components/shared/CardImage";
 import { cn } from "@/lib/utils";
 import { getCharacterInitials } from "@/features/anime-collection/types";
 
@@ -11,6 +12,7 @@ export interface AnimeSeriesCardProps {
   coverColor?: string | null;
   characterCount: number;
   onSelect: () => void;
+  onEditCover?: () => void;
   index?: number;
 }
 
@@ -20,49 +22,70 @@ export function AnimeSeriesCard({
   coverColor,
   characterCount,
   onSelect,
+  onEditCover,
   index = 0,
 }: AnimeSeriesCardProps) {
   const initials = getCharacterInitials(name.split(" ").slice(-1)[0] ?? name);
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.2, delay: index * 0.04 }}
-      whileHover={{ scale: 1.03, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onSelect}
-      className={cn(
-        "group relative aspect-square w-full overflow-hidden rounded-xl border text-left",
-        "border-border/70 bg-card transition-[border-color,box-shadow] duration-200",
-        "hover:border-primary/40 hover:shadow-[0_0_20px_hsla(221,83%,53%,0.12)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      )}
-      aria-label={`Open ${name}`}
+      className="group relative aspect-square w-full"
     >
-      <div
-        className="absolute inset-0 flex items-center justify-center pb-12"
-        style={
-          !coverImageUrl && coverColor
-            ? { background: `linear-gradient(135deg, ${coverColor}, hsl(0 0% 14%))` }
-            : undefined
-        }
-      >
-        {coverImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverImageUrl} alt="" className="h-full w-full object-cover opacity-80" />
-        ) : (
-          <span className="text-3xl font-bold text-white/90">{initials}</span>
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          "relative h-full w-full overflow-hidden rounded-xl border text-left",
+          "border-border/70 bg-card transition-[border-color,box-shadow] duration-200",
+          "hover:border-primary/40 hover:shadow-[0_0_20px_hsla(221,83%,53%,0.12)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         )}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-3 pt-8">
-        <p className="truncate text-sm font-semibold">{name}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {characterCount === 1 ? "1 character" : `${characterCount} characters`}
-        </p>
-      </div>
-    </motion.button>
+        aria-label={`Open ${name}`}
+      >
+        <div
+          className="absolute inset-0 flex items-center justify-center pb-12"
+          style={
+            !coverImageUrl && coverColor
+              ? { background: `linear-gradient(135deg, ${coverColor}, hsl(0 0% 14%))` }
+              : undefined
+          }
+        >
+          {coverImageUrl ? (
+            <CardImage
+              src={coverImageUrl}
+              alt={name}
+              fill
+              sizes="(max-width: 640px) 50vw, 200px"
+              className="object-cover"
+            />
+          ) : (
+            <span className="text-3xl font-bold text-white/90">{initials}</span>
+          )}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-3 pt-8">
+          <p className="truncate text-sm font-semibold">{name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {characterCount === 1 ? "1 character" : `${characterCount} characters`}
+          </p>
+        </div>
+      </button>
+      {onEditCover && (
+        <button
+          type="button"
+          aria-label={`Change cover for ${name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditCover();
+          }}
+          className="absolute right-2 top-2 z-10 rounded-md bg-background/80 p-1.5 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Camera className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </motion.div>
   );
 }
 
