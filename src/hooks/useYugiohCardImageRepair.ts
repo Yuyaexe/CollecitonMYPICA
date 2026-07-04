@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
-import { isCardTraderHostedImage } from "@/lib/cards/preview-image";
+import { isCardTraderHostedImage, isCardTraderPlaceholderImage } from "@/lib/cardtrader/images";
 import type { DemoCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 
@@ -16,6 +16,7 @@ function imageNeedsYugiohRepair(
   passcode: string
 ): boolean {
   if (card.gameSlug !== "yugioh") return false;
+  if (isCardTraderPlaceholderImage(card.imageUrl)) return true;
   if (card.cardTraderBlueprintId && isCardTraderHostedImage(card.imageUrl)) {
     return false;
   }

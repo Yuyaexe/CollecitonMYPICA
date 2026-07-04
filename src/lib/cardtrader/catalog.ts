@@ -14,6 +14,7 @@ import {
   normalizeDigimonSetCode,
   splitDigimonCardId,
 } from "@/features/catalog/services/card-api/digimon.utils";
+import { normalizeCardTraderImageUrl } from "./images";
 
 const SEARCH_RESULT_LIMIT = 24;
 /** Supplemental merge (Digimon/YGO/Pokemon + CT) — keep fast. */
@@ -128,17 +129,21 @@ async function getBlueprints(expansionId: number): Promise<CardTraderBlueprint[]
   });
   const data = unwrapCardTraderList<CardTraderBlueprint>(raw);
   for (const blueprint of data) {
-    if (blueprint.image_url) {
-      blueprintImageCache.set(blueprint.id, blueprint.image_url);
-      cacheBlueprintSlug(blueprint.id, blueprint.image_url);
-    }
+    cacheBlueprintImage(blueprint.id, blueprint.image_url);
   }
   blueprintsByExpansion.set(expansionId, { data, expires: Date.now() + TTL_MS });
   return data;
 }
 
+function cacheBlueprintImage(blueprintId: number, imageUrl?: string | null): void {
+  const normalized = normalizeCardTraderImageUrl(imageUrl);
+  if (!normalized) return;
+  blueprintImageCache.set(blueprintId, normalized);
+  cacheBlueprintSlug(blueprintId, normalized);
+}
+
 export function getBlueprintImageUrl(blueprintId: number): string | null {
-  return blueprintImageCache.get(blueprintId) ?? null;
+  return normalizeCardTraderImageUrl(blueprintImageCache.get(blueprintId) ?? null);
 }
 
 function slugifyForCardTrader(value: string): string {
@@ -546,10 +551,7 @@ async function resolveBlueprintByTcgPlayerId(
         blueprint.game_id === gameId && tcgPlayerIdsMatch(blueprint.tcg_player_id, tcgPlayerId)
     );
     if (match) {
-      if (match.image_url) {
-        blueprintImageCache.set(match.id, match.image_url);
-        cacheBlueprintSlug(match.id, match.image_url);
-      }
+      cacheBlueprintImage(match.id, match.image_url);
       return match.id;
     }
   }
@@ -609,10 +611,7 @@ async function resolveBlueprintByCollectorNumber(
       return normalizeCollectorNumber(cn) === normalizeCollectorNumber(collectorNumber);
     });
     if (match) {
-      if (match.image_url) {
-        blueprintImageCache.set(match.id, match.image_url);
-        cacheBlueprintSlug(match.id, match.image_url);
-      }
+      cacheBlueprintImage(match.id, match.image_url);
       return match.id;
     }
   }
@@ -731,10 +730,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
 
     if (best) {
       blueprintLookup.set(cacheKey, best.blueprint.id);
-      if (best.blueprint.image_url) {
-        blueprintImageCache.set(best.blueprint.id, best.blueprint.image_url);
-        cacheBlueprintSlug(best.blueprint.id, best.blueprint.image_url);
-      }
+      cacheBlueprintImage(best.blueprint.id, best.blueprint.image_url);
       return best.blueprint.id;
     }
   }
@@ -761,10 +757,7 @@ function blueprintToSearchResult(
   blueprint: CardTraderBlueprint,
   expansion: CardTraderExpansion
 ): CardSearchResult {
-  if (blueprint.image_url) {
-    blueprintImageCache.set(blueprint.id, blueprint.image_url);
-    cacheBlueprintSlug(blueprint.id, blueprint.image_url);
-  }
+  cacheBlueprintImage(blueprint.id, blueprint.image_url);
 
   return {
     externalId: String(blueprint.id),
@@ -774,7 +767,7 @@ function blueprintToSearchResult(
     collectorNumber: expansion.code ?? null,
     rarity: blueprint.version ?? null,
     edition: null,
-    imageUrl: blueprint.image_url ?? null,
+    imageUrl: normalizeCardTraderImageUrl(blueprint.image_url),
     price: null,
     metadata: {
       priceSource: "cardtrader",

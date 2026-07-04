@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { isCardTraderHostedImage } from "@/lib/yugioh/passcode";
+import { isCardTraderHostedImage } from "@/lib/cardtrader/images";
 import { resolveStoredBlueprintId } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { fetchCardTraderQuote } from "@/features/market/services/card-trader-quote";

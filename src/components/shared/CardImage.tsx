@@ -12,6 +12,8 @@ interface CardImageProps {
   className?: string;
   fill?: boolean;
   sizes?: string;
+  /** Used when the primary URL fails to load (e.g. CardTrader placeholder). */
+  fallbackSrc?: string | null;
 }
 
 export function CardImage({
@@ -22,14 +24,29 @@ export function CardImage({
   className,
   fill,
   sizes,
+  fallbackSrc,
 }: CardImageProps) {
   const [error, setError] = useState(false);
+  const [activeSrc, setActiveSrc] = useState(src);
 
   useEffect(() => {
     setError(false);
+    setActiveSrc(src);
   }, [src]);
 
-  if (!src || error) {
+  useEffect(() => {
+    if (
+      error &&
+      fallbackSrc &&
+      fallbackSrc !== activeSrc &&
+      fallbackSrc !== src
+    ) {
+      setError(false);
+      setActiveSrc(fallbackSrc);
+    }
+  }, [error, fallbackSrc, activeSrc, src]);
+
+  if (!activeSrc || error) {
     return (
       <div
         className={cn(
@@ -43,11 +60,11 @@ export function CardImage({
     );
   }
 
-  if (src.startsWith("data:")) {
+  if (activeSrc.startsWith("data:")) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={activeSrc}
         alt={alt}
         className={cn(fill && "absolute inset-0 h-full w-full", "object-contain", className)}
         onError={() => setError(true)}
@@ -57,7 +74,7 @@ export function CardImage({
 
   return (
     <Image
-      src={src}
+      src={activeSrc}
       alt={alt}
       width={fill ? undefined : width}
       height={fill ? undefined : height}

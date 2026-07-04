@@ -1,9 +1,7 @@
 import { resolveStoredBlueprintId } from "@/lib/cardtrader";
+import { isCardTraderHostedImage } from "@/lib/cardtrader/images";
 
-export function isCardTraderHostedImage(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return /cardtrader\.com|product-images\.cardtrader/i.test(url);
-}
+export { isCardTraderHostedImage };
 
 /**
  * True when externalId is a Yu-Gi-Oh! Konami passcode (safe for images.ygoprodeck.com).

@@ -1,10 +1,7 @@
 import type { DemoCard } from "@/lib/demo/types";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
-import {
-  isCardTraderHostedImage,
-  isYugiohPasscodeId,
-  resolveYugiohPasscode,
-} from "@/lib/yugioh/passcode";
+import { isCardTraderHostedImage } from "@/lib/cardtrader/images";
+import { isYugiohPasscodeId, resolveYugiohPasscode } from "@/lib/yugioh/passcode";
 
 type CardImageFields = Pick<
   DemoCard,
@@ -118,6 +115,16 @@ export function getCardHoverPreviewUrl(
     return storedPreviewUrl(card, true, detailPasscode, cardTraderImage);
   }
   return storedPreviewUrl(card, false, detailPasscode, cardTraderImage);
+}
+
+/** YGOPRODeck art URL when CardTrader has no scan — used as CardImage fallback. */
+export function getYugiohPasscodeFallbackUrl(
+  card: CardImageFields,
+  detailPasscode?: string | null
+): string | null {
+  const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
+  if (!passcode) return null;
+  return buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
 }
 
 /** Prefer CardTrader art, then YGOPRODeck passcode art for grid / binder thumbnails. */

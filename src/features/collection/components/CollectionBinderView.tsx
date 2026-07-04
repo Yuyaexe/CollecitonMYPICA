@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { getCardPreviewImageUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -112,6 +112,8 @@ function BinderSlot({
 
   const thumbSrc =
     getCardPreviewImageUrl(card.card, ygoPasscode, cardTraderImage) ?? card.card.imageUrl;
+  const imageFallback =
+    card.card.gameSlug === "yugioh" ? getYugiohPasscodeFallbackUrl(card.card, ygoPasscode) : null;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
   const dragOver = dragHandlers.isDragOver(card.id);
 
@@ -135,6 +137,7 @@ function BinderSlot({
       >
         <CardImage
           src={thumbSrc}
+          fallbackSrc={imageFallback}
           alt={card.card.name}
           fill
           sizes="(max-width: 768px) 20vw, 100px"
