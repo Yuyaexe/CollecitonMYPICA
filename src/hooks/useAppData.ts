@@ -173,6 +173,7 @@ export function useAppData() {
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error("Failed to update profile");
+      useDemoStore.getState().updateProfile(updates);
     },
     onSuccess: invalidate,
   });

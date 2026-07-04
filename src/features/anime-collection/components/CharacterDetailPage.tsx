@@ -27,6 +27,7 @@ import {
   resolveDisplayPrice,
   resolveCardTraderImage,
 } from "@/features/market/hooks/useCardTraderPrices";
+import { useAppData } from "@/hooks/useAppData";
 import { useDemoStore } from "@/lib/demo/store";
 import { useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export function CharacterDetailPage({
   characterId,
 }: CharacterDetailPageProps) {
   const router = useRouter();
-  const profile = useDemoStore((s) => s.profile);
+  const { profile } = useAppData();
   const {
     getSeriesBySlug,
     getCharacterById,
