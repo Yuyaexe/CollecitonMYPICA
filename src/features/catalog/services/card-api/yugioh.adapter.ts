@@ -2,6 +2,7 @@ import type { CardApiAdapter, CardDetail, CardSearchResult } from "./types";
 
 const API = "https://db.ygoprodeck.com/api/v7";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
+const YGO_RESULT_CAP = 80;
 
 interface YgoCard {
   id: number;
@@ -45,19 +46,39 @@ function mapYgoCard(card: YgoCard): CardSearchResult {
   };
 }
 
+async function fetchYgoCards(params: string): Promise<YgoCard[]> {
+  const res = await fetch(`${API}/cardinfo.php?${params}`, { headers: HEADERS });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.data) ? (data.data as YgoCard[]) : [];
+}
+
+function mergeYgoCards(...lists: YgoCard[][]): YgoCard[] {
+  const byId = new Map<number, YgoCard>();
+  for (const list of lists) {
+    for (const card of list) {
+      if (!byId.has(card.id)) byId.set(card.id, card);
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export const yugiohAdapter: CardApiAdapter = {
   gameSlug: "yugioh",
 
   async search(query: string): Promise<CardSearchResult[]> {
-    if (!query.trim()) return [];
-    const res = await fetch(
-      `${API}/cardinfo.php?fname=${encodeURIComponent(query)}`,
-      { headers: HEADERS }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.data) return [];
-    return (data.data as YgoCard[]).slice(0, 20).map(mapYgoCard);
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const encoded = encodeURIComponent(trimmed);
+    const [byName, byDesc] = await Promise.all([
+      fetchYgoCards(`fname=${encoded}`),
+      fetchYgoCards(`desc=${encoded}`),
+    ]);
+
+    return mergeYgoCards(byName, byDesc)
+      .slice(0, YGO_RESULT_CAP)
+      .map(mapYgoCard);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {
