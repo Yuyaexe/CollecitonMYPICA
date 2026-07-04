@@ -34,6 +34,7 @@ export function buildMarketplaceListings(
     options?.cardTraderUrl ??
     resolveCardTraderProductUrl({
       name: card.name,
+      gameSlug: card.gameSlug,
       externalId: card.externalId,
       cardTraderBlueprintId: card.cardTraderBlueprintId,
       setName: card.setName,

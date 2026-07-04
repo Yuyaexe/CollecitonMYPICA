@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { isCardTraderHostedImage } from "@/lib/yugioh/passcode";
 import { resolveStoredBlueprintId } from "@/lib/cardtrader";
+import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { fetchCardTraderQuote } from "@/features/market/services/card-trader-quote";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -41,7 +42,8 @@ export function useCharacterCardTraderSync(
         const blueprintId = resolveStoredBlueprintId(
           entry.card.externalId,
           entry.card.imageUrl,
-          entry.card.cardTraderBlueprintId
+          entry.card.cardTraderBlueprintId,
+          entry.card.gameSlug
         );
 
         try {
@@ -56,6 +58,9 @@ export function useCharacterCardTraderSync(
               imageUrl: entry.card.imageUrl,
               cardTraderBlueprintId: entry.card.cardTraderBlueprintId,
               blueprintId,
+              ...(entry.card.gameSlug === "digimon"
+                ? digimonOwnedCardPriceFields(entry.card)
+                : {}),
             },
             currency
           );

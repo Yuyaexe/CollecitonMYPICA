@@ -2,6 +2,7 @@ import { cardTraderFetch, unwrapCardTraderList } from "./client";
 import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTraderGame } from "./types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import {
+  isDigimonTcgPlayerExternalId,
   normalizeDigimonSetCode,
   splitDigimonCardId,
 } from "@/features/catalog/services/card-api/digimon.utils";
@@ -165,6 +166,12 @@ function isPlausibleCardTraderBlueprintId(id: number): boolean {
   return true;
 }
 
+function digimonBlueprintIdIsTcgPlayerId(input: CardPriceInput, id: number): boolean {
+  if (input.gameSlug !== "digimon") return false;
+  if (input.tcgPlayerId && Number(input.tcgPlayerId) === id) return true;
+  return false;
+}
+
 /**
  * Blueprint id stored on owned cards — ignores Yu-Gi-Oh passcodes mistaken for blueprint ids.
  * Prefers explicit cardTraderBlueprintId, then CardTrader CDN image slug, then short numeric externalId.
@@ -172,11 +179,20 @@ function isPlausibleCardTraderBlueprintId(id: number): boolean {
 export function resolveStoredBlueprintId(
   externalId: string | null | undefined,
   imageUrl?: string | null,
-  cardTraderBlueprintId?: string | null
+  cardTraderBlueprintId?: string | null,
+  gameSlug?: string | null
 ): number | null {
   const explicit = parseCardTraderBlueprintId(cardTraderBlueprintId);
   if (explicit != null && isPlausibleCardTraderBlueprintId(explicit)) {
-    return explicit;
+    if (
+      gameSlug === "digimon" &&
+      isDigimonTcgPlayerExternalId(cardTraderBlueprintId, "digimon") &&
+      explicit === Number(cardTraderBlueprintId)
+    ) {
+      // Previously saved tcgplayer id as blueprint id — ignore.
+    } else {
+      return explicit;
+    }
   }
 
   const fromImage = extractBlueprintIdFromImageUrl(imageUrl);
@@ -184,6 +200,9 @@ export function resolveStoredBlueprintId(
 
   if (!externalId || !/^\d+$/.test(externalId)) return null;
   if (isLikelyYugiohPasscodeDigits(externalId, imageUrl)) return null;
+  if (gameSlug === "digimon" && isDigimonTcgPlayerExternalId(externalId, gameSlug)) {
+    return null;
+  }
 
   const id = Number(externalId);
   return isPlausibleCardTraderBlueprintId(id) ? id : null;
@@ -230,6 +249,7 @@ export function buildCardTraderCardUrl(input: {
 
 export function resolveCardTraderProductUrl(params: {
   name: string;
+  gameSlug?: string | null;
   externalId?: string | null;
   cardTraderBlueprintId?: string | null;
   setName?: string | null;
@@ -239,7 +259,8 @@ export function resolveCardTraderProductUrl(params: {
   const blueprintId = resolveStoredBlueprintId(
     params.externalId,
     params.imageUrl,
-    params.cardTraderBlueprintId
+    params.cardTraderBlueprintId,
+    params.gameSlug
   );
   if (blueprintId != null) {
     return buildCardTraderCardUrl({
@@ -442,7 +463,9 @@ async function resolveBlueprintByCollectorNumber(
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
   const fromDedicated = parseCardTraderBlueprintId(input.cardTraderBlueprintId);
   if (fromDedicated != null && isPlausibleCardTraderBlueprintId(fromDedicated)) {
-    return fromDedicated;
+    if (!digimonBlueprintIdIsTcgPlayerId(input, fromDedicated)) {
+      return fromDedicated;
+    }
   }
 
   if (input.imageUrl) {
@@ -450,7 +473,11 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
     if (fromImage != null) return fromImage;
   }
 
-  if (input.blueprintId != null && isPlausibleCardTraderBlueprintId(input.blueprintId)) {
+  if (
+    input.blueprintId != null &&
+    isPlausibleCardTraderBlueprintId(input.blueprintId) &&
+    !digimonBlueprintIdIsTcgPlayerId(input, input.blueprintId)
+  ) {
     return input.blueprintId;
   }
 

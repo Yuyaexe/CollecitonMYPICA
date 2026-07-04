@@ -30,7 +30,8 @@ export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
   const blueprintId = resolveStoredBlueprintId(
     item.card.externalId,
     item.card.imageUrl,
-    item.card.cardTraderBlueprintId
+    item.card.cardTraderBlueprintId,
+    item.card.gameSlug
   );
 
   return {
@@ -392,6 +393,7 @@ export function resolveCardTraderUrl(
     livePrices?.get(cardPriceKey(item))?.url ??
     resolveCardTraderProductUrl({
       name: item.card.name,
+      gameSlug: item.card.gameSlug,
       externalId: item.card.externalId,
       cardTraderBlueprintId: item.card.cardTraderBlueprintId,
       setName: item.card.setName,

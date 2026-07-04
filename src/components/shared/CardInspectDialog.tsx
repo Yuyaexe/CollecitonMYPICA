@@ -157,16 +157,21 @@ export function CardInspectDialog({
         key: v.key,
         setName: v.setName,
         setCode: v.setCode,
+        collectorNumber: v.collectorNumber,
         rarity: v.rarity,
+        variantLabel: v.variantLabel,
+        tcgPlayerId: v.tcgPlayerId,
+        cardTraderRarityHint: v.cardTraderRarityHint,
         imageUrl: v.imageUrl,
         cardTraderBlueprintId: card?.card.cardTraderBlueprintId ?? null,
         blueprintId: resolveStoredBlueprintId(
           v.externalId,
           v.imageUrl,
-          card?.card.cardTraderBlueprintId
+          card?.card.cardTraderBlueprintId,
+          card?.card.gameSlug
         ),
       })),
-    [printVariants, card?.card.cardTraderBlueprintId]
+    [printVariants, card?.card.cardTraderBlueprintId, card?.card.gameSlug]
   );
 
   const { data: variantPrices, isFetching: pricesFetching } = useCardTraderVariantPrices(
@@ -198,6 +203,7 @@ export function CardInspectDialog({
     const variant = activeVariant;
     return resolveCardTraderProductUrl({
       name: card.card.name,
+      gameSlug: card.card.gameSlug,
       externalId: variant?.externalId ?? card.card.externalId,
       cardTraderBlueprintId: card.card.cardTraderBlueprintId,
       setName: variant?.setName ?? card.card.setName,
@@ -288,7 +294,8 @@ export function CardInspectDialog({
     const blueprintFromVariant = resolveStoredBlueprintId(
       variant.externalId,
       variant.imageUrl,
-      card.card.cardTraderBlueprintId
+      card.card.cardTraderBlueprintId,
+      card.card.gameSlug
     );
 
     updateOwnedCard(card.id, {
@@ -300,9 +307,11 @@ export function CardInspectDialog({
         externalId: keepBlueprintId
           ? (variant.externalId ?? card.card.externalId)
           : (passcode ?? variant.externalId ?? card.card.externalId),
-        cardTraderBlueprintId: blueprintFromVariant
-          ? String(blueprintFromVariant)
-          : quote?.blueprintId ?? card.card.cardTraderBlueprintId,
+        cardTraderBlueprintId: quote?.blueprintId
+          ? String(quote.blueprintId)
+          : blueprintFromVariant
+            ? String(blueprintFromVariant)
+            : card.card.cardTraderBlueprintId,
         imageUrl,
         marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
       },

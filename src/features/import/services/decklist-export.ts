@@ -39,14 +39,6 @@ function formatDigimonDecklist(items: ReturnType<typeof aggregateCards>): string
   return lines.join("\n");
 }
 
-function formatYugiohTextDecklist(items: ReturnType<typeof aggregateCards>): string {
-  const lines = ["// DeckList", ""];
-  for (const { card, quantity } of items) {
-    lines.push(`${quantity} ${card.name}`);
-  }
-  return lines.join("\n");
-}
-
 function formatYdk(items: ReturnType<typeof aggregateCards>): string | null {
   const main: string[] = [];
   const extra: string[] = [];
@@ -77,6 +69,46 @@ function formatYdke(items: ReturnType<typeof aggregateCards>): string | null {
   return encodeYdke({ main, extra: [], side: [] });
 }
 
+function formatYugiohTextDecklist(items: ReturnType<typeof aggregateCards>): string {
+  const lines = ["// DeckList", ""];
+  for (const { card, quantity } of items) {
+    lines.push(`${quantity} ${card.name}`);
+  }
+  return lines.join("\n");
+}
+
+function buildDecklistContent(
+  items: ReturnType<typeof aggregateCards>,
+  format: DeckExportFormat,
+  slug: string
+): string | null {
+  if (format === "ydke") return formatYdke(items);
+  if (format === "ydk") return formatYdk(items);
+  if (format === "csv") return null;
+  return slug === "digimon" ? formatDigimonDecklist(items) : formatYugiohTextDecklist(items);
+}
+
+/** Build export text without downloading — for copy or preview. */
+export function buildCollectionDecklistContent(
+  cards: DemoOwnedCard[],
+  format: DeckExportFormat,
+  gameSlug?: string
+): string {
+  const slug = gameSlug ?? cards[0]?.card.gameSlug ?? "yugioh";
+  const items = aggregateCards(cards);
+  const content = buildDecklistContent(items, format, slug);
+  if (content == null) {
+    if (format === "ydke") {
+      throw new Error("YDKE export requires Yu-Gi-Oh passcodes (external IDs) on all cards.");
+    }
+    if (format === "ydk") {
+      throw new Error("YDK export requires Yu-Gi-Oh passcodes (external IDs) on all cards.");
+    }
+    throw new Error("CSV export is download-only.");
+  }
+  return content;
+}
+
 export function exportCollectionDecklist(
   cards: DemoOwnedCard[],
   collectionName: string,
@@ -85,37 +117,20 @@ export function exportCollectionDecklist(
 ) {
   const slug = gameSlug ?? cards[0]?.card.gameSlug ?? "yugioh";
   const safeName = collectionName.replace(/\s+/g, "_");
-  const items = aggregateCards(cards);
 
   if (format === "csv") {
     exportCollectionCsv(cards, collectionName);
     return;
   }
 
-  if (format === "ydke") {
-    const ydke = formatYdke(items);
-    if (!ydke) {
-      throw new Error("YDKE export requires Yu-Gi-Oh passcodes (external IDs) on all cards.");
-    }
-    downloadText(ydke, `${safeName}.ydke.txt`);
-    return;
-  }
-
-  if (format === "ydk") {
-    const ydk = formatYdk(items);
-    if (!ydk) {
-      throw new Error("YDK export requires Yu-Gi-Oh passcodes (external IDs) on all cards.");
-    }
-    downloadText(ydk, `${safeName}.ydk`);
-    return;
-  }
-
-  const content =
-    slug === "digimon"
-      ? formatDigimonDecklist(items)
-      : formatYugiohTextDecklist(items);
-
-  downloadText(content, `${safeName}_decklist.txt`);
+  const content = buildCollectionDecklistContent(cards, format, slug);
+  const filename =
+    format === "ydke"
+      ? `${safeName}.ydke.txt`
+      : format === "ydk"
+        ? `${safeName}.ydk`
+        : `${safeName}_decklist.txt`;
+  downloadText(content, filename);
 }
 
 export function getAvailableExportFormats(

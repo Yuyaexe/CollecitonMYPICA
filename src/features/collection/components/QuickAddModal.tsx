@@ -148,7 +148,12 @@ export function QuickAddModal({
         variantLabel: v.variantLabel,
         tcgPlayerId: v.tcgPlayerId,
         cardTraderRarityHint: v.cardTraderRarityHint,
-        blueprintId: resolveStoredBlueprintId(v.externalId, v.imageUrl),
+        blueprintId: resolveStoredBlueprintId(
+          v.externalId,
+          v.imageUrl,
+          undefined,
+          game.slug
+        ),
       })),
     [variants]
   );

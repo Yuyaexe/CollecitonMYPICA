@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Download, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   EditCharacterPhotoModal,
 } from "@/features/anime-collection/components/EditCharacterPhotoModal";
 import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
+import { ExportDeckModal } from "@/features/import/components/ExportDeckModal";
 import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
 import {
@@ -63,7 +64,13 @@ export function CharacterDetailPage({
   const [renameName, setRenameName] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+
+  const exportCards = useMemo(
+    () => characterCards.map(animeCharacterCardToOwned),
+    [characterCards]
+  );
 
   const inspectEntry = useMemo(
     () => characterCards.find((c) => c.id === inspectCardId) ?? null,
@@ -168,10 +175,20 @@ export function CharacterDetailPage({
                   : `${characterCards.length} cards`}
             </p>
           </div>
-          <Button onClick={() => setAddCardOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add card
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setExportOpen(true)}
+              disabled={characterCards.length === 0}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              Exportar deck
+            </Button>
+            <Button onClick={() => setAddCardOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add card
+            </Button>
+          </div>
         </div>
 
         {characterCards.length === 0 ? (
@@ -207,6 +224,15 @@ export function CharacterDetailPage({
           ids.forEach((id) => removeAnimeCharacterCard(id));
           setInspectCardId(null);
         }}
+      />
+
+      <ExportDeckModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        cards={exportCards}
+        collectionName={`${character.name}_deck`}
+        title="Exportar deck do personagem"
+        description="TXT, YDK ou YDKE para EDOPro e CardTrader"
       />
 
       <QuickAddModal
