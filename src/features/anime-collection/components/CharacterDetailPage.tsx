@@ -8,7 +8,7 @@ import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CharacterCardGrid } from "@/features/anime-collection/components/CharacterCardGrid";
+import { CharacterCardsView } from "@/features/anime-collection/components/CharacterCardsView";
 import {
   CharacterAvatar,
   EditCharacterPhotoModal,
@@ -40,6 +40,7 @@ export function CharacterDetailPage({
     addAnimeCharacterCardFromSearch,
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
+    updateAnimeCharacterCardSetName,
   } = useAnimeCollection();
 
   const series = getSeriesBySlug(seriesSlug);
@@ -136,7 +137,7 @@ export function CharacterDetailPage({
       </div>
 
       <div className="mx-auto mt-10 w-full max-w-6xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Cards</h2>
             <p className="text-sm text-muted-foreground">
@@ -164,11 +165,12 @@ export function CharacterDetailPage({
             />
           </div>
         ) : (
-          <CharacterCardGrid
+          <CharacterCardsView
             cards={characterCards}
             currency={profile.currency}
             onRemove={handleRemoveCard}
             onQuantityChange={updateAnimeCharacterCardQuantity}
+            onEditEdition={updateAnimeCharacterCardSetName}
           />
         )}
       </div>
@@ -178,6 +180,7 @@ export function CharacterDetailPage({
         onOpenChange={setAddCardOpen}
         title="Add card"
         defaultGameSlug="yugioh"
+        closeOnAdd={false}
         onAdd={(result, game) => {
           addAnimeCharacterCardFromSearch(
             character.id,

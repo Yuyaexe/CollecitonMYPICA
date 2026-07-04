@@ -44,6 +44,7 @@ interface QuickAddModalProps {
   ) => void | Promise<void>;
   title?: string;
   defaultGameSlug?: QuickAddGameSlug;
+  closeOnAdd?: boolean;
 }
 
 const MAX_VARIANT_PRICE_FETCH = 16;
@@ -54,6 +55,7 @@ export function QuickAddModal({
   onAdd,
   title = "Quick Add",
   defaultGameSlug,
+  closeOnAdd = true,
 }: QuickAddModalProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -215,9 +217,13 @@ export function QuickAddModal({
       await addCardFromSearch(toAdd, game.id, game.slug, game.name);
     }
     toast.success(`Added ${result.name}`);
-    onOpenChange(false);
-    setQuery("");
+    if (closeOnAdd) {
+      onOpenChange(false);
+      setQuery("");
+    }
     setPendingCard(null);
+    setRarityFilter("all");
+    setPreviewKey(null);
   };
 
   const handleCardClick = (result: CardSearchResult) => {

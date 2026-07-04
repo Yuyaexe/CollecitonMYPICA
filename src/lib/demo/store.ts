@@ -97,6 +97,7 @@ interface DemoStore extends DemoState {
   ) => void;
   removeAnimeCharacterCard: (id: string) => void;
   updateAnimeCharacterCardQuantity: (id: string, quantity: number) => void;
+  updateAnimeCharacterCardSetName: (id: string, setName: string | null) => void;
 }
 
 export const useDemoStore = create<DemoStore>()(
@@ -586,6 +587,17 @@ export const useDemoStore = create<DemoStore>()(
         set((s) => ({
           animeCharacterCards: s.animeCharacterCards.map((entry) =>
             entry.id === id ? { ...entry, quantity } : entry
+          ),
+        }));
+      },
+
+      updateAnimeCharacterCardSetName: (id, setName) => {
+        const trimmed = setName?.trim() ?? "";
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) =>
+            entry.id === id
+              ? { ...entry, card: { ...entry.card, setName: trimmed || null } }
+              : entry
           ),
         }));
       },
