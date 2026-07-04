@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { Layers, Upload, TrendingUp, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -9,6 +10,10 @@ import { useAppData } from "@/hooks/useAppData";
 import { computeCollectionStats } from "@/features/collection/utils/filters";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
+import {
+  resolveDisplayPrice,
+  useCardTraderPrices,
+} from "@/features/market/hooks/useCardTraderPrices";
 
 function StatCard({
   label,
@@ -35,7 +40,20 @@ export default function DashboardPage() {
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
-  const stats = computeCollectionStats(collectionCards);
+
+  const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
+    collectionCards,
+    profile.currency,
+    !!activeCollectionId && collectionCards.length > 0
+  );
+
+  const stats = useMemo(
+    () =>
+      computeCollectionStats(collectionCards, (oc) =>
+        resolveDisplayPrice(oc, liveCardTraderPrices, profile.currency) ?? 0
+      ),
+    [collectionCards, liveCardTraderPrices, profile.currency]
+  );
 
   return (
     <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
@@ -56,7 +74,11 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Collection Value"
-          value={formatCurrency(stats.totalValue, profile.currency)}
+          value={
+            isLoading || pricesFetching
+              ? "…"
+              : formatCurrency(stats.totalValue, profile.currency)
+          }
           icon={TrendingUp}
         />
         <StatCard label="Unique Sets" value={formatNumber(stats.uniqueSets)} icon={BarChart3} />

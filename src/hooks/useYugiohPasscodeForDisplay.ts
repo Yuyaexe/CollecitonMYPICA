@@ -1,37 +1,51 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
-import { isYugiohPasscodeId, resolveYugiohPasscode } from "@/lib/yugioh/passcode";
+import {
+  fetchYugiohPasscodeForCard,
+  passcodeFromYgoImageUrl,
+} from "@/lib/yugioh/lookup";
+import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { DemoCard } from "@/lib/demo/types";
 
-type CardPasscodeFields = Pick<DemoCard, "name" | "gameSlug" | "externalId" | "imageUrl">;
+type CardPasscodeFields = Pick<
+  DemoCard,
+  "name" | "gameSlug" | "externalId" | "imageUrl" | "setCode" | "collectorNumber"
+>;
 
-export function useYugiohPasscodeForDisplay(card: CardPasscodeFields): string | null {
-  const storedPasscode = isYugiohPasscodeId(card.externalId, card.imageUrl)
-    ? card.externalId!
-    : null;
-
-  const { data: lookedUpPasscode } = useQuery({
-    queryKey: ["ygo-passcode", card.name],
-    queryFn: async () => {
-      const result = await fetchYugiohCardByName(card.name);
-      return result?.externalId ?? null;
-    },
+/**
+ * Returns Konami passcode for Yu-Gi-Oh art.
+ * - `undefined` while resolving (do not use stored passcode yet)
+ * - `string` when resolved
+ * - `null` when resolution failed
+ */
+export function useYugiohPasscodeForDisplay(
+  card: CardPasscodeFields
+): string | null | undefined {
+  const { data: resolvedPasscode, isFetched } = useQuery({
+    queryKey: ["ygo-passcode", card.name, card.setCode, card.collectorNumber],
+    queryFn: () =>
+      fetchYugiohPasscodeForCard({
+        name: card.name,
+        setCode: card.setCode,
+        collectorNumber: card.collectorNumber,
+      }),
     enabled: card.gameSlug === "yugioh" && Boolean(card.name.trim()),
     staleTime: 24 * 60 * 60 * 1000,
   });
 
-  const namePasscode =
-    lookedUpPasscode && isYugiohPasscodeId(lookedUpPasscode, null) ? lookedUpPasscode : null;
+  if (card.gameSlug !== "yugioh") return null;
+  if (!isFetched) return undefined;
 
-  // Card name wins when stored passcode points at a different card (bad import / CardTrader mix-up).
-  if (namePasscode && storedPasscode && namePasscode !== storedPasscode) {
-    return namePasscode;
+  if (resolvedPasscode && isYugiohPasscodeId(resolvedPasscode, null)) {
+    return resolvedPasscode;
   }
-  if (namePasscode) return namePasscode;
-  if (storedPasscode) return storedPasscode;
-  return null;
+
+  const storedPasscode =
+    (isYugiohPasscodeId(card.externalId, card.imageUrl) ? card.externalId : null) ??
+    passcodeFromYgoImageUrl(card.imageUrl);
+
+  return storedPasscode && isYugiohPasscodeId(storedPasscode, null) ? storedPasscode : null;
 }
 
 export function needsYugiohPasscodeLookup(card: CardPasscodeFields): boolean {

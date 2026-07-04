@@ -6,7 +6,7 @@ import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { Button } from "@/components/ui/button";
-import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -103,9 +103,8 @@ function CharacterCardThumb({
   cardTraderImage?: string | null;
 }) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc =
-    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
 
   const image = (
     <CardImage src={thumbSrc} alt={item.card.name} fill sizes="140px" className="object-contain p-1" />

@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
-import { getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
@@ -34,9 +34,8 @@ export function CollectionGridCardItem({
   onOpen,
 }: CollectionGridCardItemProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc =
-    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
   const dragOver = dragHandlers.isDragOver(item.id);
 
   return (

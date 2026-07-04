@@ -41,9 +41,13 @@ function pickCardTraderImage(
 
 function yugiohPreviewUrl(
   card: CardImageFields,
-  detailPasscode?: string | null,
+  detailPasscode?: string | null | undefined,
   cardTraderImage?: string | null
 ): string | null {
+  if (detailPasscode === undefined) {
+    return null;
+  }
+
   const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
   if (passcode) {
     const ygoUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
@@ -98,10 +102,14 @@ function storedPreviewUrl(
 /** Full framed card for hover popover (never cropped Yu-Gi-Oh! art-only). */
 export function getCardHoverPreviewUrl(
   card: CardImageFields,
-  detailPasscode?: string | null,
+  detailPasscode?: string | null | undefined,
   cardTraderImage?: string | null
 ): string | null {
   if (card.gameSlug === "yugioh") {
+    if (detailPasscode === undefined) {
+      return null;
+    }
+
     const passcode = resolveYugiohPasscode(card.externalId, card.imageUrl, detailPasscode);
     if (passcode) {
       const ygoUrl = buildYgoImageUrl(passcode, "full");
@@ -131,6 +139,18 @@ export function getYugiohPasscodeFallbackUrl(
 }
 
 /** Prefer CardTrader art, then YGOPRODeck passcode art for grid / binder thumbnails. */
+/** Collection thumbnail — never fall back to stale Yu-Gi-Oh art while passcode resolves. */
+export function resolveCollectionThumbUrl(
+  card: CardImageFields,
+  passcode: string | null | undefined,
+  cardTraderImage?: string | null
+): string | null {
+  const preview = getCardPreviewImageUrl(card, passcode, cardTraderImage);
+  if (preview) return preview;
+  if (card.gameSlug === "yugioh" && passcode === undefined) return null;
+  return card.imageUrl ?? null;
+}
+
 export function getCardPreviewImageUrl(
   card: CardImageFields,
   detailPasscode?: string | null,
@@ -143,7 +163,8 @@ export interface CardDisplayImageSources {
   quoteImage?: string | null;
   variantImage?: string | null;
   detailImage?: string | null;
-  detailPasscode?: string | null;
+  /** undefined = passcode still resolving — do not use stored art yet */
+  detailPasscode?: string | null | undefined;
 }
 
 /** Best image URL for detail modals — CardTrader first, YGOPRODeck fallback. */
@@ -152,6 +173,10 @@ export function resolveCardDisplayImage(
   sources: CardDisplayImageSources = {}
 ): string | null {
   if (card.gameSlug === "yugioh") {
+    if (sources.detailPasscode === undefined) {
+      return null;
+    }
+
     const passcode = resolveYugiohPasscode(
       card.externalId,
       card.imageUrl,

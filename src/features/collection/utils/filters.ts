@@ -73,10 +73,13 @@ export function sortOwnedCards(
   return dir === "desc" ? sorted.reverse() : sorted;
 }
 
-export function computeCollectionStats(cards: DemoOwnedCard[]) {
+export function computeCollectionStats(
+  cards: DemoOwnedCard[],
+  getUnitPrice: (card: DemoOwnedCard) => number = (oc) => oc.card.marketPrice ?? 0
+) {
   const totalCards = cards.reduce((sum, oc) => sum + oc.quantity, 0);
   const totalValue = cards.reduce(
-    (sum, oc) => sum + (oc.card.marketPrice ?? 0) * oc.quantity,
+    (sum, oc) => sum + getUnitPrice(oc) * oc.quantity,
     0
   );
   const uniqueSets = new Set(cards.map((oc) => oc.card.setName).filter(Boolean)).size;

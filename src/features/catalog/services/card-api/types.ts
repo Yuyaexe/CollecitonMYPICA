@@ -20,3 +20,8 @@ export interface CardApiAdapter {
   search(query: string): Promise<CardSearchResult[]>;
   getById(externalId: string): Promise<CardDetail | null>;
 }
+
+export interface YugiohCardApiAdapter extends CardApiAdapter {
+  searchByNameOnly(query: string): Promise<CardSearchResult[]>;
+  getBySetNumber(setNumber: string): Promise<CardDetail | null>;
+}

@@ -9,7 +9,7 @@ import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
-import { getCardHoverPreviewUrl, getCardPreviewImageUrl } from "@/lib/cards/preview-image";
+import { getCardHoverPreviewUrl, resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
@@ -56,9 +56,8 @@ export const CollectionRow = memo(function CollectionRow({
 }: CollectionRowProps) {
   const marketPrice = marketPriceProp ?? item.card.marketPrice;
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode);
-  const thumbSrc =
-    getCardPreviewImageUrl(item.card, ygoPasscode, cardTraderImage) ?? item.card.imageUrl;
+  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
   const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode, cardTraderImage);
 
   const shiftKeyRef = useRef(false);

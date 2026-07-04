@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { getCardPreviewImageUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
+import { resolveCollectionThumbUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -86,12 +86,19 @@ function BinderSlot({
   onDropAtIndex,
 }: BinderSlotProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(
-    card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
+    card?.card ?? {
+      name: "",
+      gameSlug: "yugioh",
+      externalId: null,
+      imageUrl: null,
+      setCode: null,
+      collectorNumber: null,
+    }
   );
   useYugiohCardImageRepair(
     card?.id,
     card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null },
-    ygoPasscode
+    ygoPasscode ?? null
   );
 
   if (!card) {
@@ -110,8 +117,7 @@ function BinderSlot({
     );
   }
 
-  const thumbSrc =
-    getCardPreviewImageUrl(card.card, ygoPasscode, cardTraderImage) ?? card.card.imageUrl;
+  const thumbSrc = resolveCollectionThumbUrl(card.card, ygoPasscode, cardTraderImage);
   const imageFallback =
     card.card.gameSlug === "yugioh" ? getYugiohPasscodeFallbackUrl(card.card, ygoPasscode) : null;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";

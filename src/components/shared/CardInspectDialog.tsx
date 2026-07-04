@@ -36,11 +36,10 @@ import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
-import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
+import { fetchYugiohCardByName, fetchYugiohCardBySetNumber, yugiohSetNumberRef } from "@/lib/yugioh/lookup";
 import {
   isCardTraderBlueprintExternalId,
   isYugiohPasscodeId,
-  resolveYugiohPasscode,
 } from "@/lib/yugioh/passcode";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
@@ -79,18 +78,22 @@ async function fetchCardDetail(
 async function fetchCardDetailForOwned(
   card: DemoOwnedCard["card"]
 ): Promise<CardDetailResponse> {
-  if (
-    card.gameSlug === "yugioh" &&
-    card.externalId &&
-    isYugiohPasscodeId(card.externalId, card.imageUrl)
-  ) {
-    return fetchCardDetail(card.externalId, card.gameSlug);
-  }
-
   if (card.gameSlug === "yugioh") {
+    const setRef = yugiohSetNumberRef(card.setCode, card.collectorNumber);
+    if (setRef) {
+      const bySet = await fetchYugiohCardBySetNumber(setRef);
+      if (bySet) {
+        return { result: bySet, relatedPrints: [] };
+      }
+    }
+
     const byName = await fetchYugiohCardByName(card.name);
     if (byName) {
       return { result: byName, relatedPrints: [] };
+    }
+
+    if (card.externalId && isYugiohPasscodeId(card.externalId, card.imageUrl)) {
+      return fetchCardDetail(card.externalId, card.gameSlug);
     }
   }
 
@@ -123,16 +126,22 @@ export function CardInspectDialog({
   });
 
   const cardDetail = cardDetailData?.result ?? null;
-  const lookedUpPasscode = useYugiohPasscodeForDisplay(
-    card?.card ?? { name: "", gameSlug: "yugioh", externalId: null, imageUrl: null }
-  );
-  const ygoPasscode = resolveYugiohPasscode(
-    card?.card.externalId,
-    card?.card.imageUrl,
-    cardDetail?.externalId ?? lookedUpPasscode
+  const ygoPasscode = useYugiohPasscodeForDisplay(
+    card?.card ?? {
+      name: "",
+      gameSlug: "yugioh",
+      externalId: null,
+      imageUrl: null,
+      setCode: null,
+      collectorNumber: null,
+    }
   );
 
-  useYugiohCardImageRepair(card?.id, card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null }, ygoPasscode);
+  useYugiohCardImageRepair(
+    card?.id,
+    card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null },
+    ygoPasscode ?? null
+  );
 
   const { data: ownedCardQuote, isFetching: ownedQuoteFetching } = useCardTraderOwnedQuote(
     card,
@@ -249,20 +258,29 @@ export function CardInspectDialog({
     normalizeCatalogPrice(card.card.marketPrice, currency);
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
-  let displayImage: string | null;
-  if (card.card.gameSlug === "yugioh" && ygoPasscode) {
-    displayImage =
-      buildYgoImageUrl(ygoPasscode, "full") ??
-      resolveCardDisplayImage(card.card, {
+  let displayImage: string | null = null;
+  if (card.card.gameSlug === "yugioh") {
+    if (ygoPasscode === undefined) {
+      displayImage = null;
+    } else if (ygoPasscode) {
+      displayImage =
+        buildYgoImageUrl(ygoPasscode, "full") ??
+        resolveCardDisplayImage(card.card, {
+          detailImage: cardDetail?.imageUrl,
+          detailPasscode: ygoPasscode,
+        });
+    } else {
+      displayImage = resolveCardDisplayImage(card.card, {
         detailImage: cardDetail?.imageUrl,
-        detailPasscode: ygoPasscode,
+        detailPasscode: null,
       });
+    }
   } else {
     displayImage = resolveCardDisplayImage(card.card, {
       quoteImage: resolvedQuote?.imageUrl,
       variantImage: activeVariant?.imageUrl,
       detailImage: cardDetail?.imageUrl,
-      detailPasscode: ygoPasscode,
+      detailPasscode: ygoPasscode ?? null,
     });
   }
 
@@ -276,7 +294,7 @@ export function CardInspectDialog({
 
   const handleVariantSelect = (variant: CardPrintVariant) => {
     const quote = variantPrices?.get(variant.key);
-    const passcode = ygoPasscode ?? resolveYugiohPasscode(card.card.externalId, card.card.imageUrl);
+    const passcode = ygoPasscode ?? null;
     const keepBlueprintId = isCardTraderBlueprintExternalId(
       variant.externalId ?? card.card.externalId,
       variant.imageUrl ?? card.card.imageUrl,
