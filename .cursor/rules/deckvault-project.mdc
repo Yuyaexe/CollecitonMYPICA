@@ -5,7 +5,7 @@ alwaysApply: true
 
 # DeckVault — TCG Collection Manager
 
-Supported games: Yu-Gi-Oh, Pokemon, Digimon, Magic, One Piece, Lorcana.
+Supported games: Yu-Gi-Oh, Pokemon, Digimon.
 
 Goals: track collection, build decks, track prices, wishlists, market comparison, import/export, statistics, collection value over time.
 

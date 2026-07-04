@@ -196,10 +196,6 @@ function detectGameSlug(content: string, format: DecklistFormat): DecklistGameSl
   }
 
   const lower = content.toLowerCase();
-  if (lower.includes("one piece") || /\bOP\d{2}-\d+/i.test(content)) {
-    return "onepiece";
-  }
-
   if (
     format === "digimon-text" ||
     lower.includes("digimon") ||

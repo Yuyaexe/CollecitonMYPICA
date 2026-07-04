@@ -45,14 +45,13 @@ const GAME_OPTIONS: { value: DecklistGameSlug | "auto"; label: string }[] = [
   { value: "auto", label: "Auto-detect" },
   { value: "yugioh", label: "Yu-Gi-Oh!" },
   { value: "digimon", label: "Digimon" },
-  { value: "onepiece", label: "One Piece" },
 ];
 
 const FORMAT_LABELS: Record<string, string> = {
   ydke: "YDKE",
   ydk: "YDK",
   "yugioh-text": "Yu-Gi-Oh! (texto)",
-  "digimon-text": "Digimon / One Piece (texto)",
+  "digimon-text": "Digimon (texto)",
   unknown: "Texto",
 };
 

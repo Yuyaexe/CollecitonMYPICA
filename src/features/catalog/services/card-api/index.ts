@@ -2,25 +2,11 @@ import type { CardApiAdapter } from "./types";
 import { yugiohAdapter } from "./yugioh.adapter";
 import { pokemonAdapter } from "./pokemon.adapter";
 import { digimonAdapter } from "./digimon.adapter";
-import { isCardTraderGameSupported } from "@/lib/cardtrader/games";
-
-const stubAdapter = (slug: string): CardApiAdapter => ({
-  gameSlug: slug,
-  async search() {
-    return [];
-  },
-  async getById() {
-    return null;
-  },
-});
 
 const adapters: Record<string, CardApiAdapter> = {
   yugioh: yugiohAdapter,
   pokemon: pokemonAdapter,
   digimon: digimonAdapter,
-  onepiece: stubAdapter("onepiece"),
-  lorcana: stubAdapter("lorcana"),
-  magic: stubAdapter("magic"),
 };
 
 const SUPPORTED_GAMES = ["yugioh", "pokemon", "digimon"] as const;
@@ -34,5 +20,5 @@ export function isApiSupported(gameSlug: string): boolean {
 }
 
 export function isQuickAddSupported(gameSlug: string): boolean {
-  return isApiSupported(gameSlug) || isCardTraderGameSupported(gameSlug);
+  return isApiSupported(gameSlug);
 }

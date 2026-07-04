@@ -77,9 +77,9 @@ export function ExportDeckModal({
 
         <p className="text-xs text-muted-foreground">
           {format === "decklist" &&
-            (gameSlug === "digimon" || gameSlug === "onepiece"
+            gameSlug === "digimon"
               ? "Exporta como // DeckList com nome e código da carta."
-              : "Exporta lista com quantidade e nome das cartas.")}
+              : "Exporta lista com quantidade e nome das cartas."}
           {format === "ydke" && "Link YDKE compatível com EDOPro e YGOPRODeck."}
           {format === "ydk" && "Arquivo .ydk com passcodes Yu-Gi-Oh!."}
           {format === "csv" && "Planilha CSV para CardTrader / Excel."}

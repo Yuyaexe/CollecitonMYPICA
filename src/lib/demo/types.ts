@@ -81,9 +81,6 @@ export const DEMO_GAMES = [
   { id: "a0000000-0000-4000-8000-000000000001", slug: "yugioh", name: "Yu-Gi-Oh!" },
   { id: "a0000000-0000-4000-8000-000000000002", slug: "pokemon", name: "Pokemon" },
   { id: "a0000000-0000-4000-8000-000000000003", slug: "digimon", name: "Digimon" },
-  { id: "a0000000-0000-4000-8000-000000000005", slug: "onepiece", name: "One Piece" },
-  { id: "a0000000-0000-4000-8000-000000000006", slug: "lorcana", name: "Disney Lorcana" },
-  { id: "a0000000-0000-4000-8000-000000000004", slug: "magic", name: "Magic: The Gathering" },
 ] as const;
 
 export const DEFAULT_COLLECTION_ID = "demo-collection-1";

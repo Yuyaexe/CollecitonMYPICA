@@ -26,12 +26,42 @@ interface DigimonCard {
 
 const NON_DIGIMON_SET = /dragon ball|fusion world|one piece|pokemon|magic the gathering|yu-gi-oh|lorcana/i;
 
-/** digimoncard.io returns 400 when the query contains ":" — strip it before searching. */
+const DIGIMON_SEARCH_LIMIT = 200;
+/** Max unique card numbers (BT3-031, etc.) returned — matches digimoncard.io-style breadth. */
+const DIGIMON_RESULT_CAP = 48;
+
+/** digimoncard.io returns 400 when the query contains ":" — use space instead in API calls. */
 function normalizeDigimonQuery(query: string): string {
   return query
     .replace(/:/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function buildDigimonTextQueries(query: string): string[] {
+  const trimmed = query.trim();
+  const out = new Set<string>();
+
+  const normalized = normalizeDigimonQuery(trimmed);
+  if (normalized) out.add(normalized);
+
+  const withoutTrailingColon = trimmed.replace(/:+\s*$/, "").trim();
+  const normalizedNoTrail = normalizeDigimonQuery(withoutTrailingColon);
+  if (normalizedNoTrail) out.add(normalizedNoTrail);
+
+  return [...out];
+}
+
+function digimonCombinedSearchPath(nameQuery: string): string {
+  const params = new URLSearchParams({
+    n: nameQuery,
+    desc: nameQuery,
+    limit: String(DIGIMON_SEARCH_LIMIT),
+    series: "Digimon Card Game",
+    sort: "name",
+    sortdirection: "asc",
+  });
+  return `/search?${params.toString()}`;
 }
 
 function digimonImageUrl(cardId: string): string {
@@ -162,23 +192,15 @@ export const digimonAdapter: CardApiAdapter = {
     if (DIGIMON_CARD_ID.test(trimmed)) {
       const { baseId } = splitDigimonCardId(trimmed);
       addCards(await fetchDigimonCards(`/search?card=${encodeURIComponent(baseId)}`));
+      return groupDigimonSearchResults(collected).slice(0, DIGIMON_RESULT_CAP);
     }
 
-    const normalized = normalizeDigimonQuery(trimmed);
-    const nameQueries = normalized === trimmed ? [normalized] : [normalized, trimmed];
-
-    for (const nameQuery of nameQueries) {
-      if (!nameQuery) continue;
-      const cards = await fetchDigimonCards(
-        `/search?n=${encodeURIComponent(nameQuery)}&limit=20&series=Digimon Card Game`
-      );
-      if (cards.length > 0) {
-        addCards(cards);
-        break;
-      }
+    for (const textQuery of buildDigimonTextQueries(trimmed)) {
+      if (textQuery.length < 2) continue;
+      addCards(await fetchDigimonCards(digimonCombinedSearchPath(textQuery)));
     }
 
-    return groupDigimonSearchResults(collected).slice(0, 20);
+    return groupDigimonSearchResults(collected).slice(0, DIGIMON_RESULT_CAP);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {

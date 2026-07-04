@@ -47,7 +47,8 @@ function mergeSearchResults(
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q") ?? "";
+  const rawQuery = searchParams.get("q") ?? "";
+  const query = rawQuery.replace(/:+\s*$/, "").trim() || rawQuery.trim();
   const game = searchParams.get("game") ?? "yugioh";
   const currency = (searchParams.get("currency") as "USD" | "BRL" | null) ?? "USD";
   const debugMode = searchParams.get("debug") === "1";

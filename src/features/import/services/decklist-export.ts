@@ -111,7 +111,7 @@ export function exportCollectionDecklist(
   }
 
   const content =
-    slug === "digimon" || slug === "onepiece"
+    slug === "digimon"
       ? formatDigimonDecklist(items)
       : formatYugiohTextDecklist(items);
 

@@ -254,11 +254,17 @@ export function QuickAddModal({
           (r.name === result.name ||
             (game.slug === "digimon" && digimonNamesMatch(r.name, result.name)))
       ) ?? [];
+
     const cardForVariants =
       siblings.length > 0
         ? {
             ...result,
-            metadata: { ...result.metadata, cardtraderPrints: siblings },
+            metadata: {
+              ...result.metadata,
+              ...(game.slug === "digimon"
+                ? { digimonPrints: [result, ...siblings] }
+                : { cardtraderPrints: [result, ...siblings] }),
+            },
           }
         : result;
 

@@ -9,7 +9,7 @@ import {
 const SEARCH_RESULT_LIMIT = 24;
 /** Supplemental merge (Digimon/YGO/Pokemon + CT) — keep fast. */
 const MERGE_MAX_EXPANSIONS = 10;
-/** One Piece / Lorcana / Magic rely only on CardTrader — scan many sets. */
+/** Legacy constant — no CT-primary games in DeckVault. */
 export const CARDTRADER_PRIMARY_MAX_EXPANSIONS = 48;
 const PARALLEL_EXPANSION_BATCH = 4;
 
@@ -29,9 +29,6 @@ const gameSlugPatterns: Record<string, RegExp[]> = {
   yugioh: [/yu[-\s]?gi[-\s]?oh/i, /yugioh/i],
   pokemon: [/pok[eé]mon/i, /pokemon/i],
   digimon: [/digimon/i],
-  onepiece: [/one piece/i],
-  lorcana: [/lorcana/i, /disney lorcana/i],
-  magic: [/magic/i, /mtg/i, /gathering/i],
 };
 
 let gamesCache: CacheEntry<CardTraderGame[]> | null = null;
@@ -70,9 +67,6 @@ export async function resolveCardTraderGameId(gameSlug: string): Promise<number 
   const slugAliases: Record<string, string[]> = {
     yugioh: ["yu-gi-oh"],
     pokemon: ["pokemon", "pokémon"],
-    onepiece: ["one piece"],
-    lorcana: ["lorcana", "disney lorcana"],
-    magic: ["magic"],
   };
 
   const aliases = slugAliases[gameSlug] ?? [];

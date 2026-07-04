@@ -13,13 +13,11 @@ export {
 } from "./catalog";
 export { isCardTraderGameSupported, CARDTRADER_GAME_SLUGS } from "./games";
 
-/** Games with no native catalog API — CardTrader is the only search source. */
-export const CARDTRADER_PRIMARY_GAME_SLUGS = ["onepiece", "lorcana", "magic"] as const;
+/** No supported games rely on CardTrader as the only search source. */
+export const CARDTRADER_PRIMARY_GAME_SLUGS = [] as const;
 
-export function isCardTraderPrimarySearch(gameSlug: string): boolean {
-  return CARDTRADER_PRIMARY_GAME_SLUGS.includes(
-    gameSlug as (typeof CARDTRADER_PRIMARY_GAME_SLUGS)[number]
-  );
+export function isCardTraderPrimarySearch(_gameSlug: string): boolean {
+  return false;
 }
 export {
   getCardTraderPrice,

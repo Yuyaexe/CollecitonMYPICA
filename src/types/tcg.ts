@@ -7,13 +7,7 @@ export type CardLanguage = (typeof CARD_LANGUAGES)[number];
 export const CURRENCIES = ["USD", "BRL"] as const;
 export type Currency = (typeof CURRENCIES)[number];
 
-export const GAME_SLUGS = [
-  "yugioh",
-  "pokemon",
-  "digimon",
-  "onepiece",
-  "lorcana",
-] as const;
+export const GAME_SLUGS = ["yugioh", "pokemon", "digimon"] as const;
 export type GameSlug = (typeof GAME_SLUGS)[number];
 
 export const CONDITION_LABELS: Record<CardCondition, string> = {

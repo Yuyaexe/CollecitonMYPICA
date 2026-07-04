@@ -7,7 +7,7 @@ export type DecklistFormat =
   | "digimon-text"
   | "unknown";
 
-export type DecklistGameSlug = "yugioh" | "digimon" | "onepiece" | "unknown";
+export type DecklistGameSlug = "yugioh" | "digimon" | "unknown";
 
 export interface ParsedDeckEntry {
   quantity: number;
