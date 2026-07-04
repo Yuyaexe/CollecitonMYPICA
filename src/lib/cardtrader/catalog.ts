@@ -1,6 +1,14 @@
 import { cardTraderFetch, unwrapCardTraderList } from "./client";
 import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTraderGame } from "./types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+import { resolveRarityStyle } from "@/lib/rarity/resolve-rarity";
+import {
+  isCardTraderLostArtPromosExpansion,
+  isYugiohLostArtCode,
+  yugiohCollectorNumbersMatch,
+  yugiohSetPrefix,
+  yugiohSetCodeLooksLike,
+} from "@/lib/yugioh/set-code";
 import {
   isDigimonTcgPlayerExternalId,
   normalizeDigimonSetCode,
@@ -253,15 +261,27 @@ export function resolveCardTraderProductUrl(params: {
   externalId?: string | null;
   cardTraderBlueprintId?: string | null;
   setName?: string | null;
+  setCode?: string | null;
   rarity?: string | null;
   imageUrl?: string | null;
 }): string {
-  const blueprintId = resolveStoredBlueprintId(
+  let blueprintId = resolveStoredBlueprintId(
     params.externalId,
     params.imageUrl,
     params.cardTraderBlueprintId,
     params.gameSlug
   );
+  if (
+    blueprintId != null &&
+    !cardTraderBlueprintMatchesCard(blueprintId, {
+      rarity: params.rarity,
+      gameSlug: params.gameSlug,
+      imageUrl: params.imageUrl,
+      setCode: params.setCode,
+    })
+  ) {
+    blueprintId = null;
+  }
   if (blueprintId != null) {
     return buildCardTraderCardUrl({
       blueprintId,
@@ -274,11 +294,37 @@ export function resolveCardTraderProductUrl(params: {
   return buildCardTraderSearchUrl(params.name, params.setName);
 }
 
-function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null, setCode?: string | null): number {
+function scoreExpansion(
+  expansion: CardTraderExpansion,
+  setName?: string | null,
+  setCode?: string | null,
+  gameSlug?: string | null
+): number {
   if (!setName && !setCode) return 0;
   const expName = normalize(expansion.name);
   const expCode = normalize(expansion.code ?? "");
   let score = 0;
+
+  if (gameSlug === "yugioh") {
+    const prefix = yugiohSetPrefix(setCode);
+    const expansionCode = (expansion.code ?? "").toUpperCase();
+
+    if (prefix && expansionCode === prefix) {
+      score += 180;
+    }
+
+    if (isYugiohLostArtCode(setCode)) {
+      if (isCardTraderLostArtPromosExpansion(expansion.name)) {
+        score += 250;
+      }
+      if (/\b20\d{2}\b/.test(expName)) {
+        score -= 120;
+      }
+      if (setName && /\b20\d{2}\b/.test(normalize(setName))) {
+        return score;
+      }
+    }
+  }
 
   const normInputCode = normalizeDigimonSetCode(setCode);
   const normExpCode = normalizeDigimonSetCode(expansion.code);
@@ -328,10 +374,95 @@ function blueprintCollectorNumber(blueprint: CardTraderBlueprint): string | null
 
 type BlueprintScoreInput = Pick<
   CardPriceInput,
-  "name" | "setCode" | "rarity" | "collectorNumber" | "variantLabel"
+  "name" | "setCode" | "rarity" | "collectorNumber" | "variantLabel" | "gameSlug"
 >;
 
+function blueprintRarityText(blueprint: CardTraderBlueprint): string {
+  return (blueprint.version?.trim() || blueprint.name).trim();
+}
+
+/** Reject QSCR blueprints when looking up SCR (and similar strict Yu-Gi-Oh! pairs). */
+export function yugiohBlueprintRarityMatches(
+  blueprint: CardTraderBlueprint,
+  inputRarity: string
+): boolean {
+  const inputCode = resolveRarityStyle(inputRarity, "yugioh").code;
+  const bpText = blueprintRarityText(blueprint);
+  const bpCode = resolveRarityStyle(bpText, "yugioh").code;
+
+  if (bpCode !== "?" && inputCode !== "?") {
+    return bpCode === inputCode;
+  }
+
+  const haystack = normalize(bpText);
+  const inputNorm = normalize(inputRarity);
+
+  if (inputCode === "QSCR") {
+    return haystack.includes("quarter century") || haystack.includes(inputNorm);
+  }
+  if (inputCode === "SCR") {
+    if (haystack.includes("quarter century")) return false;
+    if (haystack.includes("prismatic secret")) return false;
+    if (haystack.includes("gold secret")) return false;
+    if (haystack.includes("platinum secret")) return false;
+    return haystack.includes("secret") || haystack.includes(inputNorm);
+  }
+
+  return haystack.includes(inputNorm) || bpCode === inputCode;
+}
+
+function storedBlueprintMatchesInput(
+  blueprintId: number,
+  input: Pick<CardPriceInput, "rarity" | "gameSlug" | "imageUrl" | "setCode">
+): boolean {
+  if (input.gameSlug !== "yugioh" || !input.rarity?.trim()) return true;
+
+  const slug =
+    getBlueprintProductSlug(blueprintId) ??
+    extractCardTraderSlugFromImageUrl(input.imageUrl);
+  if (!slug) return false;
+
+  const slugNorm = slug.toLowerCase().replace(/-/g, " ");
+
+  if (isYugiohLostArtCode(input.setCode)) {
+    if (/\b20\d{2}\b/.test(slugNorm)) return false;
+    if (!slugNorm.includes("lost art promo")) return false;
+    return true;
+  }
+
+  const inputCode = resolveRarityStyle(input.rarity, "yugioh").code;
+  if (inputCode === "QSCR") return slugNorm.includes("quarter century");
+  if (inputCode === "SCR") {
+    return slugNorm.includes("secret") && !slugNorm.includes("quarter century");
+  }
+
+  const inputNorm = normalize(input.rarity);
+  return slugNorm.includes(inputNorm.replace(/\s+/g, " "));
+}
+
+/** Validates a stored blueprint id against card set/rarity (sync + URL fallback). */
+export function cardTraderBlueprintMatchesCard(
+  blueprintId: number,
+  card: {
+    rarity?: string | null;
+    gameSlug?: string | null;
+    imageUrl?: string | null;
+    setCode?: string | null;
+  }
+): boolean {
+  return storedBlueprintMatchesInput(blueprintId, {
+    rarity: card.rarity,
+    gameSlug: card.gameSlug ?? "",
+    imageUrl: card.imageUrl,
+    setCode: card.setCode,
+  });
+}
+
 function scoreBlueprint(blueprint: CardTraderBlueprint, input: BlueprintScoreInput): number {
+  if (input.gameSlug === "yugioh" && input.rarity?.trim()) {
+    if (!yugiohBlueprintRarityMatches(blueprint, input.rarity)) return 0;
+  }
+
   const a = normalize(blueprint.name);
   const b = normalize(input.name);
   let score = 0;
@@ -339,11 +470,13 @@ function scoreBlueprint(blueprint: CardTraderBlueprint, input: BlueprintScoreInp
   else if (a.includes(b) || b.includes(a)) score += 70;
 
   const blueprintCollector = blueprintCollectorNumber(blueprint);
-  if (input.collectorNumber && blueprintCollector) {
-    if (
-      normalizeCollectorNumber(input.collectorNumber) ===
-      normalizeCollectorNumber(blueprintCollector)
-    ) {
+  const collectorRef = input.collectorNumber ?? input.setCode;
+  if (collectorRef && blueprintCollector) {
+    const numbersMatch =
+      input.gameSlug === "yugioh"
+        ? yugiohCollectorNumbersMatch(collectorRef, blueprintCollector)
+        : normalizeCollectorNumber(collectorRef) === normalizeCollectorNumber(blueprintCollector);
+    if (numbersMatch) {
       return 250;
     }
   }
@@ -427,26 +560,53 @@ async function resolveBlueprintByTcgPlayerId(
 async function resolveBlueprintByCollectorNumber(
   collectorNumber: string,
   gameId: number,
-  setCode?: string | null
+  setCode?: string | null,
+  gameSlug?: string | null
 ): Promise<number | null> {
-  const target = normalizeCollectorNumber(collectorNumber);
   const expansions = await getExpansions(gameId);
 
   let candidates = expansions;
-  const normSet = normalizeDigimonSetCode(setCode);
-  if (normSet) {
-    const filtered = expansions.filter(
-      (expansion) => normalizeDigimonSetCode(expansion.code) === normSet
-    );
-    if (filtered.length > 0) candidates = filtered;
+
+  if (gameSlug === "yugioh") {
+    const prefix = yugiohSetPrefix(setCode ?? collectorNumber);
+    if (prefix) {
+      const byPrefix = expansions.filter(
+        (expansion) => (expansion.code ?? "").toUpperCase() === prefix
+      );
+      if (byPrefix.length > 0) candidates = byPrefix;
+    }
+    if (isYugiohLostArtCode(setCode ?? collectorNumber)) {
+      const lostArtPromos = expansions.filter((expansion) =>
+        isCardTraderLostArtPromosExpansion(expansion.name)
+      );
+      if (lostArtPromos.length > 0) candidates = lostArtPromos;
+    }
+  } else {
+    const normSet = normalizeDigimonSetCode(setCode);
+    if (normSet) {
+      const filtered = expansions.filter(
+        (expansion) => normalizeDigimonSetCode(expansion.code) === normSet
+      );
+      if (filtered.length > 0) candidates = filtered;
+    }
   }
 
-  for (const expansion of [...candidates].sort((a, b) => b.id - a.id)) {
+  const ranked = [...candidates].sort(
+    (a, b) =>
+      scoreExpansion(b, null, setCode ?? collectorNumber, gameSlug) -
+      scoreExpansion(a, null, setCode ?? collectorNumber, gameSlug)
+  );
+
+  for (const expansion of ranked) {
     const blueprints = await getBlueprints(expansion.id);
     const match = blueprints.find((blueprint) => {
       if (blueprint.game_id !== gameId) return false;
       const cn = blueprintCollectorNumber(blueprint);
-      return cn != null && normalizeCollectorNumber(cn) === target;
+      if (!cn) return false;
+      if (gameSlug === "yugioh") {
+        return yugiohCollectorNumbersMatch(collectorNumber, cn);
+      }
+      return normalizeCollectorNumber(cn) === normalizeCollectorNumber(collectorNumber);
     });
     if (match) {
       if (match.image_url) {
@@ -463,20 +623,26 @@ async function resolveBlueprintByCollectorNumber(
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
   const fromDedicated = parseCardTraderBlueprintId(input.cardTraderBlueprintId);
   if (fromDedicated != null && isPlausibleCardTraderBlueprintId(fromDedicated)) {
-    if (!digimonBlueprintIdIsTcgPlayerId(input, fromDedicated)) {
+    if (
+      !digimonBlueprintIdIsTcgPlayerId(input, fromDedicated) &&
+      storedBlueprintMatchesInput(fromDedicated, input)
+    ) {
       return fromDedicated;
     }
   }
 
   if (input.imageUrl) {
     const fromImage = extractBlueprintIdFromImageUrl(input.imageUrl);
-    if (fromImage != null) return fromImage;
+    if (fromImage != null && storedBlueprintMatchesInput(fromImage, input)) {
+      return fromImage;
+    }
   }
 
   if (
     input.blueprintId != null &&
     isPlausibleCardTraderBlueprintId(input.blueprintId) &&
-    !digimonBlueprintIdIsTcgPlayerId(input, input.blueprintId)
+    !digimonBlueprintIdIsTcgPlayerId(input, input.blueprintId) &&
+    storedBlueprintMatchesInput(input.blueprintId, input)
   ) {
     return input.blueprintId;
   }
@@ -509,11 +675,19 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
     }
   }
 
-  if (input.collectorNumber && /-\d/.test(input.collectorNumber)) {
+  const collectorRef = input.collectorNumber ?? input.setCode;
+  const shouldResolveByCollector =
+    collectorRef &&
+    (input.gameSlug === "yugioh"
+      ? yugiohSetCodeLooksLike(collectorRef)
+      : /-\d/.test(collectorRef));
+
+  if (shouldResolveByCollector) {
     const fromCollector = await resolveBlueprintByCollectorNumber(
-      input.collectorNumber,
+      collectorRef,
       gameId,
-      input.setCode
+      input.setCode ?? collectorRef,
+      input.gameSlug
     );
     if (fromCollector != null) {
       blueprintLookup.set(cacheKey, fromCollector);
@@ -525,7 +699,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
   const rankedExpansions = expansions
     .map((expansion) => ({
       expansion,
-      score: scoreExpansion(expansion, input.setName, input.setCode),
+      score: scoreExpansion(expansion, input.setName, input.setCode, input.gameSlug),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -542,6 +716,7 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
     rarity: input.rarity,
     collectorNumber: input.collectorNumber,
     variantLabel: input.variantLabel,
+    gameSlug: input.gameSlug,
   };
 
   for (const { expansion } of candidates) {

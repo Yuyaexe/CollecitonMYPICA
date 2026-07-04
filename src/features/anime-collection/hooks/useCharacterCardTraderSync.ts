@@ -5,6 +5,7 @@ import { isCardTraderHostedImage } from "@/lib/yugioh/passcode";
 import { resolveStoredBlueprintId } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { fetchCardTraderQuote } from "@/features/market/services/card-trader-quote";
+import { cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -67,8 +68,19 @@ export function useCharacterCardTraderSync(
 
           if (cancelled || !quote) continue;
 
+          const bpId = quote.blueprintId ? Number(quote.blueprintId) : null;
+          const blueprintValid =
+            bpId != null &&
+            Number.isFinite(bpId) &&
+            cardTraderBlueprintMatchesCard(bpId, {
+              rarity: entry.card.rarity,
+              gameSlug: entry.card.gameSlug,
+              imageUrl: entry.card.imageUrl,
+              setCode: entry.card.setCode,
+            });
+
           const updates: Partial<AnimeCharacterCard["card"]> = {};
-          if (quote.blueprintId && quote.blueprintId !== entry.card.cardTraderBlueprintId) {
+          if (blueprintValid && quote.blueprintId && quote.blueprintId !== entry.card.cardTraderBlueprintId) {
             updates.cardTraderBlueprintId = quote.blueprintId;
           }
           if (quote.imageUrl && isCardTraderHostedImage(quote.imageUrl)) {

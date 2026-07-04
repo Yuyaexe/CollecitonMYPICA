@@ -29,6 +29,7 @@ import {
   findVariantForSelection,
   getSearchResultVariants,
   variantMatchesOwnedCard,
+  buildVariantPriceBlueprintFields,
   type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -41,6 +42,7 @@ import { resolveCardDisplayImage, isCardTraderHostedImage } from "@/lib/cards/pr
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
 import {
   isCardTraderBlueprintExternalId,
@@ -153,25 +155,25 @@ export function CardInspectDialog({
 
   const variantInputs = useMemo(
     () =>
-      printVariants.map((v) => ({
-        key: v.key,
-        setName: v.setName,
-        setCode: v.setCode,
-        collectorNumber: v.collectorNumber,
-        rarity: v.rarity,
-        variantLabel: v.variantLabel,
-        tcgPlayerId: v.tcgPlayerId,
-        cardTraderRarityHint: v.cardTraderRarityHint,
-        imageUrl: v.imageUrl,
-        cardTraderBlueprintId: card?.card.cardTraderBlueprintId ?? null,
-        blueprintId: resolveStoredBlueprintId(
-          v.externalId,
-          v.imageUrl,
-          card?.card.cardTraderBlueprintId,
-          card?.card.gameSlug
-        ),
-      })),
-    [printVariants, card?.card.cardTraderBlueprintId, card?.card.gameSlug]
+      printVariants.map((v) => {
+        const blueprintFields = buildVariantPriceBlueprintFields(
+          v,
+          card!.card.gameSlug
+        );
+        return {
+          key: v.key,
+          setName: v.setName,
+          setCode: v.setCode,
+          collectorNumber: v.collectorNumber,
+          rarity: v.rarity,
+          variantLabel: v.variantLabel,
+          tcgPlayerId: v.tcgPlayerId,
+          cardTraderRarityHint: v.cardTraderRarityHint ?? v.rarity,
+          imageUrl: v.imageUrl,
+          ...blueprintFields,
+        };
+      }),
+    [printVariants, card]
   );
 
   const { data: variantPrices, isFetching: pricesFetching } = useCardTraderVariantPrices(
@@ -207,13 +209,15 @@ export function CardInspectDialog({
       externalId: variant?.externalId ?? card.card.externalId,
       cardTraderBlueprintId: card.card.cardTraderBlueprintId,
       setName: variant?.setName ?? card.card.setName,
+      setCode: variant?.setCode ?? card.card.setCode,
       rarity: variant?.rarity ?? card.card.rarity,
       imageUrl: variant?.imageUrl ?? card.card.imageUrl,
     });
   }, [card, activeVariant, resolvedQuote?.url]);
 
   useEffect(() => {
-    if (!card || !open || !resolvedQuote?.blueprintId) return;
+    if (!card || !open || !resolvedQuote?.blueprintId || !activeVariant) return;
+    if (!variantMatchesOwnedCard(activeVariant, card.card, card.card.gameSlug)) return;
 
     const updates: Partial<DemoOwnedCard["card"]> = {};
     if (resolvedQuote.blueprintId !== card.card.cardTraderBlueprintId) {
@@ -232,9 +236,9 @@ export function CardInspectDialog({
   }, [
     card,
     open,
+    activeVariant,
     resolvedQuote?.blueprintId,
     resolvedQuote?.imageUrl,
-    ygoPasscode,
     updateOwnedCard,
   ]);
 
@@ -247,7 +251,8 @@ export function CardInspectDialog({
   if (!card) return null;
 
   const displayPrice =
-    resolvedQuote?.price ?? card.card.marketPrice;
+    resolvedQuote?.price ??
+    normalizeCatalogPrice(card.card.marketPrice, currency);
   const ygoSecondaryPrice = activeVariant?.price ?? null;
 
   const displayImage = resolveCardDisplayImage(card.card, {

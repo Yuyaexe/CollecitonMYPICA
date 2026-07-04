@@ -6,6 +6,7 @@ export {
   buildCardTraderCardUrl,
   resolveCardTraderProductUrl,
   resolveStoredBlueprintId,
+  cardTraderBlueprintMatchesCard,
   extractBlueprintIdFromImageUrl,
   searchCardTraderCatalog,
   parseCardTraderBlueprintId,

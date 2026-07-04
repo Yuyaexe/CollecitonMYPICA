@@ -1,6 +1,10 @@
 import type { CardSearchResult } from "./types";
 import { resolveRarityStyle } from "@/lib/rarity/resolve-rarity";
 import {
+  parseCardTraderBlueprintId,
+  resolveStoredBlueprintId,
+} from "@/lib/cardtrader";
+import {
   buildYgoImageUrl,
   buildYgoProDeckUrl,
   pickYgoImageSizeForRarity,
@@ -61,6 +65,7 @@ function cardtraderPrintToVariant(print: CardSearchResult): CardPrintVariant {
     setName: print.setName,
     collectorNumber: print.collectorNumber,
     rarity: print.rarity,
+    cardTraderRarityHint: print.rarity,
     price: print.price,
     externalId: print.externalId,
     imageUrl: print.imageUrl,
@@ -127,6 +132,7 @@ export function getSearchResultVariants(
           setCode: s.set_code,
           setName: s.set_name,
           rarity: s.set_rarity,
+          cardTraderRarityHint: s.set_rarity,
           price: s.set_price ? parseFloat(s.set_price) : null,
           externalId,
           imageUrl:
@@ -275,5 +281,29 @@ export function applyVariant(
       cardTraderRarityHint:
         variant.cardTraderRarityHint ?? result.metadata?.cardTraderRarityHint,
     },
+  };
+}
+
+/** Resolve CardTrader blueprint per print — never reuse another variant's stored blueprint. */
+export function buildVariantPriceBlueprintFields(
+  variant: CardPrintVariant,
+  gameSlug: string
+): { blueprintId: number | null; cardTraderBlueprintId: string | null } {
+  const fromExternal = parseCardTraderBlueprintId(variant.externalId);
+  if (fromExternal != null) {
+    return {
+      blueprintId: fromExternal,
+      cardTraderBlueprintId: String(fromExternal),
+    };
+  }
+
+  return {
+    blueprintId: resolveStoredBlueprintId(
+      variant.externalId,
+      variant.imageUrl,
+      null,
+      gameSlug
+    ),
+    cardTraderBlueprintId: null,
   };
 }

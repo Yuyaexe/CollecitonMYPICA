@@ -25,18 +25,21 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { ExportDeckModal } from "@/features/import/components/ExportDeckModal";
 import { filterOwnedCards } from "@/features/collection/utils/filters";
 import {
+  mergeCardTraderQuoteMaps,
   resolveDisplayPrice,
   useCardTraderPrices,
 } from "@/features/market/hooks/useCardTraderPrices";
+import { useCardTraderBulkStore } from "@/features/collection/stores/cardtrader-bulk.store";
+import { CollectionCardTraderSyncModal } from "@/features/collection/components/CollectionCardTraderSyncModal";
 
 export function CollectionTopBar() {
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
-  const refreshPrices = useCollectionUIStore((s) => s.refreshPrices);
   const collectionOrder = useDataUiStore((s) => s.collectionOrder);
   const { peers } = usePresenceContext();
 
@@ -56,10 +59,17 @@ export function CollectionTopBar() {
   );
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
 
-  const { data: cardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
+  const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
     collectionCards,
     profile.currency,
     !!activeCollectionId
+  );
+
+  const bulkQuotes = useCardTraderBulkStore((s) => s.quotesByKey);
+
+  const cardTraderPrices = useMemo(
+    () => mergeCardTraderQuoteMaps(bulkQuotes, liveCardTraderPrices),
+    [bulkQuotes, liveCardTraderPrices]
   );
 
   const stats = useMemo(() => {
@@ -161,13 +171,13 @@ export function CollectionTopBar() {
             <Button
               size="sm"
               variant="outline"
-              onClick={refreshPrices}
+              onClick={() => setSyncOpen(true)}
               disabled={pricesFetching}
-              title="Refresh CardTrader prices"
-              aria-label="Refresh prices"
+              title="Sincronizar preços e links CardTrader"
+              aria-label="CardTrader sync"
             >
               <RefreshCw className={cn("h-4 w-4", pricesFetching && "animate-spin")} />
-              <span className="hidden md:inline">Prices</span>
+              <span className="hidden md:inline">CardTrader</span>
             </Button>
             <Button size="sm" onClick={() => setQuickAddOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -218,6 +228,12 @@ export function CollectionTopBar() {
         onOpenChange={setExportOpen}
         cards={collectionCards}
         collectionName={activeCollection?.name ?? "collection"}
+      />
+
+      <CollectionCardTraderSyncModal
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
+        collectionCards={collectionCards}
       />
     </>
   );

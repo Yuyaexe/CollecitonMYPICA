@@ -5,14 +5,17 @@ import { useCollectionUIStore } from "@/features/collection/stores/collection-ui
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
 import {
   cardPriceKey,
+  mergeCardTraderQuoteMaps,
   resolveDisplayPrice,
   resolveCardTraderUrl,
   resolveCardTraderImage,
   useCardTraderPrices,
 } from "@/features/market/hooks/useCardTraderPrices";
+import { useCardTraderBulkStore } from "@/features/collection/stores/cardtrader-bulk.store";
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeIdOrder } from "@/lib/collections/card-order";
+import { cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
@@ -61,10 +64,17 @@ export function useCollectionViewData(): CollectionViewData {
     [ownedCards, activeCollectionId]
   );
 
-  const { data: cardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
+  const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
     collectionCards,
     profile.currency,
     !isLoading && !isError
+  );
+
+  const bulkQuotes = useCardTraderBulkStore((s) => s.quotesByKey);
+
+  const cardTraderPrices = useMemo(
+    () => mergeCardTraderQuoteMaps(bulkQuotes, liveCardTraderPrices),
+    [bulkQuotes, liveCardTraderPrices]
   );
 
   const filtered = useMemo(() => {
@@ -177,8 +187,18 @@ export function useCollectionViewData(): CollectionViewData {
       const quote = cardTraderPrices.get(cardPriceKey(item));
       if (!quote?.blueprintId) continue;
 
+      const bpId = Number(quote.blueprintId);
+      const blueprintValid =
+        Number.isFinite(bpId) &&
+        cardTraderBlueprintMatchesCard(bpId, {
+          rarity: item.card.rarity,
+          gameSlug: item.card.gameSlug,
+          imageUrl: item.card.imageUrl,
+          setCode: item.card.setCode,
+        });
+
       const updates: Partial<DemoOwnedCard["card"]> = {};
-      if (quote.blueprintId !== item.card.cardTraderBlueprintId) {
+      if (blueprintValid && quote.blueprintId !== item.card.cardTraderBlueprintId) {
         updates.cardTraderBlueprintId = quote.blueprintId;
       }
       if (quote.imageUrl && quote.imageUrl !== item.card.imageUrl) {

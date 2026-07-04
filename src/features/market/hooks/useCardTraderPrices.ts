@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
-import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { resolveStoredBlueprintId, resolveCardTraderProductUrl, cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -40,7 +40,7 @@ export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
     name: item.card.name,
     setName: item.card.setName,
     setCode: item.card.setCode,
-    collectorNumber: item.card.collectorNumber,
+    collectorNumber: item.card.collectorNumber ?? item.card.setCode,
     rarity: item.card.rarity,
     condition: item.condition,
     language: item.language,
@@ -199,6 +199,21 @@ export function useSequentialVariantPrices(
   const isFetching = pendingKeys.size > 0;
 
   return { data: prices, isFetching, pendingKeys, resolvedKeys };
+}
+
+/** Live query wins over bulk cache when both exist (quick refresh). */
+export function mergeCardTraderQuoteMaps(
+  bulk: Record<string, CardTraderQuote> | undefined,
+  live: Map<string, CardTraderQuote> | undefined
+): Map<string, CardTraderQuote> {
+  const merged = new Map<string, CardTraderQuote>();
+  if (bulk) {
+    for (const [key, quote] of Object.entries(bulk)) {
+      merged.set(key, quote);
+    }
+  }
+  live?.forEach((quote, key) => merged.set(key, quote));
+  return merged;
 }
 
 export function cardPriceKey(card: DemoOwnedCard): string {
@@ -391,18 +406,31 @@ export function resolveCardTraderUrl(
   item: DemoOwnedCard,
   livePrices: Map<string, CardTraderQuote> | undefined
 ): string | null {
-  return (
-    livePrices?.get(cardPriceKey(item))?.url ??
-    resolveCardTraderProductUrl({
-      name: item.card.name,
-      gameSlug: item.card.gameSlug,
-      externalId: item.card.externalId,
-      cardTraderBlueprintId: item.card.cardTraderBlueprintId,
-      setName: item.card.setName,
-      rarity: item.card.rarity,
-      imageUrl: item.card.imageUrl,
-    })
-  );
+  const live = livePrices?.get(cardPriceKey(item));
+  if (live?.url) {
+    const bpId = live.blueprintId ? Number(live.blueprintId) : null;
+    if (
+      bpId == null ||
+      cardTraderBlueprintMatchesCard(bpId, {
+        rarity: item.card.rarity,
+        gameSlug: item.card.gameSlug,
+        imageUrl: item.card.imageUrl,
+        setCode: item.card.setCode,
+      })
+    ) {
+      return live.url;
+    }
+  }
+  return resolveCardTraderProductUrl({
+    name: item.card.name,
+    gameSlug: item.card.gameSlug,
+    externalId: item.card.externalId,
+    cardTraderBlueprintId: item.card.cardTraderBlueprintId,
+    setName: item.card.setName,
+    setCode: item.card.setCode,
+    rarity: item.card.rarity,
+    imageUrl: item.card.imageUrl,
+  });
 }
 
 export function resolveCardTraderImage(
