@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
+import { cloneSearchResultForJson } from "@/features/catalog/services/serialize-search-results";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -31,7 +32,10 @@ export async function GET(request: NextRequest) {
       relatedPrints = prints.filter((p) => p.externalId !== result.externalId);
     }
 
-    return NextResponse.json({ result, relatedPrints });
+    return NextResponse.json({
+      result: cloneSearchResultForJson(result),
+      relatedPrints: relatedPrints.map(cloneSearchResultForJson),
+    });
   } catch {
     return NextResponse.json({ error: "Failed to load card" }, { status: 500 });
   }

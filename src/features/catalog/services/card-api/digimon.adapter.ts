@@ -1,4 +1,5 @@
 import type { CardApiAdapter, CardDetail, CardSearchResult } from "./types";
+import { stripNestedPrintMetadata } from "@/features/catalog/services/serialize-search-results";
 import {
   buildDigimonCollectorNumber,
   digimonVariantKey,
@@ -72,6 +73,13 @@ function mapDigimonCard(card: DigimonCard): CardSearchResult {
   };
 }
 
+function digimonPrintRefs(prints: CardSearchResult[]): CardSearchResult[] {
+  return prints.map((print) => ({
+    ...print,
+    metadata: stripNestedPrintMetadata(print.metadata),
+  }));
+}
+
 function groupDigimonSearchResults(cards: DigimonCard[]): CardSearchResult[] {
   const byCardId = new Map<string, CardSearchResult[]>();
 
@@ -85,9 +93,12 @@ function groupDigimonSearchResults(cards: DigimonCard[]): CardSearchResult[] {
 
   const results: CardSearchResult[] = [];
   for (const prints of byCardId.values()) {
-    const primary = prints[0];
+    const primary = prints[0]!;
     if (prints.length > 1) {
-      primary.metadata = { ...primary.metadata, digimonPrints: prints };
+      primary.metadata = {
+        ...primary.metadata,
+        digimonPrints: digimonPrintRefs(prints),
+      };
     }
     results.push(primary);
   }
@@ -183,7 +194,10 @@ export const digimonAdapter: CardApiAdapter = {
     const primary = pickDigimonPrint(prints, externalId);
 
     if (prints.length > 1) {
-      primary.metadata = { ...primary.metadata, digimonPrints: prints };
+      primary.metadata = {
+        ...primary.metadata,
+        digimonPrints: digimonPrintRefs(prints),
+      };
     }
 
     return { ...primary, gameSlug: "digimon" };

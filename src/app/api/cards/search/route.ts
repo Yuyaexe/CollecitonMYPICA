@@ -3,6 +3,10 @@ import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card
 import { digimonCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { SearchDebugLog } from "@/features/catalog/services/search-debug";
 import {
+  catalogSourceLabel,
+  serializeSearchResultsForResponse,
+} from "@/features/catalog/services/serialize-search-results";
+import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
   isCardTraderGameSupported,
@@ -81,8 +85,16 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        results = await log.time("catalog", `YGOPRODeck / ${game} catalog`, () => adapter.search(query));
-        log.push("info", "catalog", `${results.length} result(s) from catalog (images from catalog API)`);
+        results = await log.time(
+          "catalog",
+          `${catalogSourceLabel(game)} catalog`,
+          () => adapter.search(query)
+        );
+        log.push(
+          "info",
+          "catalog",
+          `${results.length} result(s) from ${catalogSourceLabel(game)}`
+        );
       } catch (error) {
         log.push("error", "catalog", "Catalog search failed", {
           detail: error instanceof Error ? error.message : String(error),
@@ -196,14 +208,16 @@ export async function GET(request: NextRequest) {
       log.push(
         "info",
         "images",
-        "Using catalog images (YGOPRODeck etc.) — CardTrader art upgrades in collection later"
+        `Using ${catalogSourceLabel(game)} images — CardTrader art upgrades in collection later`
       );
     }
 
     log.push("success", "done", `Returning ${results.length} result(s)`);
 
+    const safeResults = serializeSearchResultsForResponse(results);
+
     return NextResponse.json({
-      results,
+      results: safeResults,
       priceSource: cardTraderReady ? "catalog-first" : source,
       debug: debugMode ? log.toJSON() : undefined,
     });
