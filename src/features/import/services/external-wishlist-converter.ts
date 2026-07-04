@@ -1,5 +1,6 @@
 import {
   BACKUP_VERSION,
+  defaultAnimeBackupFields,
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
 import {
@@ -335,6 +336,7 @@ export function convertExternalWishlistToDeckVault(
       collections: initial.collections,
       ownedCards: [],
       tags: [],
+      ...defaultAnimeBackupFields(),
     };
   }
 
@@ -350,5 +352,6 @@ export function convertExternalWishlistToDeckVault(
     collections,
     ownedCards: [...mergedCards.values()],
     tags: [],
+    ...defaultAnimeBackupFields(),
   };
 }

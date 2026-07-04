@@ -1,9 +1,15 @@
 import type {
+  AnimeCharacterCard,
   DemoCollection,
   DemoOwnedCard,
   DemoProfile,
   DemoTag,
 } from "@/lib/demo/types";
+import type {
+  AnimeCharacter,
+  AnimeSeries,
+} from "@/features/anime-collection/types";
+import { buildSeedState } from "@/features/anime-collection/data/seed-catalog";
 
 export const BACKUP_VERSION = "1.0" as const;
 
@@ -14,13 +20,62 @@ export interface DeckVaultBackup {
   collections: DemoCollection[];
   ownedCards: DemoOwnedCard[];
   tags: DemoTag[];
+  animeSeries: AnimeSeries[];
+  animeCharacters: AnimeCharacter[];
+  animeCharacterCards: AnimeCharacterCard[];
 }
 
-export function buildBackupPayload(data: Omit<DeckVaultBackup, "version" | "exportedAt">): DeckVaultBackup {
+/** Defaults for older backups / CT imports without Anime Collection. */
+export function defaultAnimeBackupFields(): Pick<
+  DeckVaultBackup,
+  "animeSeries" | "animeCharacters" | "animeCharacterCards"
+> {
+  const seed = buildSeedState();
+  return {
+    animeSeries: seed.animeSeries,
+    animeCharacters: seed.animeCharacters,
+    animeCharacterCards: [],
+  };
+}
+
+export function normalizeAnimeCharacterCards(
+  cards: AnimeCharacterCard[] | undefined | null
+): AnimeCharacterCard[] {
+  return (cards ?? []).map((entry) => ({
+    ...entry,
+    condition: entry.condition ?? "NM",
+    language: entry.language ?? "EN",
+    isFoil: entry.isFoil ?? false,
+  }));
+}
+
+export function resolveAnimeBackupFields(
+  partial: Partial<
+    Pick<DeckVaultBackup, "animeSeries" | "animeCharacters" | "animeCharacterCards">
+  >
+): Pick<DeckVaultBackup, "animeSeries" | "animeCharacters" | "animeCharacterCards"> {
+  const defaults = defaultAnimeBackupFields();
+  return {
+    animeSeries:
+      Array.isArray(partial.animeSeries) && partial.animeSeries.length > 0
+        ? partial.animeSeries
+        : defaults.animeSeries,
+    animeCharacters:
+      Array.isArray(partial.animeCharacters) && partial.animeCharacters.length > 0
+        ? partial.animeCharacters
+        : defaults.animeCharacters,
+    animeCharacterCards: normalizeAnimeCharacterCards(partial.animeCharacterCards),
+  };
+}
+
+export function buildBackupPayload(
+  data: Omit<DeckVaultBackup, "version" | "exportedAt">
+): DeckVaultBackup {
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     ...data,
+    ...resolveAnimeBackupFields(data),
   };
 }
 
@@ -49,5 +104,8 @@ export async function fetchBackupFromServer(): Promise<DeckVaultBackup> {
     collections: state.collections,
     ownedCards: state.ownedCards,
     tags: state.tags ?? [],
+    animeSeries: state.animeSeries ?? [],
+    animeCharacters: state.animeCharacters ?? [],
+    animeCharacterCards: state.animeCharacterCards ?? [],
   });
 }

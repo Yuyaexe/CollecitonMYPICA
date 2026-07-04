@@ -12,7 +12,10 @@ import {
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
-import type { DeckVaultBackup } from "@/features/import/services/backup-export";
+import {
+  resolveAnimeBackupFields,
+  type DeckVaultBackup,
+} from "@/features/import/services/backup-export";
 import {
   buildSeedState,
   slugifyAnimeName,
@@ -72,6 +75,8 @@ interface DemoStore extends DemoState {
   deleteCollection: (id: string) => void;
   toggleCollectionFavorite: (id: string) => void;
   restoreFromBackup: (backup: DeckVaultBackup) => void;
+  /** Anime Collection lives in localStorage even in Supabase mode. */
+  restoreAnimeCollectionFromBackup: (backup: DeckVaultBackup) => void;
   addAnimeSeries: (input: {
     name: string;
     coverImageUrl?: string | null;
@@ -405,7 +410,7 @@ export const useDemoStore = create<DemoStore>()(
       restoreFromBackup: (backup) => {
         const defaultCol =
           backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
-        const seed = buildSeedState();
+        const anime = resolveAnimeBackupFields(backup);
         set({
           profile: backup.profile,
           collections: backup.collections.length
@@ -414,8 +419,18 @@ export const useDemoStore = create<DemoStore>()(
           ownedCards: backup.ownedCards,
           tags: backup.tags ?? [],
           activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
-          animeSeries: seed.animeSeries,
-          animeCharacters: seed.animeCharacters,
+          animeSeries: anime.animeSeries,
+          animeCharacters: anime.animeCharacters,
+          animeCharacterCards: anime.animeCharacterCards,
+        });
+      },
+
+      restoreAnimeCollectionFromBackup: (backup) => {
+        const anime = resolveAnimeBackupFields(backup);
+        set({
+          animeSeries: anime.animeSeries,
+          animeCharacters: anime.animeCharacters,
+          animeCharacterCards: anime.animeCharacterCards,
         });
       },
 

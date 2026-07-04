@@ -60,17 +60,28 @@ export default function SettingsPage() {
   const handleBackup = async () => {
     setBackingUp(true);
     try {
+      const anime = useDemoStore.getState();
+      const animeFields = {
+        animeSeries: anime.animeSeries,
+        animeCharacters: anime.animeCharacters,
+        animeCharacterCards: anime.animeCharacterCards,
+      };
+
       const backup = isSupabaseMode
-        ? await fetchBackupFromServer()
+        ? {
+            ...(await fetchBackupFromServer()),
+            ...animeFields,
+          }
         : buildBackupPayload({
             profile,
             collections,
             ownedCards,
             tags,
+            ...animeFields,
           });
       downloadBackup(backup);
       toast.success(
-        `Backup salvo (${backup.ownedCards.length} cartas, ${backup.collections.length} coleções)`
+        `Backup salvo (${backup.ownedCards.length} cartas, ${backup.collections.length} coleções, ${backup.animeCharacterCards.length} cartas anime)`
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao criar backup");
@@ -81,7 +92,7 @@ export default function SettingsPage() {
 
   const handleRestoreFile = async (file: File) => {
     const confirmed = window.confirm(
-      "Restaurar backup? As cartas serão mescladas nas coleções (duplicatas somam quantidade). Coleções com o mesmo nome serão reutilizadas."
+      "Restaurar backup? A coleção e a Anime Collection serão substituídas pelos dados do arquivo."
     );
     if (!confirmed) return;
 
@@ -94,14 +105,15 @@ export default function SettingsPage() {
       }
       if (isSupabaseMode) {
         const result = await restoreBackupOnServer(backup);
+        useDemoStore.getState().restoreAnimeCollectionFromBackup(backup);
         await queryClient.invalidateQueries({ queryKey: ["app-state"] });
         toast.success(
-          `Restaurado: ${result.importedCards} cartas em ${result.collections} coleções`
+          `Restaurado: ${result.importedCards} cartas em ${result.collections} coleções, ${backup.animeCharacterCards.length} cartas anime`
         );
       } else {
         useDemoStore.getState().restoreFromBackup(backup);
         toast.success(
-          `Restaurado: ${backup.ownedCards.length} cartas em ${backup.collections.length} coleções`
+          `Restaurado: ${backup.ownedCards.length} cartas em ${backup.collections.length} coleções, ${backup.animeCharacterCards.length} cartas anime`
         );
       }
     } catch (err) {

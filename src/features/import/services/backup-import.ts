@@ -1,5 +1,6 @@
 import {
   BACKUP_VERSION,
+  resolveAnimeBackupFields,
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
 import {
@@ -54,6 +55,7 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
       collections: backup.collections,
       ownedCards: backup.ownedCards,
       tags: backup.tags ?? [],
+      ...resolveAnimeBackupFields(backup),
     };
 
     return mergeDeckVaultCollectionsByTab(normalized);
