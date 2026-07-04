@@ -1,4 +1,11 @@
 import type { CardApiAdapter, CardDetail, CardSearchResult } from "./types";
+import {
+  buildDigimonCollectorNumber,
+  digimonVariantKey,
+  parseDigimonVariant,
+  resolveDigimonCardTraderRarity,
+  splitDigimonCardId,
+} from "./digimon.utils";
 
 const API = "https://digimoncard.io/api-public";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
@@ -38,25 +45,80 @@ function isDigimonGameCard(card: DigimonCard): boolean {
 }
 
 function mapDigimonCard(card: DigimonCard): CardSearchResult {
+  const variant = parseDigimonVariant(card.id, card.tcgplayer_name);
+  const collectorNumber = buildDigimonCollectorNumber(card.id, variant.collectorSuffix);
   const setName = card.set_name?.[0] ?? null;
+
   return {
-    externalId: card.id,
+    externalId: card.tcgplayer_id != null ? String(card.tcgplayer_id) : collectorNumber,
     name: card.name,
     setCode: card.id.split("-")[0] ?? null,
     setName,
-    collectorNumber: card.id,
+    collectorNumber,
     rarity: card.rarity,
-    edition: card.stage,
+    edition: variant.label ?? card.stage ?? null,
     imageUrl: digimonImageUrl(card.id),
     price: null,
     metadata: {
       type: card.type,
       color: card.color,
+      cardId: card.id,
       tcgplayer_id: card.tcgplayer_id,
       tcgplayer_name: card.tcgplayer_name,
+      variantLabel: variant.label,
+      cardTraderRarityHint: resolveDigimonCardTraderRarity(card.rarity, variant),
       sets: card.set_name,
     },
   };
+}
+
+function groupDigimonSearchResults(cards: DigimonCard[]): CardSearchResult[] {
+  const byCardId = new Map<string, CardSearchResult[]>();
+
+  for (const card of cards) {
+    const mapped = mapDigimonCard(card);
+    const groupKey = card.id.toUpperCase();
+    const group = byCardId.get(groupKey) ?? [];
+    group.push(mapped);
+    byCardId.set(groupKey, group);
+  }
+
+  const results: CardSearchResult[] = [];
+  for (const prints of byCardId.values()) {
+    const primary = prints[0];
+    if (prints.length > 1) {
+      primary.metadata = { ...primary.metadata, digimonPrints: prints };
+    }
+    results.push(primary);
+  }
+
+  return results;
+}
+
+function pickDigimonPrint(
+  prints: CardSearchResult[],
+  externalId: string
+): CardSearchResult {
+  if (/^\d+$/.test(externalId)) {
+    const byTcg = prints.find((print) => print.externalId === externalId);
+    if (byTcg) return byTcg;
+  }
+
+  const normalized = externalId.toLowerCase();
+  const byCollector = prints.find(
+    (print) => print.collectorNumber?.toLowerCase() === normalized
+  );
+  if (byCollector) return byCollector;
+
+  const { suffix } = splitDigimonCardId(externalId);
+  if (suffix) {
+    const bySuffix = prints.find((print) =>
+      print.collectorNumber?.toLowerCase().endsWith(suffix)
+    );
+    if (bySuffix) return bySuffix;
+  }
+
+  return prints[0];
 }
 
 async function fetchDigimonCards(path: string): Promise<DigimonCard[]> {
@@ -78,14 +140,17 @@ export const digimonAdapter: CardApiAdapter = {
 
     const addCards = (cards: DigimonCard[]) => {
       for (const card of cards) {
-        if (!isDigimonGameCard(card) || seen.has(card.id)) continue;
-        seen.add(card.id);
+        if (!isDigimonGameCard(card)) continue;
+        const key = digimonVariantKey(card);
+        if (seen.has(key)) continue;
+        seen.add(key);
         collected.push(card);
       }
     };
 
     if (DIGIMON_CARD_ID.test(trimmed)) {
-      addCards(await fetchDigimonCards(`/search?card=${encodeURIComponent(trimmed)}`));
+      const { baseId } = splitDigimonCardId(trimmed);
+      addCards(await fetchDigimonCards(`/search?card=${encodeURIComponent(baseId)}`));
     }
 
     const normalized = normalizeDigimonQuery(trimmed);
@@ -102,13 +167,25 @@ export const digimonAdapter: CardApiAdapter = {
       }
     }
 
-    return collected.slice(0, 20).map(mapDigimonCard);
+    return groupDigimonSearchResults(collected).slice(0, 20);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {
-    const cards = await fetchDigimonCards(`/search?card=${encodeURIComponent(externalId)}`);
-    const card = cards.find(isDigimonGameCard) ?? null;
-    if (!card) return null;
-    return { ...mapDigimonCard(card), gameSlug: "digimon" };
+    const lookupId = DIGIMON_CARD_ID.test(externalId)
+      ? splitDigimonCardId(externalId).baseId
+      : externalId;
+
+    const cards = await fetchDigimonCards(`/search?card=${encodeURIComponent(lookupId)}`);
+    const valid = cards.filter(isDigimonGameCard);
+    if (valid.length === 0) return null;
+
+    const prints = valid.map(mapDigimonCard);
+    const primary = pickDigimonPrint(prints, externalId);
+
+    if (prints.length > 1) {
+      primary.metadata = { ...primary.metadata, digimonPrints: prints };
+    }
+
+    return { ...primary, gameSlug: "digimon" };
   },
 };

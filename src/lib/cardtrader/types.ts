@@ -40,7 +40,12 @@ export interface CardPriceInput {
   name: string;
   setName?: string | null;
   setCode?: string | null;
+  collectorNumber?: string | null;
   rarity?: string | null;
+  /** Digimon print label, e.g. "Alternate Art" */
+  variantLabel?: string | null;
+  /** TCGPlayer product id — preferred CardTrader blueprint match for Digimon */
+  tcgPlayerId?: string | null;
   condition?: CardCondition;
   language?: CardLanguage;
   isFoil?: boolean;

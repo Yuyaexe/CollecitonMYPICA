@@ -29,6 +29,7 @@ import {
   getSearchResultVariants,
   type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
+import { digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -102,7 +103,11 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         key: v.key,
         setName: v.setName,
         setCode: v.setCode,
+        collectorNumber: v.collectorNumber,
         rarity: v.rarity,
+        variantLabel: v.variantLabel,
+        tcgPlayerId: v.tcgPlayerId,
+        cardTraderRarityHint: v.cardTraderRarityHint,
         blueprintId: resolveStoredBlueprintId(v.externalId, v.imageUrl),
       })),
     [variants]
@@ -194,9 +199,15 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   };
 
   const handleCardClick = (result: CardSearchResult) => {
-    const siblings = data?.filter((r) => r.name === result.name) ?? [];
+    const siblings =
+      data?.filter(
+        (r) =>
+          r.externalId !== result.externalId &&
+          (r.name === result.name ||
+            (game.slug === "digimon" && digimonNamesMatch(r.name, result.name)))
+      ) ?? [];
     const cardForVariants =
-      siblings.length > 1
+      siblings.length > 0
         ? {
             ...result,
             metadata: { ...result.metadata, cardtraderPrints: siblings },
@@ -350,10 +361,11 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">
                               {variant.setName ?? "Unknown set"}
+                              {variant.variantLabel ? ` · ${variant.variantLabel}` : ""}
                             </p>
-                            {variant.setCode && (
+                            {(variant.collectorNumber ?? variant.setCode) && (
                               <p className="truncate text-xs text-muted-foreground">
-                                {variant.setCode}
+                                {variant.collectorNumber ?? variant.setCode}
                               </p>
                             )}
                           </div>

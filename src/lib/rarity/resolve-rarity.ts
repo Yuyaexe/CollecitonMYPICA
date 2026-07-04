@@ -42,6 +42,10 @@ const CODE_COLORS: Record<string, { backgroundColor: string; color: string }> = 
   MSR: { backgroundColor: "#57534e", color: "#ffffff" },
   SHR: { backgroundColor: "#78716c", color: "#ffffff" },
   DSUR: { backgroundColor: "#eab308", color: "#422006" },
+  UC: { backgroundColor: "#84cc16", color: "#ffffff" },
+  SEC: { backgroundColor: "#ca8a04", color: "#422006" },
+  P: { backgroundColor: "#6366f1", color: "#ffffff" },
+  SP: { backgroundColor: "#64748b", color: "#ffffff" },
 };
 
 function withCode(code: string, label: string): RarityStyle {
@@ -95,6 +99,41 @@ function resolveYugiohRarity(rarity: string): RarityStyle {
     .slice(0, 4)
     .toUpperCase();
   return withCode(code || "?", label);
+}
+
+const DIGIMON_KNOWN_CODES = new Set(["C", "U", "UC", "R", "SR", "SEC", "P", "SP", "PR"]);
+
+function resolveDigimonRarity(rarity: string): RarityStyle {
+  const upper = rarity.trim().toUpperCase();
+  if (DIGIMON_KNOWN_CODES.has(upper)) {
+    return withCode(upper, rarity);
+  }
+
+  const n = rarity.toLowerCase();
+  const label = rarity;
+
+  if (n.includes("secret")) return withCode("SEC", label);
+  if (n.includes("super")) return withCode("SR", label);
+  if (n.includes("uncommon")) return withCode("UC", label);
+  if (n.includes("rare")) return withCode("R", label);
+  if (n.includes("common")) return withCode("C", label);
+  if (n.includes("promo")) return withCode("P", label);
+
+  return withCode(abbreviate(rarity, 4), label);
+}
+
+function isDigimonRarityName(rarity: string): boolean {
+  const upper = rarity.trim().toUpperCase();
+  if (DIGIMON_KNOWN_CODES.has(upper)) return true;
+  const n = rarity.toLowerCase();
+  return (
+    n.includes("rare") ||
+    n.includes("common") ||
+    n.includes("uncommon") ||
+    n.includes("promo") ||
+    n.includes("secret") ||
+    n.includes("super")
+  );
 }
 
 function resolveGenericRarity(rarity: string): RarityStyle {
@@ -171,6 +210,12 @@ export function isKnownRarity(
     return false;
   }
 
+  if (gameSlug === "digimon") {
+    if (isDigimonRarityName(trimmed)) return true;
+    if (trimmed.length <= 6 && /^[A-Za-z0-9]+$/.test(trimmed)) return true;
+    return false;
+  }
+
   const n = trimmed.toLowerCase();
   if (
     n.includes("rare") ||
@@ -196,6 +241,10 @@ export function resolveRarityStyle(
 
   if (gameSlug === "yugioh" || isYugiohRarityName(trimmed)) {
     return resolveYugiohRarity(trimmed);
+  }
+
+  if (gameSlug === "digimon" || isDigimonRarityName(trimmed)) {
+    return resolveDigimonRarity(trimmed);
   }
 
   return resolveGenericRarity(trimmed);

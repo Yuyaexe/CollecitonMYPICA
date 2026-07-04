@@ -10,6 +10,7 @@ export function repairDemoCard(card: DemoCard): DemoCard {
     if (fromImage != null) {
       cardTraderBlueprintId = String(fromImage);
     } else if (
+      card.gameSlug !== "digimon" &&
       card.externalId &&
       /^\d+$/.test(card.externalId) &&
       card.externalId.length < 8
@@ -28,14 +29,25 @@ export function repairDemoCard(card: DemoCard): DemoCard {
 export function cardTraderBlueprintFromSearch(
   externalId: string | null,
   imageUrl: string | null,
-  catalogSource?: string
+  catalogSource?: string,
+  gameSlug?: string,
+  metadata?: Record<string, unknown>
 ): string | null {
+  const fromMetadata = metadata?.cardTraderBlueprintId;
+  if (fromMetadata != null && String(fromMetadata).trim()) {
+    return String(fromMetadata);
+  }
   if (catalogSource === "cardtrader" && externalId) {
     return externalId;
   }
   const fromImage = extractBlueprintIdFromImageUrl(imageUrl);
   if (fromImage != null) return String(fromImage);
-  if (externalId && /^\d+$/.test(externalId) && externalId.length < 8) {
+  if (
+    gameSlug !== "digimon" &&
+    externalId &&
+    /^\d+$/.test(externalId) &&
+    externalId.length < 8
+  ) {
     return externalId;
   }
   return null;

@@ -10,7 +10,11 @@ export interface CardPrintVariant {
   key: string;
   setCode: string | null;
   setName: string | null;
+  collectorNumber?: string | null;
   rarity: string | null;
+  variantLabel?: string | null;
+  tcgPlayerId?: string | null;
+  cardTraderRarityHint?: string | null;
   /** YGOPRODeck secondary reference price (TCGPlayer from API) */
   price: number | null;
   externalId: string | null;
@@ -55,7 +59,34 @@ function cardtraderPrintToVariant(print: CardSearchResult): CardPrintVariant {
     key: `${print.setCode ?? "set"}-${print.externalId}`,
     setCode: print.setCode,
     setName: print.setName,
+    collectorNumber: print.collectorNumber,
     rarity: print.rarity,
+    price: print.price,
+    externalId: print.externalId,
+    imageUrl: print.imageUrl,
+    ygoProDeckUrl: "#",
+  };
+}
+
+function digimonPrintsFromResult(result: CardSearchResult): CardSearchResult[] {
+  const prints = result.metadata?.digimonPrints as CardSearchResult[] | undefined;
+  if (prints?.length) return prints;
+  return [result];
+}
+
+function digimonPrintToVariant(print: CardSearchResult): CardPrintVariant {
+  const tcgPlayerId =
+    print.metadata?.tcgplayer_id != null ? String(print.metadata.tcgplayer_id) : null;
+
+  return {
+    key: `${print.collectorNumber ?? print.externalId}-${tcgPlayerId ?? "base"}`,
+    setCode: print.setCode,
+    setName: print.setName,
+    collectorNumber: print.collectorNumber,
+    rarity: print.rarity,
+    variantLabel: (print.metadata?.variantLabel as string | null | undefined) ?? print.edition,
+    tcgPlayerId,
+    cardTraderRarityHint: print.metadata?.cardTraderRarityHint as string | null | undefined,
     price: print.price,
     externalId: print.externalId,
     imageUrl: print.imageUrl,
@@ -71,6 +102,13 @@ export function getSearchResultVariants(
   const cardtraderPrints = cardtraderPrintsFromResult(result);
   if (cardtraderPrints.length > 0) {
     return cardtraderPrints.map(cardtraderPrintToVariant);
+  }
+
+  if (gameSlug === "digimon") {
+    const prints = digimonPrintsFromResult(result);
+    if (prints.length > 1) {
+      return prints.map(digimonPrintToVariant);
+    }
   }
 
   if (gameSlug === "yugioh") {
@@ -101,6 +139,10 @@ export function getSearchResultVariants(
     }
   }
 
+  if (gameSlug === "digimon") {
+    return [digimonPrintToVariant(result)];
+  }
+
   return [
     {
       key: "default",
@@ -125,7 +167,7 @@ function rarityCodesMatch(
 ): boolean {
   if (!a?.trim() || !b?.trim()) return false;
   if (a.trim().toLowerCase() === b.trim().toLowerCase()) return true;
-  const slug = gameSlug === "yugioh" ? "yugioh" : undefined;
+  const slug = gameSlug === "yugioh" || gameSlug === "digimon" ? gameSlug : undefined;
   return resolveRarityStyle(a, slug).code === resolveRarityStyle(b, slug).code;
 }
 
@@ -175,7 +217,10 @@ export function findVariantForSelection(
 
   if (ownedCode) {
     const byCode = variants.find(
-      (v) => rarityCodesMatch(v.rarity, rarity, gameSlug) && setCodesMatch(ownedCode, v.setCode)
+      (v) =>
+        rarityCodesMatch(v.rarity, rarity, gameSlug) &&
+        (setCodesMatch(ownedCode, v.collectorNumber ?? v.setCode) ||
+          setCodesMatch(ownedCode, v.setCode))
     );
     if (byCode) return byCode;
   }
@@ -189,6 +234,13 @@ export function findVariantForSelection(
 
   const byRarity = variants.filter((v) => rarityCodesMatch(v.rarity, rarity, gameSlug));
   if (byRarity.length === 1) return byRarity[0];
+
+  if (collectorNumber && byRarity.length > 1) {
+    const byCollector = byRarity.find((v) =>
+      setCodesMatch(collectorNumber, v.collectorNumber ?? v.setCode)
+    );
+    if (byCollector) return byCollector;
+  }
 
   if (setName && byRarity.length > 1) {
     const partial = byRarity.find((v) => {
@@ -212,8 +264,16 @@ export function applyVariant(
     setCode: variant.setCode,
     setName: variant.setName,
     rarity: variant.rarity,
+    edition: variant.variantLabel ?? result.edition,
     price: variant.price,
     imageUrl: variant.imageUrl ?? result.imageUrl,
-    collectorNumber: variant.setCode ?? result.collectorNumber,
+    collectorNumber: variant.collectorNumber ?? variant.setCode ?? result.collectorNumber,
+    metadata: {
+      ...result.metadata,
+      tcgplayer_id: variant.tcgPlayerId ?? result.metadata?.tcgplayer_id,
+      variantLabel: variant.variantLabel ?? result.metadata?.variantLabel,
+      cardTraderRarityHint:
+        variant.cardTraderRarityHint ?? result.metadata?.cardTraderRarityHint,
+    },
   };
 }

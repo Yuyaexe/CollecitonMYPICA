@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getCardTraderPriceForProfile, isCardTraderConfigured } from "@/lib/cardtrader";
+import { digimonCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { toDemoCard, toDemoCollection, toDemoOwnedCard, toDemoProfile, marketPriceMetadata } from "@/lib/data/mappers";
 import type { DemoCollection, DemoOwnedCard, DemoProfile } from "@/lib/demo/types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -364,6 +365,9 @@ async function resolveStoredMarketPrice(
         name: result.name,
         setName: result.setName,
         setCode: result.setCode,
+        collectorNumber: result.collectorNumber,
+        rarity: result.rarity,
+        ...(gameSlug === "digimon" ? digimonCardPriceFields(result) : {}),
       },
       currency
     );

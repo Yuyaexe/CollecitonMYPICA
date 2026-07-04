@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
+import { digimonCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
@@ -71,6 +72,7 @@ async function enrichWithCardTraderPrices(
           imageUrl: result.imageUrl,
           cardTraderBlueprintId:
             blueprintId != null ? String(blueprintId) : null,
+          ...(game === "digimon" ? digimonCardPriceFields(result) : {}),
         },
         currency
       );
@@ -85,6 +87,7 @@ async function enrichWithCardTraderPrices(
         metadata: {
           ...result.metadata,
           priceSource: "cardtrader",
+          cardTraderBlueprintId: cardTrader.blueprintId,
         },
       });
     } catch {

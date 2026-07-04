@@ -1,4 +1,6 @@
 import type { CardCondition, CardLanguage, Currency } from "@/types/tcg";
+import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
+import { buildSeedState } from "@/features/anime-collection/data/seed-catalog";
 
 export interface DemoCard {
   id: string;
@@ -57,6 +59,8 @@ export interface DemoState {
   collections: DemoCollection[];
   ownedCards: DemoOwnedCard[];
   tags: DemoTag[];
+  animeSeries: AnimeSeries[];
+  animeCharacters: AnimeCharacter[];
 }
 
 export const DEMO_GAMES = [
@@ -71,6 +75,7 @@ export const DEMO_GAMES = [
 export const DEFAULT_COLLECTION_ID = "demo-collection-1";
 
 export function createInitialDemoState(): DemoState {
+  const { animeSeries, animeCharacters } = buildSeedState();
   return {
     profile: {
       displayName: "Collector",
@@ -89,5 +94,7 @@ export function createInitialDemoState(): DemoState {
     ],
     ownedCards: [],
     tags: [],
+    animeSeries,
+    animeCharacters,
   };
 }

@@ -1,6 +1,10 @@
 import { cardTraderFetch, unwrapCardTraderList } from "./client";
 import type { CardPriceInput, CardTraderBlueprint, CardTraderExpansion, CardTraderGame } from "./types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+import {
+  normalizeDigimonSetCode,
+  splitDigimonCardId,
+} from "@/features/catalog/services/card-api/digimon.utils";
 
 const SEARCH_RESULT_LIMIT = 24;
 /** Supplemental merge (Digimon/YGO/Pokemon + CT) — keep fast. */
@@ -261,6 +265,12 @@ function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null,
   const expCode = normalize(expansion.code ?? "");
   let score = 0;
 
+  const normInputCode = normalizeDigimonSetCode(setCode);
+  const normExpCode = normalizeDigimonSetCode(expansion.code);
+  if (normInputCode && normExpCode && normInputCode === normExpCode) {
+    score += 100;
+  }
+
   if (setCode) {
     const code = normalize(setCode);
     if (expCode === code) score += 100;
@@ -274,33 +284,59 @@ function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null,
     for (const token of set.split(" ").filter((t) => t.length > 2)) {
       if (expName.includes(token)) score += 8;
     }
+    if (normInputCode) {
+      const setNorm = normalizeDigimonSetCode(setName.split(":")[0]);
+      if (setNorm && normExpCode && setNorm === normExpCode) score += 50;
+    }
   }
 
   return score;
 }
 
-function scoreBlueprint(
-  blueprint: CardTraderBlueprint,
-  cardName: string,
-  setCode?: string | null,
-  rarity?: string | null
-): number {
+type BlueprintScoreInput = Pick<
+  CardPriceInput,
+  "name" | "setCode" | "rarity" | "collectorNumber" | "variantLabel"
+>;
+
+function scoreBlueprint(blueprint: CardTraderBlueprint, input: BlueprintScoreInput): number {
   const a = normalize(blueprint.name);
-  const b = normalize(cardName);
+  const b = normalize(input.name);
   let score = 0;
   if (a === b) score += 100;
   else if (a.includes(b) || b.includes(a)) score += 70;
 
-  if (setCode) {
-    const code = normalize(setCode);
+  if (input.setCode) {
+    const code = normalize(input.setCode);
     if (a.includes(code)) score += 90;
+    const normCode = normalizeDigimonSetCode(input.setCode);
+    if (normCode && a.includes(normCode.replace(/(\d+)/, "-$1"))) score += 40;
   }
 
-  if (rarity) {
-    const r = normalize(rarity);
+  if (input.collectorNumber) {
+    const { baseId, suffix } = splitDigimonCardId(input.collectorNumber);
+    const collectorNorm = normalize(baseId);
+    if (a.includes(collectorNorm)) score += 95;
+    if (suffix) {
+      if (a.includes("alternate art") || a.includes("alt art")) score += 85;
+      if (blueprint.version && normalize(blueprint.version).includes("alternate")) score += 70;
+    } else if (!a.includes("alternate art") && !a.includes("alt art")) {
+      score += 20;
+    }
+  }
+
+  if (input.variantLabel) {
+    const variant = normalize(input.variantLabel);
+    if (a.includes(variant)) score += 80;
+    if (blueprint.version && normalize(blueprint.version).includes(variant)) score += 65;
+  }
+
+  if (input.rarity) {
+    const r = normalize(input.rarity);
     if (a.includes(r)) score += 55;
+    if (blueprint.version && normalize(blueprint.version).includes(r)) score += 50;
     for (const token of r.split(" ").filter((t) => t.length > 3)) {
       if (a.includes(token)) score += 12;
+      if (blueprint.version?.toLowerCase().includes(token)) score += 10;
     }
   }
 
@@ -308,6 +344,31 @@ function scoreBlueprint(
 }
 
 const MIN_BLUEPRINT_SCORE = 72;
+
+async function resolveBlueprintByTcgPlayerId(
+  tcgPlayerId: string,
+  gameId: number
+): Promise<number | null> {
+  const expansions = await getExpansions(gameId);
+  const ranked = [...expansions].sort((a, b) => b.id - a.id).slice(0, 24);
+
+  for (const expansion of ranked) {
+    const blueprints = await getBlueprints(expansion.id);
+    const match = blueprints.find(
+      (blueprint) =>
+        blueprint.game_id === gameId && blueprint.tcg_player_id === tcgPlayerId
+    );
+    if (match) {
+      if (match.image_url) {
+        blueprintImageCache.set(match.id, match.image_url);
+        cacheBlueprintSlug(match.id, match.image_url);
+      }
+      return match.id;
+    }
+  }
+
+  return null;
+}
 
 export async function resolveBlueprintId(input: CardPriceInput): Promise<number | null> {
   const fromDedicated = parseCardTraderBlueprintId(input.cardTraderBlueprintId);
@@ -324,12 +385,29 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
     return input.blueprintId;
   }
 
-  const cacheKey = `${input.gameSlug}|${input.setName ?? ""}|${input.setCode ?? ""}|${input.rarity ?? ""}|${input.name}`;
+  const cacheKey = [
+    input.gameSlug,
+    input.setName ?? "",
+    input.setCode ?? "",
+    input.collectorNumber ?? "",
+    input.rarity ?? "",
+    input.variantLabel ?? "",
+    input.tcgPlayerId ?? "",
+    input.name,
+  ].join("|");
   const cached = blueprintLookup.get(cacheKey);
   if (cached) return cached;
 
   const gameId = await resolveCardTraderGameId(input.gameSlug);
   if (!gameId) return null;
+
+  if (input.tcgPlayerId) {
+    const fromTcg = await resolveBlueprintByTcgPlayerId(input.tcgPlayerId, gameId);
+    if (fromTcg != null) {
+      blueprintLookup.set(cacheKey, fromTcg);
+      return fromTcg;
+    }
+  }
 
   const expansions = await getExpansions(gameId);
   const rankedExpansions = expansions
@@ -346,12 +424,20 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
       ? rankedExpansions
       : expansions.slice(0, 2).map((expansion) => ({ expansion, score: 0 }));
 
+  const blueprintInput: BlueprintScoreInput = {
+    name: input.name,
+    setCode: input.setCode,
+    rarity: input.rarity,
+    collectorNumber: input.collectorNumber,
+    variantLabel: input.variantLabel,
+  };
+
   for (const { expansion } of candidates) {
     const blueprints = await getBlueprints(expansion.id);
     const best = blueprints
       .map((blueprint) => ({
         blueprint,
-        score: scoreBlueprint(blueprint, input.name, input.setCode, input.rarity),
+        score: scoreBlueprint(blueprint, blueprintInput),
       }))
       .filter((item) => item.score >= MIN_BLUEPRINT_SCORE && item.blueprint.game_id === gameId)
       .sort((a, b) => b.score - a.score)[0];

@@ -1,5 +1,6 @@
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
+import { splitDigimonCardId } from "@/features/catalog/services/card-api/digimon.utils";
 import type { DecklistGameSlug, ParsedDeckEntry, ResolvedDeckEntry } from "@/features/import/types";
 
 const YGO_API = "https://db.ygoprodeck.com/api/v7";
@@ -69,10 +70,25 @@ function pickExactNameMatch(results: CardSearchResult[], name: string): CardSear
 
 function pickDigimonMatch(results: CardSearchResult[], entry: ParsedDeckEntry): CardSearchResult | null {
   if (entry.setCode) {
+    const normalizedEntry = entry.setCode.toLowerCase();
+    const { baseId, suffix } = splitDigimonCardId(entry.setCode);
+
+    for (const result of results) {
+      const prints =
+        (result.metadata?.digimonPrints as CardSearchResult[] | undefined) ?? [result];
+
+      for (const print of prints) {
+        const collector = print.collectorNumber?.toLowerCase();
+        if (collector === normalizedEntry) return print;
+        if (print.externalId?.toLowerCase() === normalizedEntry) return print;
+        if (suffix && collector === `${baseId.toLowerCase()}${suffix}`) return print;
+      }
+    }
+
     const byId = results.find(
       (result) =>
-        result.externalId?.toLowerCase() === entry.setCode!.toLowerCase() ||
-        result.collectorNumber?.toLowerCase() === entry.setCode!.toLowerCase()
+        result.externalId?.toLowerCase() === normalizedEntry ||
+        result.collectorNumber?.toLowerCase() === normalizedEntry
     );
     if (byId) return byId;
   }

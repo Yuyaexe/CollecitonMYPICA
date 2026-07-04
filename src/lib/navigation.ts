@@ -3,6 +3,7 @@ import {
   Layers,
   LayoutGrid,
   Settings,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,5 +18,11 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutDashboard },
   { href: "/collections", label: "Collection Manager", shortLabel: "Folders", icon: LayoutGrid },
   { href: "/collection", label: "Collection", shortLabel: "Cards", icon: Layers },
+  {
+    href: "/anime-collection",
+    label: "Anime Collection",
+    shortLabel: "Anime",
+    icon: Sparkles,
+  },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -26,22 +27,28 @@ function quoteFromResponse(raw: CardTraderQuote | null | undefined): CardTraderQ
 }
 
 export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
+  const blueprintId = resolveStoredBlueprintId(
+    item.card.externalId,
+    item.card.imageUrl,
+    item.card.cardTraderBlueprintId
+  );
+
   return {
     gameSlug: item.card.gameSlug,
     name: item.card.name,
     setName: item.card.setName,
     setCode: item.card.setCode,
+    collectorNumber: item.card.collectorNumber,
     rarity: item.card.rarity,
     condition: item.condition,
     language: item.language,
     isFoil: item.isFoil,
     imageUrl: item.card.imageUrl,
     cardTraderBlueprintId: item.card.cardTraderBlueprintId,
-    blueprintId: resolveStoredBlueprintId(
-      item.card.externalId,
-      item.card.imageUrl,
-      item.card.cardTraderBlueprintId
-    ),
+    blueprintId,
+    ...(item.card.gameSlug === "digimon"
+      ? digimonOwnedCardPriceFields(item.card)
+      : {}),
   };
 }
 
@@ -104,7 +111,11 @@ export function useSequentialVariantPrices(
     key: string;
     setName: string | null;
     setCode: string | null;
+    collectorNumber?: string | null;
     rarity?: string | null;
+    variantLabel?: string | null;
+    tcgPlayerId?: string | null;
+    cardTraderRarityHint?: string | null;
     blueprintId?: number | null;
     imageUrl?: string | null;
     cardTraderBlueprintId?: string | null;
@@ -148,7 +159,10 @@ export function useSequentialVariantPrices(
           name: cardName,
           setName: variant.setName,
           setCode: variant.setCode,
-          rarity: variant.rarity,
+          collectorNumber: variant.collectorNumber,
+          rarity: variant.cardTraderRarityHint ?? variant.rarity,
+          variantLabel: variant.variantLabel,
+          tcgPlayerId: variant.tcgPlayerId,
           blueprintId: variant.blueprintId,
           imageUrl: variant.imageUrl,
           cardTraderBlueprintId: variant.cardTraderBlueprintId,
@@ -245,7 +259,11 @@ export function useCardTraderVariantPrices(
     key: string;
     setName: string | null;
     setCode: string | null;
+    collectorNumber?: string | null;
     rarity?: string | null;
+    variantLabel?: string | null;
+    tcgPlayerId?: string | null;
+    cardTraderRarityHint?: string | null;
     blueprintId?: number | null;
     imageUrl?: string | null;
     cardTraderBlueprintId?: string | null;
@@ -281,7 +299,10 @@ export function useCardTraderVariantPrices(
           name: cardName,
           setName: v.setName,
           setCode: v.setCode,
-          rarity: v.rarity,
+          collectorNumber: v.collectorNumber,
+          rarity: v.cardTraderRarityHint ?? v.rarity,
+          variantLabel: v.variantLabel,
+          tcgPlayerId: v.tcgPlayerId,
           blueprintId: v.blueprintId,
           imageUrl: v.imageUrl,
           cardTraderBlueprintId: v.cardTraderBlueprintId,
