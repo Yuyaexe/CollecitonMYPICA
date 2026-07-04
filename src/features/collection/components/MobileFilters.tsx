@@ -14,11 +14,13 @@ export function MobileFilters() {
           Filters
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="p-4 pb-0">
+      <SheetContent side="left" className="flex h-full w-72 flex-col p-0">
+        <SheetHeader className="shrink-0 p-4 pb-0">
           <SheetTitle>Filters</SheetTitle>
         </SheetHeader>
-        <CollectionFilters />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <CollectionFilters inSheet />
+        </div>
       </SheetContent>
     </Sheet>
   );

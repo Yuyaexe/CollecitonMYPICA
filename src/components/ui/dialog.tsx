@@ -3,6 +3,28 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function isSelectPortalTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest('[role="listbox"]') ||
+      target.closest("[data-radix-select-viewport]") ||
+      target.closest("[data-radix-popper-content-wrapper]")
+  );
+}
+
+const overlayPointerGuard = {
+  onPointerDownOutside: (event: { preventDefault: () => void; detail: { originalEvent: PointerEvent } }) => {
+    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+      event.preventDefault();
+    }
+  },
+  onInteractOutside: (event: { preventDefault: () => void; detail: { originalEvent: Event } }) => {
+    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+      event.preventDefault();
+    }
+  },
+};
+
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
@@ -35,6 +57,7 @@ const DialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-xl",
         className
       )}
+      {...overlayPointerGuard}
       {...props}
     >
       {children}

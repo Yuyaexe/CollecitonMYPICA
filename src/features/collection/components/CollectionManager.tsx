@@ -16,6 +16,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useAppData } from "@/hooks/useAppData";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import {
   mergeCollectionOrder,
@@ -63,6 +64,7 @@ export function CollectionManager() {
 
   const collectionOrder = useDataUiStore((s) => s.collectionOrder);
   const setCollectionOrder = useDataUiStore((s) => s.setCollectionOrder);
+  const isTouchDevice = useMediaQuery("(hover: none) and (pointer: coarse)");
 
   useEffect(() => {
     const merged = mergeCollectionOrder(
@@ -152,72 +154,78 @@ export function CollectionManager() {
     }
   };
 
+  const renderCollectionCard = (collection: DemoCollection, index: number) => (
+    <CollectionGridCard
+      name={collection.name}
+      coverImageUrl={getCollectionCover(collection, ownedCards)}
+      cardCount={cardCounts.get(collection.id) ?? 0}
+      isFavorite={collection.isFavorite ?? false}
+      isActive={collection.id === activeCollectionId}
+      index={index}
+      draggable
+      isDragOver={dragOverId === collection.id && draggedId !== collection.id}
+      onDragStart={() => setDraggedId(collection.id)}
+      onDragOver={() => {
+        if (draggedId && draggedId !== collection.id) {
+          setDragOverId(collection.id);
+        }
+      }}
+      onDragLeave={() => setDragOverId(null)}
+      onDrop={() => {
+        if (draggedId && draggedId !== collection.id) {
+          setCollectionOrder(
+            reorderCollectionIds(collectionOrder, draggedId, collection.id)
+          );
+        }
+        setDraggedId(null);
+        setDragOverId(null);
+      }}
+      onDragEnd={() => {
+        setDraggedId(null);
+        setDragOverId(null);
+      }}
+      onSelect={() => handleSelect(collection.id)}
+      onToggleFavorite={() => toggleCollectionFavorite(collection.id)}
+      onOpenMenu={() => openMenu(collection)}
+    />
+  );
+
   return (
     <>
       <p className="mb-4 text-sm text-muted-foreground">
         Arraste os tiles para reordenar suas coleções.
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {sortedCollections.map((collection, index) => (
-          <ContextMenu key={collection.id}>
-            <ContextMenuTrigger asChild>
-              <div>
-                <CollectionGridCard
-                  name={collection.name}
-                  coverImageUrl={getCollectionCover(collection, ownedCards)}
-                  cardCount={cardCounts.get(collection.id) ?? 0}
-                  isFavorite={collection.isFavorite ?? false}
-                  isActive={collection.id === activeCollectionId}
-                  index={index}
-                  draggable
-                  isDragOver={dragOverId === collection.id && draggedId !== collection.id}
-                  onDragStart={() => setDraggedId(collection.id)}
-                  onDragOver={() => {
-                    if (draggedId && draggedId !== collection.id) {
-                      setDragOverId(collection.id);
-                    }
-                  }}
-                  onDragLeave={() => setDragOverId(null)}
-                  onDrop={() => {
-                    if (draggedId && draggedId !== collection.id) {
-                      setCollectionOrder(
-                        reorderCollectionIds(collectionOrder, draggedId, collection.id)
-                      );
-                    }
-                    setDraggedId(null);
-                    setDragOverId(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedId(null);
-                    setDragOverId(null);
-                  }}
-                  onSelect={() => handleSelect(collection.id)}
-                  onToggleFavorite={() => toggleCollectionFavorite(collection.id)}
-                  onOpenMenu={() => openMenu(collection)}
-                />
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-              <ContextMenuItem onClick={() => handleSelect(collection.id)}>
-                Abrir
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => openRename(collection)}>
-                Renomear
-              </ContextMenuItem>
-              {!collection.isDefault && (
-                <>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => openDelete(collection)}
-                  >
-                    Excluir
-                  </ContextMenuItem>
-                </>
-              )}
-            </ContextMenuContent>
-          </ContextMenu>
-        ))}
+        {sortedCollections.map((collection, index) =>
+          isTouchDevice ? (
+            <div key={collection.id}>{renderCollectionCard(collection, index)}</div>
+          ) : (
+            <ContextMenu key={collection.id}>
+              <ContextMenuTrigger asChild>
+                <div>{renderCollectionCard(collection, index)}</div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={() => handleSelect(collection.id)}>
+                  Abrir
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => openRename(collection)}>
+                  Renomear
+                </ContextMenuItem>
+                {!collection.isDefault && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => openDelete(collection)}
+                    >
+                      Excluir
+                    </ContextMenuItem>
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
+          )
+        )}
         <CreateCollectionCard
           index={sortedCollections.length}
           onClick={() => setCreateOpen(true)}

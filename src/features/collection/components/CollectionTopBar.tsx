@@ -57,6 +57,12 @@ export function CollectionTopBar() {
     () => sortCollectionsByOrder(collections, mergeCollectionOrder(collections, collectionOrder)),
     [collections, collectionOrder]
   );
+  const collectionSelectValue = useMemo(() => {
+    const ids = new Set(sortedCollections.map((c) => c.id));
+    const candidate = activeCollectionId ?? sortedCollections[0]?.id;
+    if (candidate && ids.has(candidate)) return candidate;
+    return sortedCollections[0]?.id;
+  }, [activeCollectionId, sortedCollections]);
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
 
   const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
@@ -98,9 +104,9 @@ export function CollectionTopBar() {
         <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 sm:px-6 sm:py-4">
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
             <div className="flex min-w-0 items-center gap-2">
-              {sortedCollections.length > 0 ? (
+              {sortedCollections.length > 0 && collectionSelectValue ? (
                 <Select
-                  value={activeCollectionId ?? sortedCollections[0].id}
+                  value={collectionSelectValue}
                   onValueChange={setActiveCollection}
                 >
                   <SelectTrigger className="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg">

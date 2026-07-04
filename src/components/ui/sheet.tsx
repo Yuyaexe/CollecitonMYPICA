@@ -4,6 +4,28 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function isSelectPortalTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest('[role="listbox"]') ||
+      target.closest("[data-radix-select-viewport]") ||
+      target.closest("[data-radix-popper-content-wrapper]")
+  );
+}
+
+const overlayPointerGuard = {
+  onPointerDownOutside: (event: { preventDefault: () => void; detail: { originalEvent: PointerEvent } }) => {
+    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+      event.preventDefault();
+    }
+  },
+  onInteractOutside: (event: { preventDefault: () => void; detail: { originalEvent: Event } }) => {
+    if (isSelectPortalTarget(event.detail.originalEvent.target)) {
+      event.preventDefault();
+    }
+  },
+};
+
 const Sheet = SheetPrimitive.Root;
 const SheetTrigger = SheetPrimitive.Trigger;
 const SheetClose = SheetPrimitive.Close;
@@ -44,7 +66,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
   ({ side = "right", className, children, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...overlayPointerGuard} {...props}>
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>

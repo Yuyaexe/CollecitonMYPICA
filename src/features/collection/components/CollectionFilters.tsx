@@ -16,7 +16,12 @@ import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 
-export function CollectionFilters() {
+interface CollectionFiltersProps {
+  /** When rendered inside a Sheet/Dialog, Select must be non-modal to avoid mobile crashes. */
+  inSheet?: boolean;
+}
+
+export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const resetFilters = useCollectionUIStore((s) => s.resetFilters);
@@ -32,8 +37,13 @@ export function CollectionFilters() {
     ),
   ];
 
+  const setFilterValue =
+    filters.setCode && sets.includes(filters.setCode) ? filters.setCode : "all";
+  const rarityFilterValue =
+    filters.rarity && rarities.includes(filters.rarity) ? filters.rarity : "all";
+
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className={inSheet ? "min-h-0 flex-1" : "h-full"}>
       <div className="space-y-5 p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Filters</h3>
@@ -65,7 +75,7 @@ export function CollectionFilters() {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Set</Label>
           <Select
-            value={filters.setCode ?? "all"}
+            value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
           >
             <SelectTrigger className="h-8">
@@ -85,7 +95,7 @@ export function CollectionFilters() {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Rarity</Label>
           <Select
-            value={filters.rarity ?? "all"}
+            value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
           >
             <SelectTrigger className="h-8">

@@ -112,7 +112,7 @@ export function CollectionGridCard({
       {onOpenMenu && (
         <button
           type="button"
-          aria-label={`Manage ${name}`}
+          aria-label={`Opções de ${name}`}
           onClick={(e) => {
             e.stopPropagation();
             onOpenMenu();
@@ -120,7 +120,8 @@ export function CollectionGridCard({
           className={cn(
             "absolute left-2 top-2 z-10 rounded-md p-1.5 transition-all duration-150",
             "text-muted-foreground/60 hover:bg-background/60 hover:text-foreground",
-            "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           )}
         >
           <MoreVertical className="h-4 w-4" />
