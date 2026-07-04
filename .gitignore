@@ -46,6 +46,11 @@ src-tauri/target/
 *.log
 deckvault.log
 
+# CT / test backups (keep in Tools/CT/backup, not in repo)
+yugioh-backup-*.json
+yugioh-collection-*.json
+.verify-backup-result
+
 # accidental nested clone
 CollecitonMYPICA/
 

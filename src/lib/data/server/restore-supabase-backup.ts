@@ -2,17 +2,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { marketPriceMetadata } from "@/lib/data/mappers";
 import type { DeckVaultBackup } from "@/features/import/services/backup-export";
 import type { DemoCard } from "@/lib/demo/types";
-import { updateSupabaseProfile } from "@/lib/data/server/supabase-service";
+import {
+  createSupabaseCollection,
+  updateSupabaseProfile,
+} from "@/lib/data/server/supabase-service";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import {
+  RestoreStepError,
+  runRestoreStage,
+} from "@/features/import/services/restore-debug";
 
 const CARD_RESOLVE_CONCURRENCY = 8;
 const OWNED_INSERT_CHUNK = 100;
+
+/** Prefer service role for bulk restore writes (bypasses RLS safely on server). */
+function restoreWriteClient(supabase: SupabaseClient): SupabaseClient {
+  return getSupabaseAdmin() ?? supabase;
+}
 
 async function resolveSupabaseCardId(
   supabase: SupabaseClient,
   card: DemoCard
 ): Promise<string> {
+  const db = restoreWriteClient(supabase);
+
   if (card.externalId) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cards")
       .upsert(
         {
@@ -31,11 +46,17 @@ async function resolveSupabaseCardId(
       )
       .select("id")
       .single();
-    if (error) throw error;
+    if (error) {
+      throw new RestoreStepError(
+        "resolve_cards",
+        error,
+        `upsert "${card.name}" (id ${card.externalId})`
+      );
+    }
     return data.id;
   }
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("cards")
     .select("id")
     .eq("game_id", card.gameId)
@@ -43,7 +64,7 @@ async function resolveSupabaseCardId(
     .maybeSingle();
   if (existing) return existing.id;
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await db
     .from("cards")
     .insert({
       game_id: card.gameId,
@@ -58,7 +79,9 @@ async function resolveSupabaseCardId(
     })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) {
+    throw new RestoreStepError("resolve_cards", error, `insert "${card.name}"`);
+  }
   return inserted.id;
 }
 
@@ -92,17 +115,23 @@ export async function restoreSupabaseBackup(
   userId: string,
   backup: DeckVaultBackup
 ) {
-  await updateSupabaseProfile(supabase, userId, {
-    displayName: backup.profile.displayName,
-    currency: backup.profile.currency,
-    defaultGameId: backup.profile.defaultGameId,
-  });
+  await runRestoreStage("profile", () =>
+    updateSupabaseProfile(supabase, userId, {
+      displayName: backup.profile.displayName,
+      currency: backup.profile.currency,
+      defaultGameId: backup.profile.defaultGameId,
+    })
+  );
 
-  const { data: userCollections, error: colErr } = await supabase
-    .from("collections")
-    .select("id, name, is_default")
-    .eq("user_id", userId);
-  if (colErr) throw colErr;
+  const { data: userCollections, error: colErr } = await runRestoreStage(
+    "load_collections",
+    () =>
+      supabase
+        .from("collections")
+        .select("id, name, is_default")
+        .eq("user_id", userId)
+  );
+  if (colErr) throw new RestoreStepError("load_collections", colErr);
 
   const userHasDefault = (userCollections ?? []).some((c) => c.is_default);
   const collectionMap = new Map<string, string>();
@@ -112,17 +141,31 @@ export async function restoreSupabaseBackup(
     if (match) {
       collectionMap.set(bc.id, match.id);
     } else {
-      const { data: created, error } = await supabase
-        .from("collections")
-        .insert({
-          user_id: userId,
-          name: bc.name,
-          is_default: bc.isDefault && !userHasDefault,
-          is_favorite: bc.isFavorite,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
+      const created = await runRestoreStage("create_collections", async () => {
+        const col = await createSupabaseCollection(supabase, userId, bc.name);
+
+        const patch: Record<string, boolean> = {};
+        if (bc.isDefault && !userHasDefault) patch.is_default = true;
+        if (bc.isFavorite) patch.is_favorite = true;
+
+        if (Object.keys(patch).length > 0) {
+          const db = restoreWriteClient(supabase);
+          const { error: patchErr } = await db
+            .from("collections")
+            .update({ ...patch, updated_at: new Date().toISOString() })
+            .eq("id", col.id);
+          if (patchErr) {
+            throw new RestoreStepError(
+              "create_collections",
+              patchErr,
+              `atualizar "${bc.name}"`
+            );
+          }
+        }
+
+        return col;
+      });
+
       collectionMap.set(bc.id, created.id);
     }
   }
@@ -134,10 +177,10 @@ export async function restoreSupabaseBackup(
   }
 
   const catalogEntries = [...uniqueCards.entries()];
-  const resolvedIds = await mapWithConcurrency(
-    catalogEntries,
-    CARD_RESOLVE_CONCURRENCY,
-    async ([, card]) => resolveSupabaseCardId(supabase, card)
+  const resolvedIds = await runRestoreStage("resolve_cards", () =>
+    mapWithConcurrency(catalogEntries, CARD_RESOLVE_CONCURRENCY, async ([, card]) =>
+      resolveSupabaseCardId(supabase, card)
+    )
   );
 
   const catalogIdByKey = new Map<string, string>();
@@ -184,12 +227,15 @@ export async function restoreSupabaseBackup(
 
   const rows = [...aggregated.values()];
   const targetCollectionIds = [...new Set(rows.map((r) => r.collectionId))];
+  const db = restoreWriteClient(supabase);
 
-  const { data: existingOwned, error: ownedFetchErr } = await supabase
-    .from("owned_cards")
-    .select("id, collection_id, card_id, quantity")
-    .in("collection_id", targetCollectionIds);
-  if (ownedFetchErr) throw ownedFetchErr;
+  const { data: existingOwned, error: ownedFetchErr } = await runRestoreStage("fetch_owned", () =>
+    db
+      .from("owned_cards")
+      .select("id, collection_id, card_id, quantity")
+      .in("collection_id", targetCollectionIds)
+  );
+  if (ownedFetchErr) throw new RestoreStepError("fetch_owned", ownedFetchErr);
 
   const existingByKey = new Map<string, { id: string; quantity: number }>();
   for (const row of existingOwned ?? []) {
@@ -236,20 +282,34 @@ export async function restoreSupabaseBackup(
 
   for (let i = 0; i < toInsert.length; i += OWNED_INSERT_CHUNK) {
     const chunk = toInsert.slice(i, i + OWNED_INSERT_CHUNK);
-    const { error } = await supabase.from("owned_cards").insert(chunk);
-    if (error) throw error;
+    const chunkIndex = Math.floor(i / OWNED_INSERT_CHUNK) + 1;
+    const chunkTotal = Math.ceil(toInsert.length / OWNED_INSERT_CHUNK);
+    const { error } = await runRestoreStage("insert_owned", () =>
+      db.from("owned_cards").insert(chunk)
+    );
+    if (error) {
+      throw new RestoreStepError(
+        "insert_owned",
+        error,
+        `lote ${chunkIndex}/${chunkTotal} (${chunk.length} linhas)`
+      );
+    }
   }
 
-  await mapWithConcurrency(quantityUpdates, 12, async (update) => {
-    const { error } = await supabase
-      .from("owned_cards")
-      .update({
-        quantity: update.quantity,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", update.id);
-    if (error) throw error;
-  });
+  await runRestoreStage("update_quantities", () =>
+    mapWithConcurrency(quantityUpdates, 12, async (update) => {
+      const { error } = await db
+        .from("owned_cards")
+        .update({
+          quantity: update.quantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", update.id);
+      if (error) {
+        throw new RestoreStepError("update_quantities", error, `owned_card ${update.id}`);
+      }
+    })
+  );
 
   return {
     importedCards: rows.length,

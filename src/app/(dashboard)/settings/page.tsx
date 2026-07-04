@@ -184,10 +184,12 @@ export default function SettingsPage() {
         <section className="space-y-4 border-t border-border pt-6 sm:pt-8">
           <h2 className="text-base font-semibold sm:text-lg">Backup</h2>
           <p className="text-sm text-muted-foreground">
-            Baixa um arquivo JSON com perfil, coleções e cartas. Para importar
-            do app antigo (CardTrader / wishlist), selecione o JSON exportado
-            diretamente — ex.: yugioh-backup-….json — o app converte
-            automaticamente em 2 coleções (uma por aba).
+            Importa backups do app CT (Yu-Gi-Oh em{" "}
+            <code className="text-xs">Tools/CT</code>): arquivo{" "}
+            <code className="text-xs">yugioh-backup-….json</code> da pasta{" "}
+            <code className="text-xs">CT/backup</code>, ou export de aba{" "}
+            <code className="text-xs">yugioh-collection-….json</code>. Converte
+            automaticamente para coleções do DeckVault.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

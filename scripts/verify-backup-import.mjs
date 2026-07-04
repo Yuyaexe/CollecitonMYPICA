@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Validates CardTrader / yugioh wishlist JSON and DeckVault backup conversion.
+ * Validates CT app backups (Tools/CT) and DeckVault restore conversion.
  * Uses the real parseBackupJson via tsx (same code path as Settings → Restaurar backup).
  */
 
@@ -10,6 +10,7 @@ import {
   existsSync,
   unlinkSync,
   readdirSync,
+  statSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -52,36 +53,78 @@ function section(title) {
   console.log(`\n${CYAN}== ${title} ==${RESET}`);
 }
 
+const CT_BACKUP_DIR = join(
+  process.env.USERPROFILE || "",
+  "OneDrive",
+  "Desktop",
+  "Tools",
+  "CT",
+  "backup"
+);
+
+function listCtJsonBackups(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => /^yugioh-(backup|collection)-.*\.json$/i.test(name))
+    .map((name) => join(dir, name))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+}
+
 function findDefaultBackupFile() {
   const explicit = process.argv[2];
   if (explicit) return resolve(explicit);
 
-  const matches = readdirSync(ROOT)
-    .filter((name) => /^yugioh-backup-.*\.json$/i.test(name))
-    .sort();
+  for (const dir of [CT_BACKUP_DIR, ROOT]) {
+    const files = listCtJsonBackups(dir);
+    if (files.length > 0) return files[0];
+  }
 
-  if (matches.length === 1) return join(ROOT, matches[0]);
-  if (matches.length > 1) return join(ROOT, matches[0]);
-
-  return join(ROOT, "yugioh-backup-2026-05-13T20-08-52-261Z.json");
+  return null;
 }
 
 function countSourceCards(raw) {
   let count = 0;
+
+  function addQty(item) {
+    count += Math.max(1, item?.quantity ?? 1);
+  }
+
   function walk(items) {
     if (!Array.isArray(items)) return;
     for (const item of items) {
       if (item?.type === "folder" && Array.isArray(item.items)) {
         walk(item.items);
+      } else if (item?.type === "card" && item?.name) {
+        addQty(item);
       } else if (item?.card?.name) {
-        count += Math.max(1, item.quantity ?? 1);
+        addQty(item);
+      } else if (item?.blueprintId && item?.name) {
+        addQty(item);
       }
     }
   }
-  for (const tab of raw.collection?.tabs ?? []) {
-    walk(tab.items);
+
+  if (raw?.backupVersion === 1 && raw?.collection?.tabs) {
+    for (const tab of raw.collection.tabs) walk(tab.items);
+    return count;
   }
-  return count;
+
+  if (Array.isArray(raw?.items)) {
+    walk(raw.items);
+    return count;
+  }
+
+  return raw?.ownedCards?.length ?? 0;
+}
+
+function detectSourceFormat(raw) {
+  if (raw?.backupVersion === 1 && raw?.collection?.tabs) {
+    return "CT full backup (backupVersion 1)";
+  }
+  if (raw?.exportVersion === 2) return "CT tab export (exportVersion 2)";
+  if (raw?.exportVersion === 1) return "CT tab export (exportVersion 1)";
+  if (raw?.version === "1.0") return "DeckVault nativo";
+  return "desconhecido";
 }
 
 function runConverter(filePath) {
@@ -122,13 +165,23 @@ function main() {
   }
 
   const filePath = findDefaultBackupFile();
+
+  if (!filePath) {
+    fail(
+      "Arquivo encontrado",
+      `Nenhum yugioh-backup-*.json ou yugioh-collection-*.json em:\n       ${CT_BACKUP_DIR}\n       ${ROOT}\n       Passe o caminho: npm run verify:backup -- caminho\\arquivo.json`
+    );
+    return finish(1);
+  }
+
   const fileName = filePath.split(/[/\\]/).pop();
 
   section("Arquivo de backup");
   console.log(`  Arquivo: ${fileName}`);
+  console.log(`  Caminho: ${filePath}`);
 
   if (!existsSync(filePath)) {
-    fail("Arquivo encontrado", `Coloque o JSON na raiz do projeto ou passe o caminho:\n       node scripts/verify-backup-import.mjs caminho\\arquivo.json`);
+    fail("Arquivo existe", filePath);
     return finish(1);
   }
   pass("Arquivo existe");
@@ -148,28 +201,34 @@ function main() {
     warn("Arquivo grande", "Imagens base64 em pastas aumentam o tamanho — a conversao remove isso no app");
   }
 
-  section("Formato de origem (CardTrader / wishlist)");
+  section("Formato de origem (app CT — Tools/CT)");
 
-  const isExternal =
-    raw?.backupVersion === 1 &&
-    raw?.collection &&
-    Array.isArray(raw.collection.tabs);
+  const format = detectSourceFormat(raw);
+  console.log(`  Formato: ${format}`);
 
-  if (isExternal) {
+  const isCtFull =
+    raw?.backupVersion === 1 && raw?.collection && Array.isArray(raw.collection.tabs);
+  const isCtTab = raw?.exportVersion === 1 || raw?.exportVersion === 2;
+  const isDeckVault = raw?.version === "1.0" && Array.isArray(raw.collections);
+
+  if (isCtFull) {
     pass("backupVersion: 1 com collection.tabs");
     const tabNames = raw.collection.tabs.map((t) => t.name?.trim() || "(sem nome)");
     pass(`Abas: ${tabNames.join(", ")}`);
-  } else if (raw?.version === "1.0" && Array.isArray(raw.collections)) {
+  } else if (isCtTab) {
+    pass(`exportVersion: ${raw.exportVersion} (export de aba)`);
+    if (raw.tabName) pass(`Aba: ${raw.tabName}`);
+  } else if (isDeckVault) {
     pass("Formato DeckVault nativo (version 1.0)");
   } else {
     fail(
       "Formato reconhecido",
-      "Esperado backupVersion:1 (CardTrader) ou version:1.0 (DeckVault)"
+      "Esperado backup CT (backupVersion 1 ou exportVersion 1/2) ou DeckVault 1.0"
     );
     return finish(1);
   }
 
-  const sourceCardCount = isExternal ? countSourceCards(raw) : raw.ownedCards?.length ?? 0;
+  const sourceCardCount = countSourceCards(raw);
   if (sourceCardCount > 0) {
     pass(`${sourceCardCount} cartas no arquivo de origem`);
   } else {
@@ -259,8 +318,9 @@ function main() {
   );
 
   if (failed === 0) {
-    console.log(`${GREEN}Backup pronto para importar no app.${RESET}`);
-    console.log(`  Settings → Restaurar backup → ${fileName}\n`);
+    console.log(`${GREEN}Backup CT pronto para importar no DeckVault.${RESET}`);
+    console.log(`  Settings → Restaurar backup → selecione o arquivo`);
+    console.log(`  Origem CT: ${CT_BACKUP_DIR}\n`);
   }
 
   return finish(failed > 0 ? 1 : 0);

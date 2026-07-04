@@ -10,7 +10,7 @@ import {
 } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
-/** CardTrader wishlist / binder export (backupVersion: 1). */
+/** Full backup from the CT Yu-Gi-Oh app (Tools/CT) — yugioh-backup-*.json */
 export interface ExternalWishlistBackup {
   backupVersion: number;
   exportedAt?: string;
@@ -19,6 +19,14 @@ export interface ExternalWishlistBackup {
     tabs: ExternalWishlistTab[];
   };
   ui?: Record<string, unknown>;
+}
+
+/** Single-tab export from CT app — yugioh-collection-*.json (exportVersion 1 or 2) */
+export interface CtYugiohTabExport {
+  exportVersion: 1 | 2;
+  tabName?: string;
+  exportedAt?: string;
+  items: unknown[];
 }
 
 interface ExternalWishlistTab {
@@ -73,6 +81,7 @@ const RARITY_SLUGS: Array<[string, string]> = [
   ["rare", "Rare"],
 ];
 
+/** CT app full backup: backupVersion 1 + collection.tabs */
 export function isExternalWishlistBackup(raw: unknown): raw is ExternalWishlistBackup {
   if (!raw || typeof raw !== "object") return false;
   const obj = raw as Record<string, unknown>;
@@ -80,6 +89,19 @@ export function isExternalWishlistBackup(raw: unknown): raw is ExternalWishlistB
   const collection = obj.collection;
   if (!collection || typeof collection !== "object") return false;
   return Array.isArray((collection as { tabs?: unknown }).tabs);
+}
+
+/** CT app tab export: exportVersion 1|2 + items[] */
+export function isCtYugiohTabExport(raw: unknown): raw is CtYugiohTabExport {
+  if (!raw || typeof raw !== "object") return false;
+  const obj = raw as Record<string, unknown>;
+  const ver = obj.exportVersion;
+  if (ver !== 1 && ver !== 2) return false;
+  return Array.isArray(obj.items);
+}
+
+export function isCtYugiohAppJson(raw: unknown): boolean {
+  return isExternalWishlistBackup(raw) || isCtYugiohTabExport(raw);
 }
 
 function newId(): string {
@@ -107,12 +129,50 @@ function detectCurrency(tabs: ExternalWishlistTab[]): Currency {
   return "USD";
 }
 
-function* walkItems(items: ExternalWishlistItem[]): Generator<ExternalWishlistCardEntry> {
+function marketPriceFromPricing(
+  pricing: ExternalWishlistCardEntry["pricing"] | undefined
+): number | null {
+  const cents = pricing?.cheapestPriceCents;
+  if (cents != null && Number.isFinite(cents)) return cents / 100;
+  const label = pricing?.priceLabel;
+  if (!label) return null;
+  const normalized = label.replace(/[^\d.,]/g, "").replace(",", ".");
+  const value = Number.parseFloat(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+
+function flatExportRowToEntry(row: Record<string, unknown>): ExternalWishlistCardEntry | null {
+  const name = String(row.name ?? "").trim();
+  const id = Number(row.blueprintId);
+  if (!name || !Number.isFinite(id) || id <= 0) return null;
+  const priceLabel = row.priceLabel != null ? String(row.priceLabel) : undefined;
+  return {
+    card: { id, name, card_images: [] },
+    pricing: {
+      priceLabel,
+      detailUrl: row.detailUrl != null ? String(row.detailUrl) : undefined,
+      cheapestPriceCurrency: priceLabel?.includes("R$") ? "BRL" : undefined,
+    },
+    owned: row.owned === true,
+    quantity: typeof row.quantity === "number" ? row.quantity : undefined,
+  };
+}
+
+function* walkItems(items: unknown[]): Generator<ExternalWishlistCardEntry> {
   for (const item of items) {
-    if ("type" in item && item.type === "folder") {
-      yield* walkItems(item.items);
-    } else if ("card" in item && item.card?.name) {
-      yield item;
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (row.type === "folder" && Array.isArray(row.items)) {
+      yield* walkItems(row.items);
+      continue;
+    }
+    if (row.type === "card" && row.name) {
+      const entry = flatExportRowToEntry(row);
+      if (entry) yield entry;
+      continue;
+    }
+    if ("card" in row && (row as unknown as ExternalWishlistCardEntry).card?.name) {
+      yield row as unknown as ExternalWishlistCardEntry;
     }
   }
 }
@@ -127,9 +187,7 @@ function cardEntryToOwned(
 ): DemoOwnedCard {
   const blueprintId = entry.card.id > 0 ? String(entry.card.id) : null;
   const imageUrl = entry.card.card_images?.[0]?.image_url ?? null;
-  const cents = entry.pricing?.cheapestPriceCents;
-  const marketPrice =
-    cents != null && Number.isFinite(cents) ? cents / 100 : null;
+  const marketPrice = marketPriceFromPricing(entry.pricing);
   const cardId = newId();
 
   return {
@@ -227,7 +285,19 @@ export function mergeDeckVaultCollectionsByTab(
   };
 }
 
-/** Convert CardTrader wishlist JSON — one DeckVault collection per tab, folders merged. */
+/** CT tab export (exportVersion 1/2) → one DeckVault collection. */
+export function convertCtTabExportToDeckVault(source: CtYugiohTabExport): DeckVaultBackup {
+  const tabName = String(source.tabName || "CT Import").trim() || "CT Import";
+  return convertExternalWishlistToDeckVault({
+    backupVersion: 1,
+    exportedAt: source.exportedAt,
+    collection: {
+      tabs: [{ id: "ct-import", name: tabName, items: source.items as ExternalWishlistItem[] }],
+    },
+  });
+}
+
+/** CT full backup — one DeckVault collection per tab, folders merged. */
 export function convertExternalWishlistToDeckVault(
   source: ExternalWishlistBackup
 ): DeckVaultBackup {
