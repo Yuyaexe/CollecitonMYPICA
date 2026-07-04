@@ -182,8 +182,8 @@ export const CollectionRow = memo(function CollectionRow({
         {item.language}
       </div>
 
-      <div className="hidden w-20 shrink-0 lg:flex lg:justify-end">
-        <PriceBadge price={marketPrice} currency={currency} />
+      <div className="hidden w-24 shrink-0 text-right lg:block">
+        <PriceBadge price={marketPrice} currency={currency} className="justify-end" />
       </div>
 
       {item.isFoil && (

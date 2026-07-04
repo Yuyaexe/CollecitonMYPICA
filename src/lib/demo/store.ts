@@ -3,11 +3,13 @@ import { persist } from "zustand/middleware";
 import {
   createInitialDemoState,
   DEFAULT_COLLECTION_ID,
+  type AnimeCharacterCard,
   type DemoCard,
   type DemoCollection,
   type DemoOwnedCard,
   type DemoState,
 } from "./types";
+import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import type { DeckVaultBackup } from "@/features/import/services/backup-export";
@@ -15,7 +17,6 @@ import {
   buildSeedState,
   slugifyAnimeName,
 } from "@/features/anime-collection/data/seed-catalog";
-import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import {
   cardTraderBlueprintFromSearch,
   repairDemoCard,
@@ -85,7 +86,17 @@ interface DemoStore extends DemoState {
     accentColor?: string | null;
   }) => AnimeCharacter;
   renameAnimeCharacter: (id: string, name: string) => void;
+  updateAnimeCharacterImage: (id: string, imageUrl: string | null) => void;
   deleteAnimeCharacter: (id: string) => void;
+  addAnimeCharacterCardFromSearch: (
+    characterId: string,
+    result: CardSearchResult,
+    gameId: string,
+    gameSlug: string,
+    gameName: string
+  ) => void;
+  removeAnimeCharacterCard: (id: string) => void;
+  updateAnimeCharacterCardQuantity: (id: string, quantity: number) => void;
 }
 
 export const useDemoStore = create<DemoStore>()(
@@ -436,10 +447,18 @@ export const useDemoStore = create<DemoStore>()(
       },
 
       deleteAnimeSeries: (id) => {
-        set((s) => ({
-          animeSeries: s.animeSeries.filter((series) => series.id !== id),
-          animeCharacters: s.animeCharacters.filter((c) => c.seriesId !== id),
-        }));
+        set((s) => {
+          const characterIds = s.animeCharacters
+            .filter((c) => c.seriesId === id)
+            .map((c) => c.id);
+          return {
+            animeSeries: s.animeSeries.filter((series) => series.id !== id),
+            animeCharacters: s.animeCharacters.filter((c) => c.seriesId !== id),
+            animeCharacterCards: s.animeCharacterCards.filter(
+              (card) => !characterIds.includes(card.characterId)
+            ),
+          };
+        });
       },
 
       addAnimeCharacter: (input) => {
@@ -469,15 +488,111 @@ export const useDemoStore = create<DemoStore>()(
         }));
       },
 
+      updateAnimeCharacterImage: (id, imageUrl) => {
+        set((s) => ({
+          animeCharacters: s.animeCharacters.map((c) =>
+            c.id === id ? { ...c, imageUrl } : c
+          ),
+        }));
+      },
+
       deleteAnimeCharacter: (id) => {
         set((s) => ({
           animeCharacters: s.animeCharacters.filter((c) => c.id !== id),
+          animeCharacterCards: s.animeCharacterCards.filter((c) => c.characterId !== id),
+        }));
+      },
+
+      addAnimeCharacterCardFromSearch: (characterId, result, gameId, gameSlug, gameName) => {
+        const state = get();
+        const existing = state.animeCharacterCards.find(
+          (entry) =>
+            entry.characterId === characterId &&
+            entry.card.externalId === result.externalId &&
+            entry.card.gameSlug === gameSlug
+        );
+
+        if (existing) {
+          set((s) => ({
+            animeCharacterCards: s.animeCharacterCards.map((entry) =>
+              entry.id === existing.id
+                ? {
+                    ...entry,
+                    quantity: entry.quantity + 1,
+                    card: {
+                      ...entry.card,
+                      marketPrice: result.price ?? entry.card.marketPrice,
+                      imageUrl: result.imageUrl ?? entry.card.imageUrl,
+                      rarity: result.rarity ?? entry.card.rarity,
+                      setName: result.setName ?? entry.card.setName,
+                      cardTraderBlueprintId:
+                        cardTraderBlueprintFromSearch(
+                          result.externalId,
+                          result.imageUrl,
+                          result.metadata?.catalogSource as string | undefined,
+                          gameSlug,
+                          result.metadata
+                        ) ?? entry.card.cardTraderBlueprintId,
+                    },
+                  }
+                : entry
+            ),
+          }));
+          return;
+        }
+
+        const cardId = generateId();
+        const card: DemoCard = {
+          id: cardId,
+          gameId,
+          gameSlug,
+          gameName,
+          externalId: result.externalId,
+          name: result.name,
+          setCode: result.setCode,
+          setName: result.setName,
+          collectorNumber: result.collectorNumber,
+          rarity: result.rarity,
+          imageUrl: result.imageUrl,
+          marketPrice: result.price,
+          cardTraderBlueprintId: cardTraderBlueprintFromSearch(
+            result.externalId,
+            result.imageUrl,
+            result.metadata?.catalogSource as string | undefined,
+            gameSlug,
+            result.metadata
+          ),
+        };
+        const entry: AnimeCharacterCard = {
+          id: generateId(),
+          characterId,
+          card,
+          quantity: 1,
+        };
+        set((s) => ({ animeCharacterCards: [...s.animeCharacterCards, entry] }));
+      },
+
+      removeAnimeCharacterCard: (id) => {
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.filter((entry) => entry.id !== id),
+        }));
+      },
+
+      updateAnimeCharacterCardQuantity: (id, quantity) => {
+        if (quantity < 1) {
+          get().removeAnimeCharacterCard(id);
+          return;
+        }
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) =>
+            entry.id === id ? { ...entry, quantity } : entry
+          ),
         }));
       },
     }),
     {
       name: "deckvault-demo",
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -497,6 +612,12 @@ export const useDemoStore = create<DemoStore>()(
             animeCharacters: state.animeCharacters?.length
               ? state.animeCharacters
               : seed.animeCharacters,
+          };
+        }
+        if (version < 4) {
+          state = {
+            ...state,
+            animeCharacterCards: state.animeCharacterCards ?? [],
           };
         }
         return state;

@@ -14,6 +14,8 @@ export function convertToCurrency(
   target: Currency
 ): number {
   const from = fromCurrency.toUpperCase();
+  if (from === target) return Math.round(amount * 100) / 100;
+
   const usd = amount * (TO_USD[from] ?? 1);
   if (target === "USD") return Math.round(usd * 100) / 100;
   if (target === "BRL") return Math.round(usd * (1 / TO_USD.BRL) * 100) / 100;

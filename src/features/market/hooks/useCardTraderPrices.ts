@@ -200,7 +200,14 @@ export function useSequentialVariantPrices(
 }
 
 export function cardPriceKey(card: DemoOwnedCard): string {
-  return `${card.card.gameSlug}|${card.card.externalId ?? card.card.name}|${card.card.setName ?? ""}|${card.card.setCode ?? ""}|${card.card.rarity ?? ""}`;
+  return [
+    card.card.gameSlug,
+    card.card.externalId ?? card.card.name,
+    card.card.setName ?? "",
+    card.card.setCode ?? "",
+    card.card.collectorNumber ?? "",
+    card.card.rarity ?? "",
+  ].join("|");
 }
 
 export function variantPriceKey(

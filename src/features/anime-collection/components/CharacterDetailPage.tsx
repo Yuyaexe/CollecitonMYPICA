@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, PackageOpen, Pencil } from "lucide-react";
-import { CardImage } from "@/components/shared/CardImage";
+import { ArrowLeft, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { CharacterCardGrid } from "@/features/anime-collection/components/CharacterCardGrid";
 import {
-  getCharacterInitials,
-} from "@/features/anime-collection/types";
+  CharacterAvatar,
+  EditCharacterPhotoModal,
+} from "@/features/anime-collection/components/EditCharacterPhotoModal";
+import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
+import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useDemoStore } from "@/lib/demo/store";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -26,18 +29,27 @@ export function CharacterDetailPage({
   characterId,
 }: CharacterDetailPageProps) {
   const router = useRouter();
+  const profile = useDemoStore((s) => s.profile);
   const {
     getSeriesBySlug,
     getCharacterById,
+    getCardsForCharacter,
     renameAnimeCharacter,
+    updateAnimeCharacterImage,
     deleteAnimeCharacter,
+    addAnimeCharacterCardFromSearch,
+    removeAnimeCharacterCard,
+    updateAnimeCharacterCardQuantity,
   } = useAnimeCollection();
 
   const series = getSeriesBySlug(seriesSlug);
   const character = getCharacterById(characterId);
+  const characterCards = character ? getCardsForCharacter(character.id) : [];
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState("");
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [addCardOpen, setAddCardOpen] = useState(false);
 
   if (!series || !character || character.seriesId !== series.id) {
     return (
@@ -51,8 +63,6 @@ export function CharacterDetailPage({
       />
     );
   }
-
-  const initials = getCharacterInitials(character.name);
 
   const handleRename = () => {
     const trimmed = renameName.trim();
@@ -73,6 +83,11 @@ export function CharacterDetailPage({
     router.push(`/anime-collection/${seriesSlug}`);
   };
 
+  const handleRemoveCard = (cardId: string) => {
+    removeAnimeCharacterCard(cardId);
+    toast.success("Card removed");
+  };
+
   return (
     <>
       <Link
@@ -83,38 +98,24 @@ export function CharacterDetailPage({
         {series.name}
       </Link>
 
-      <div className="mx-auto flex max-w-md flex-col items-center pt-4">
-        <div
-          className="relative h-40 w-40 overflow-hidden rounded-full border-4 border-border/80 shadow-lg"
-          style={
-            !character.imageUrl && character.accentColor
-              ? {
-                  background: `linear-gradient(135deg, ${character.accentColor}, hsl(0 0% 16%))`,
-                }
-              : undefined
-          }
-        >
-          {character.imageUrl ? (
-            <CardImage
-              src={character.imageUrl}
-              alt={character.name}
-              fill
-              sizes="160px"
-              className="object-cover"
-            />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-4xl font-semibold text-white/90">
-              {initials}
-            </span>
-          )}
-        </div>
+      <div className="mx-auto flex max-w-lg flex-col items-center pt-4">
+        <CharacterAvatar
+          name={character.name}
+          imageUrl={character.imageUrl}
+          accentColor={character.accentColor}
+          editable
+          onEdit={() => setPhotoOpen(true)}
+        />
 
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">
           {character.name}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{series.name}</p>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPhotoOpen(true)}>
+            Change photo
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -132,15 +133,70 @@ export function CharacterDetailPage({
             </Button>
           )}
         </div>
-
-        <div className="mt-10 w-full rounded-xl border border-border/70 bg-card/50">
-          <EmptyState
-            icon={PackageOpen}
-            title="Items coming soon"
-            description="Figures, merch, links to TCG cards, and more will appear here in a future update."
-          />
-        </div>
       </div>
+
+      <div className="mx-auto mt-10 w-full max-w-6xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Cards</h2>
+            <p className="text-sm text-muted-foreground">
+              {characterCards.length === 0
+                ? "No cards linked to this character yet"
+                : characterCards.length === 1
+                  ? "1 card"
+                  : `${characterCards.length} cards`}
+            </p>
+          </div>
+          <Button onClick={() => setAddCardOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add card
+          </Button>
+        </div>
+
+        {characterCards.length === 0 ? (
+          <div className="rounded-xl border border-border/70 bg-card/50">
+            <EmptyState
+              icon={Layers}
+              title="No cards yet"
+              description="Search the catalog and add TCG cards associated with this character."
+              actionLabel="Add card"
+              onAction={() => setAddCardOpen(true)}
+            />
+          </div>
+        ) : (
+          <CharacterCardGrid
+            cards={characterCards}
+            currency={profile.currency}
+            onRemove={handleRemoveCard}
+            onQuantityChange={updateAnimeCharacterCardQuantity}
+          />
+        )}
+      </div>
+
+      <QuickAddModal
+        open={addCardOpen}
+        onOpenChange={setAddCardOpen}
+        title="Add card"
+        defaultGameSlug="yugioh"
+        onAdd={(result, game) => {
+          addAnimeCharacterCardFromSearch(
+            character.id,
+            result,
+            game.id,
+            game.slug,
+            game.name
+          );
+        }}
+      />
+
+      <EditCharacterPhotoModal
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        characterName={character.name}
+        currentImageUrl={character.imageUrl}
+        accentColor={character.accentColor}
+        onSave={(url) => updateAnimeCharacterImage(character.id, url)}
+      />
 
       <Modal
         open={renameOpen}

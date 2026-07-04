@@ -100,7 +100,7 @@ export function CollectionTable({ data }: CollectionTableProps) {
         <span className="w-[104px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>
         <span className="hidden w-10 text-center sm:block">Lang</span>
-        <span className="hidden w-20 text-right lg:block">Market</span>
+        <span className="hidden w-24 text-right lg:block">Market</span>
       </div>
 
       <div ref={parentRef} className="flex-1 overflow-auto">

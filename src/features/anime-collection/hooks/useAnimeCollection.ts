@@ -3,16 +3,26 @@
 import { useMemo } from "react";
 import { useDemoStore } from "@/lib/demo/store";
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
+import type { AnimeCharacterCard } from "@/lib/demo/types";
 
 export function useAnimeCollection() {
   const animeSeries = useDemoStore((s) => s.animeSeries);
   const animeCharacters = useDemoStore((s) => s.animeCharacters);
+  const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
   const addAnimeSeries = useDemoStore((s) => s.addAnimeSeries);
   const renameAnimeSeries = useDemoStore((s) => s.renameAnimeSeries);
   const deleteAnimeSeries = useDemoStore((s) => s.deleteAnimeSeries);
   const addAnimeCharacter = useDemoStore((s) => s.addAnimeCharacter);
   const renameAnimeCharacter = useDemoStore((s) => s.renameAnimeCharacter);
+  const updateAnimeCharacterImage = useDemoStore((s) => s.updateAnimeCharacterImage);
   const deleteAnimeCharacter = useDemoStore((s) => s.deleteAnimeCharacter);
+  const addAnimeCharacterCardFromSearch = useDemoStore(
+    (s) => s.addAnimeCharacterCardFromSearch
+  );
+  const removeAnimeCharacterCard = useDemoStore((s) => s.removeAnimeCharacterCard);
+  const updateAnimeCharacterCardQuantity = useDemoStore(
+    (s) => s.updateAnimeCharacterCardQuantity
+  );
 
   const sortedSeries = useMemo(
     () => [...animeSeries].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -41,18 +51,28 @@ export function useAnimeCollection() {
     return animeCharacters.find((c) => c.id === id);
   }
 
+  function getCardsForCharacter(characterId: string): AnimeCharacterCard[] {
+    return animeCharacterCards.filter((c) => c.characterId === characterId);
+  }
+
   return {
     animeSeries: sortedSeries,
     animeCharacters,
+    animeCharacterCards,
     characterCountBySeries,
     getSeriesBySlug,
     getCharactersForSeries,
     getCharacterById,
+    getCardsForCharacter,
     addAnimeSeries,
     renameAnimeSeries,
     deleteAnimeSeries,
     addAnimeCharacter,
     renameAnimeCharacter,
+    updateAnimeCharacterImage,
     deleteAnimeCharacter,
+    addAnimeCharacterCardFromSearch,
+    removeAnimeCharacterCard,
+    updateAnimeCharacterCardQuantity,
   };
 }

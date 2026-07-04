@@ -122,6 +122,9 @@ export function useCollectionViewData(): CollectionViewData {
       if (quote.imageUrl && quote.imageUrl !== item.card.imageUrl) {
         updates.imageUrl = quote.imageUrl;
       }
+      if (quote.price != null && quote.price !== item.card.marketPrice) {
+        updates.marketPrice = quote.price;
+      }
 
       if (Object.keys(updates).length > 0) {
         void updateOwnedCard(item.id, { card: updates });

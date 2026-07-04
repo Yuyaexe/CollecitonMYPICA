@@ -38,18 +38,30 @@ import { useSequentialVariantPrices } from "@/features/market/hooks/useCardTrade
 interface QuickAddModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAdd?: (
+    result: CardSearchResult,
+    game: { id: string; slug: string; name: string }
+  ) => void | Promise<void>;
+  title?: string;
+  defaultGameSlug?: QuickAddGameSlug;
 }
 
 const MAX_VARIANT_PRICE_FETCH = 16;
 
-export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
+export function QuickAddModal({
+  open,
+  onOpenChange,
+  onAdd,
+  title = "Quick Add",
+  defaultGameSlug,
+}: QuickAddModalProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [pendingCard, setPendingCard] = useState<CardSearchResult | null>(null);
   const [rarityFilter, setRarityFilter] = useState("all");
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
-    QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
+    defaultGameSlug ?? QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
   );
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
@@ -67,6 +79,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setQuery("");
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && defaultGameSlug) {
+      setSelectedGameSlug(defaultGameSlug);
+    }
+  }, [open, defaultGameSlug]);
 
   useEffect(() => {
     setPendingCard(null);
@@ -191,7 +209,11 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         }
       }
     }
-    await addCardFromSearch(toAdd, game.id, game.slug, game.name);
+    if (onAdd) {
+      await onAdd(toAdd, game);
+    } else {
+      await addCardFromSearch(toAdd, game.id, game.slug, game.name);
+    }
     toast.success(`Added ${result.name}`);
     onOpenChange(false);
     setQuery("");
@@ -262,7 +284,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={pendingCard ? "Choose print" : "Quick Add"}
+      title={pendingCard ? "Choose print" : title}
       description={
         pendingCard
           ? `${pendingCard.name} — select set and rarity`

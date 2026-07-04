@@ -18,10 +18,15 @@ export interface CardTraderBlueprint {
   name: string;
   game_id: number;
   expansion_id: number | null;
-  tcg_player_id: string | null;
+  /** CardTrader returns this as a number; normalize before comparing. */
+  tcg_player_id?: string | number | null;
   image_url?: string | null;
   /** Card variant / rarity label from CardTrader (e.g. "Rare", "Secret Rare"). */
   version?: string | null;
+  fixed_properties?: {
+    collector_number?: string | null;
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface CardTraderProduct {

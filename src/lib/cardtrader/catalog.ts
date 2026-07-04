@@ -293,6 +293,24 @@ function scoreExpansion(expansion: CardTraderExpansion, setName?: string | null,
   return score;
 }
 
+function normalizeCollectorNumber(value: string): string {
+  return value.toLowerCase().replace(/\s/g, "");
+}
+
+function tcgPlayerIdsMatch(
+  blueprintId: string | number | null | undefined,
+  targetId: string
+): boolean {
+  if (blueprintId == null || !targetId.trim()) return false;
+  return String(blueprintId) === String(targetId).trim();
+}
+
+function blueprintCollectorNumber(blueprint: CardTraderBlueprint): string | null {
+  const fromFixed = blueprint.fixed_properties?.collector_number;
+  if (typeof fromFixed === "string" && fromFixed.trim()) return fromFixed.trim();
+  return null;
+}
+
 type BlueprintScoreInput = Pick<
   CardPriceInput,
   "name" | "setCode" | "rarity" | "collectorNumber" | "variantLabel"
@@ -304,6 +322,16 @@ function scoreBlueprint(blueprint: CardTraderBlueprint, input: BlueprintScoreInp
   let score = 0;
   if (a === b) score += 100;
   else if (a.includes(b) || b.includes(a)) score += 70;
+
+  const blueprintCollector = blueprintCollectorNumber(blueprint);
+  if (input.collectorNumber && blueprintCollector) {
+    if (
+      normalizeCollectorNumber(input.collectorNumber) ===
+      normalizeCollectorNumber(blueprintCollector)
+    ) {
+      return 250;
+    }
+  }
 
   if (input.setCode) {
     const code = normalize(input.setCode);
@@ -347,17 +375,64 @@ const MIN_BLUEPRINT_SCORE = 72;
 
 async function resolveBlueprintByTcgPlayerId(
   tcgPlayerId: string,
-  gameId: number
+  gameId: number,
+  setCode?: string | null
 ): Promise<number | null> {
   const expansions = await getExpansions(gameId);
-  const ranked = [...expansions].sort((a, b) => b.id - a.id).slice(0, 24);
+  let ranked = [...expansions].sort((a, b) => b.id - a.id);
 
-  for (const expansion of ranked) {
+  const normSet = normalizeDigimonSetCode(setCode);
+  if (normSet) {
+    const matched = ranked.filter(
+      (expansion) => normalizeDigimonSetCode(expansion.code) === normSet
+    );
+    if (matched.length > 0) {
+      ranked = [...matched, ...ranked.filter((expansion) => !matched.includes(expansion))];
+    }
+  }
+
+  for (const expansion of ranked.slice(0, 12)) {
     const blueprints = await getBlueprints(expansion.id);
     const match = blueprints.find(
       (blueprint) =>
-        blueprint.game_id === gameId && blueprint.tcg_player_id === tcgPlayerId
+        blueprint.game_id === gameId && tcgPlayerIdsMatch(blueprint.tcg_player_id, tcgPlayerId)
     );
+    if (match) {
+      if (match.image_url) {
+        blueprintImageCache.set(match.id, match.image_url);
+        cacheBlueprintSlug(match.id, match.image_url);
+      }
+      return match.id;
+    }
+  }
+
+  return null;
+}
+
+async function resolveBlueprintByCollectorNumber(
+  collectorNumber: string,
+  gameId: number,
+  setCode?: string | null
+): Promise<number | null> {
+  const target = normalizeCollectorNumber(collectorNumber);
+  const expansions = await getExpansions(gameId);
+
+  let candidates = expansions;
+  const normSet = normalizeDigimonSetCode(setCode);
+  if (normSet) {
+    const filtered = expansions.filter(
+      (expansion) => normalizeDigimonSetCode(expansion.code) === normSet
+    );
+    if (filtered.length > 0) candidates = filtered;
+  }
+
+  for (const expansion of [...candidates].sort((a, b) => b.id - a.id)) {
+    const blueprints = await getBlueprints(expansion.id);
+    const match = blueprints.find((blueprint) => {
+      if (blueprint.game_id !== gameId) return false;
+      const cn = blueprintCollectorNumber(blueprint);
+      return cn != null && normalizeCollectorNumber(cn) === target;
+    });
     if (match) {
       if (match.image_url) {
         blueprintImageCache.set(match.id, match.image_url);
@@ -402,10 +477,26 @@ export async function resolveBlueprintId(input: CardPriceInput): Promise<number 
   if (!gameId) return null;
 
   if (input.tcgPlayerId) {
-    const fromTcg = await resolveBlueprintByTcgPlayerId(input.tcgPlayerId, gameId);
+    const fromTcg = await resolveBlueprintByTcgPlayerId(
+      input.tcgPlayerId,
+      gameId,
+      input.setCode
+    );
     if (fromTcg != null) {
       blueprintLookup.set(cacheKey, fromTcg);
       return fromTcg;
+    }
+  }
+
+  if (input.collectorNumber && /-\d/.test(input.collectorNumber)) {
+    const fromCollector = await resolveBlueprintByCollectorNumber(
+      input.collectorNumber,
+      gameId,
+      input.setCode
+    );
+    if (fromCollector != null) {
+      blueprintLookup.set(cacheKey, fromCollector);
+      return fromCollector;
     }
   }
 
