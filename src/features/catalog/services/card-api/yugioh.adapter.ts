@@ -11,7 +11,6 @@ import {
 const API = "https://db.ygoprodeck.com/api/v7";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
 const YGO_RESULT_CAP = 80;
-const YGO_ADVANCED_CAP = 120;
 
 interface YgoCard extends YgoRawCard {}
 
@@ -138,7 +137,7 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
     const mapped = cards.map((card) => mapYgoCard(card));
     const keyword = filters.keyword.trim();
     const ranked = keyword ? rankSearchResults(keyword, mapped) : mapped;
-    return ranked.slice(0, YGO_ADVANCED_CAP);
+    return ranked;
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {

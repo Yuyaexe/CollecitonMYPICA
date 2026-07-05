@@ -10,8 +10,6 @@ import {
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 
-const SEARCH_RESULT_LIMIT = 48;
-
 function parseFilters(body: Record<string, unknown>): YugiohAdvancedSearchFilters {
   const base = { ...EMPTY_YGO_ADVANCED_FILTERS };
   const readStringArray = (key: string) =>
@@ -72,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     let results = await yugiohAdapter.advancedSearch(filters, { locale });
-    results = dedupeSearchResults(results, "yugioh").slice(0, SEARCH_RESULT_LIMIT);
+    results = dedupeSearchResults(results, "yugioh");
 
     results = results.map((result) => {
       if (!isYugiohPasscodeId(result.externalId, result.imageUrl)) return result;

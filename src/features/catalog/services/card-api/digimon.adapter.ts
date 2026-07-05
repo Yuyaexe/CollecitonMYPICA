@@ -28,7 +28,7 @@ const NON_DIGIMON_SET = /dragon ball|fusion world|one piece|pokemon|magic the ga
 
 const DIGIMON_SEARCH_LIMIT = 200;
 /** Max unique card numbers (BT3-031, etc.) returned — matches digimoncard.io-style breadth. */
-const DIGIMON_RESULT_CAP = 48;
+const DIGIMON_RESULT_CAP = 200;
 
 /** digimoncard.io returns 400 when the query contains ":" — use space instead in API calls. */
 function normalizeDigimonQuery(query: string): string {
