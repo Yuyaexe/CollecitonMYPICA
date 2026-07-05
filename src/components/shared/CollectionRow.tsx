@@ -11,7 +11,6 @@ import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardHoverPreviewUrl, resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -56,7 +55,6 @@ export const CollectionRow = memo(function CollectionRow({
 }: CollectionRowProps) {
   const marketPrice = marketPriceProp ?? item.card.marketPrice;
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
   const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode, cardTraderImage);
 

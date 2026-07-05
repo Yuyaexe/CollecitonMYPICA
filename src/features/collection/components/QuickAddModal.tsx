@@ -443,7 +443,11 @@ export function QuickAddModal({
         pendingCard
           ? "sm:max-w-4xl"
           : isAdvancedMode
-            ? "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl max-sm:fixed max-sm:inset-x-2 max-sm:top-[2dvh] max-sm:max-h-[96dvh] max-sm:w-auto max-sm:max-w-none max-sm:translate-x-[-50%] max-sm:translate-y-0"
+            ? cn(
+                "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl",
+                "max-sm:inset-x-0 max-sm:top-[2dvh] max-sm:bottom-auto max-sm:max-h-[96dvh]",
+                "max-sm:w-full max-sm:max-w-[100vw] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-xl"
+              )
             : "sm:max-w-3xl max-sm:max-h-[92dvh] max-sm:overflow-y-auto"
       )}
     >

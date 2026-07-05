@@ -1,31 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl, cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
+import {
+  fetchCardTraderPriceMap,
+  fetchCardTraderQuote,
+  type CardTraderQuoteResult,
+} from "@/features/market/services/card-trader-fetch";
 import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
 
-interface CardTraderQuote {
-  price: number | null;
-  currency: Currency;
-  url: string;
-  blueprintId?: string | null;
-  imageUrl?: string | null;
-}
+type CardTraderQuote = CardTraderQuoteResult & { currency: Currency };
 
 const BATCH_SIZE = 8;
-const MAX_CARDS = 48;
-const SEQUENTIAL_DELAY_MS = 150;
-
-function quoteFromResponse(raw: CardTraderQuote | null | undefined): CardTraderQuote | null {
-  if (!raw?.url) return null;
-  return raw;
-}
+/** Unique print variants fetched live per collection view (batched). */
+const MAX_CARDS = 96;
 
 export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
   const blueprintId = resolveStoredBlueprintId(
@@ -48,157 +42,8 @@ export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
     imageUrl: item.card.imageUrl,
     cardTraderBlueprintId: item.card.cardTraderBlueprintId,
     blueprintId,
-    ...(item.card.gameSlug === "digimon"
-      ? digimonOwnedCardPriceFields(item.card)
-      : {}),
+    ...(item.card.gameSlug === "digimon" ? digimonOwnedCardPriceFields(item.card) : {}),
   };
-}
-
-async function fetchSinglePrice(
-  input: CardPriceInput,
-  currency: Currency
-): Promise<CardTraderQuote | null> {
-  const res = await fetch("/api/cards/prices", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ currency, cards: [input] }),
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as {
-    configured: boolean;
-    prices: Array<CardTraderQuote | null>;
-  };
-  if (!json.configured) return null;
-  return quoteFromResponse(json.prices[0]);
-}
-
-async function fetchPriceBatchByInput(
-  inputs: CardPriceInput[],
-  keys: string[],
-  currency: Currency
-): Promise<Map<string, CardTraderQuote>> {
-  const map = new Map<string, CardTraderQuote>();
-  if (inputs.length === 0) return map;
-
-  const res = await fetch("/api/cards/prices", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ currency, cards: inputs }),
-  });
-
-  if (!res.ok) return map;
-  const json = (await res.json()) as {
-    configured: boolean;
-    prices: Array<CardTraderQuote | null>;
-  };
-  if (!json.configured) return map;
-
-  inputs.forEach((_input, index) => {
-    const quote = quoteFromResponse(json.prices[index]);
-    if (quote) map.set(keys[index], quote);
-  });
-
-  return map;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Fetches variant prices one-by-one to avoid CardTrader rate limits. */
-export function useSequentialVariantPrices(
-  cardName: string,
-  gameSlug: string,
-  variants: Array<{
-    key: string;
-    setName: string | null;
-    setCode: string | null;
-    collectorNumber?: string | null;
-    rarity?: string | null;
-    variantLabel?: string | null;
-    tcgPlayerId?: string | null;
-    cardTraderRarityHint?: string | null;
-    blueprintId?: number | null;
-    imageUrl?: string | null;
-    cardTraderBlueprintId?: string | null;
-  }>,
-  currency: Currency,
-  enabled: boolean
-) {
-  const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
-  const [prices, setPrices] = useState<Map<string, CardTraderQuote>>(new Map());
-  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
-  const [resolvedKeys, setResolvedKeys] = useState<Set<string>>(new Set());
-  const runIdRef = useRef(0);
-
-  const variantSignature = useMemo(
-    () =>
-      variants
-        .map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}|${v.rarity ?? ""}|${v.blueprintId ?? ""}`)
-        .join(","),
-    [variants]
-  );
-
-  useEffect(() => {
-    if (!enabled || variants.length === 0) {
-      setPrices(new Map());
-      setPendingKeys(new Set());
-      setResolvedKeys(new Set());
-      return;
-    }
-
-    const runId = ++runIdRef.current;
-    setPrices(new Map());
-    setPendingKeys(new Set(variants.map((v) => v.key)));
-    setResolvedKeys(new Set());
-
-    void (async () => {
-      for (const variant of variants) {
-        if (runIdRef.current !== runId) return;
-
-        const input: CardPriceInput = {
-          gameSlug,
-          name: cardName,
-          setName: variant.setName,
-          setCode: variant.setCode,
-          collectorNumber: variant.collectorNumber,
-          rarity: variant.cardTraderRarityHint ?? variant.rarity,
-          variantLabel: variant.variantLabel,
-          tcgPlayerId: variant.tcgPlayerId,
-          blueprintId: variant.blueprintId,
-          imageUrl: variant.imageUrl,
-          cardTraderBlueprintId: variant.cardTraderBlueprintId,
-        };
-
-        try {
-          const quote = await fetchSinglePrice(input, currency);
-          if (runIdRef.current !== runId) return;
-          if (quote) {
-            setPrices((prev) => {
-              const next = new Map(prev);
-              next.set(variant.key, quote);
-              return next;
-            });
-          }
-        } finally {
-          if (runIdRef.current !== runId) return;
-          setPendingKeys((prev) => {
-            const next = new Set(prev);
-            next.delete(variant.key);
-            return next;
-          });
-          setResolvedKeys((prev) => new Set(prev).add(variant.key));
-        }
-
-        if (runIdRef.current !== runId) return;
-        await sleep(SEQUENTIAL_DELAY_MS);
-      }
-    })();
-  }, [enabled, gameSlug, cardName, currency, variantSignature, priceRefreshKey, variants]);
-
-  const isFetching = pendingKeys.size > 0;
-
-  return { data: prices, isFetching, pendingKeys, resolvedKeys };
 }
 
 /** Live query wins over bulk cache when both exist (quick refresh). */
@@ -209,7 +54,7 @@ export function mergeCardTraderQuoteMaps(
   const merged = new Map<string, CardTraderQuote>();
   if (bulk) {
     for (const [key, quote] of Object.entries(bulk)) {
-      merged.set(key, quote);
+      merged.set(key, quote as CardTraderQuote);
     }
   }
   live?.forEach((quote, key) => merged.set(key, quote));
@@ -242,10 +87,9 @@ async function fetchPriceBatch(
 ): Promise<Map<string, CardTraderQuote>> {
   const keys = cards.map((item) => cardPriceKey(item));
   const inputs = cards.map((item) => ownedCardToPriceInput(item));
-  return fetchPriceBatchByInput(inputs, keys, currency);
+  return fetchCardTraderPriceMap(inputs, keys, currency) as Promise<Map<string, CardTraderQuote>>;
 }
 
-/** Resolves CardTrader product URL (and optional price) for one owned card. */
 export function useCardTraderOwnedQuote(
   card: DemoOwnedCard | null,
   currency: Currency,
@@ -253,10 +97,7 @@ export function useCardTraderOwnedQuote(
 ) {
   const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
 
-  const input = useMemo(
-    () => (card ? ownedCardToPriceInput(card) : null),
-    [card]
-  );
+  const input = useMemo(() => (card ? ownedCardToPriceInput(card) : null), [card]);
 
   return useQuery({
     queryKey: [
@@ -272,7 +113,10 @@ export function useCardTraderOwnedQuote(
     ],
     enabled: enabled && !!input,
     staleTime: 30 * 60 * 1000,
-    queryFn: () => fetchSinglePrice(input!, currency),
+    queryFn: async () => {
+      const quote = await fetchCardTraderQuote(input!, currency);
+      return quote as CardTraderQuote | null;
+    },
   });
 }
 
@@ -304,7 +148,9 @@ export function useCardTraderVariantPrices(
       gameSlug,
       cardName,
       currency,
-      variants.map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}|${v.rarity ?? ""}|${v.blueprintId ?? ""}`).join(","),
+      variants
+        .map((v) => `${v.key}|${v.setName ?? ""}|${v.setCode ?? ""}|${v.rarity ?? ""}|${v.blueprintId ?? ""}`)
+        .join(","),
     ],
     [priceRefreshKey, gameSlug, cardName, currency, variants]
   );
@@ -331,8 +177,8 @@ export function useCardTraderVariantPrices(
           imageUrl: v.imageUrl,
           cardTraderBlueprintId: v.cardTraderBlueprintId,
         }));
-        const batchMap = await fetchPriceBatchByInput(inputs, keys, currency);
-        batchMap.forEach((value, key) => merged.set(key, value));
+        const batchMap = await fetchCardTraderPriceMap(inputs, keys, currency);
+        batchMap.forEach((value, key) => merged.set(key, value as CardTraderQuote));
       }
       return merged;
     },

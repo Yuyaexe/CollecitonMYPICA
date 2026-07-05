@@ -6,7 +6,6 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -34,7 +33,6 @@ export function CollectionGridCardItem({
   onOpen,
 }: CollectionGridCardItemProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
   const dragOver = dragHandlers.isDragOver(item.id);
 

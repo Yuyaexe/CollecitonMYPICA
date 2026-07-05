@@ -8,7 +8,6 @@ import { PriceBadge } from "@/components/shared/PriceBadge";
 import { Button } from "@/components/ui/button";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
@@ -103,7 +102,6 @@ function CharacterCardThumb({
   cardTraderImage?: string | null;
 }) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  useYugiohCardImageRepair(item.id, item.card, ygoPasscode ?? null);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
 
   const image = (

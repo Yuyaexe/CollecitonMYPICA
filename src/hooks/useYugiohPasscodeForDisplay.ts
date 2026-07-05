@@ -59,7 +59,3 @@ export function useYugiohPasscodeForDisplay(
 
   return storedPasscode && isYugiohPasscodeId(storedPasscode, null) ? storedPasscode : null;
 }
-
-export function needsYugiohPasscodeLookup(card: CardPasscodeFields): boolean {
-  return card.gameSlug === "yugioh" && !isYugiohPasscodeId(card.externalId, card.imageUrl);
-}

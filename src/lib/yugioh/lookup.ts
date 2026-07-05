@@ -55,6 +55,28 @@ export async function fetchYugiohCardBySetNumber(
   return json.result ?? null;
 }
 
+export interface YugiohOwnedCardDetailResponse {
+  result: CardSearchResult | null;
+  relatedPrints: CardSearchResult[];
+  passcode?: string | null;
+}
+
+/** Single POST — resolves passcode, card detail, and alternate prints. */
+export async function fetchYugiohOwnedCardDetail(card: {
+  name: string;
+  setCode?: string | null;
+  collectorNumber?: string | null;
+  externalId?: string | null;
+}): Promise<YugiohOwnedCardDetailResponse> {
+  const res = await fetch("/api/cards/yugioh/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(card),
+  });
+  if (!res.ok) return { result: null, relatedPrints: [] };
+  return (await res.json()) as YugiohOwnedCardDetailResponse;
+}
+
 /** Resolve Konami passcode for an owned Yu-Gi-Oh card (set number first, then exact name). */
 export async function fetchYugiohPasscodeForCard(card: {
   name: string;

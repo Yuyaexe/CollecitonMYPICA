@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
+import { buildYgoImageUrl, isYgoCroppedImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 import { isCardTraderHostedImage, isCardTraderPlaceholderImage } from "@/lib/cardtrader/images";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { DemoCard } from "@/lib/demo/types";
@@ -19,6 +19,7 @@ function imageNeedsYugiohRepair(
   if (card.gameSlug !== "yugioh") return false;
   if (isCardTraderPlaceholderImage(card.imageUrl)) return true;
   if (isCardTraderHostedImage(card.imageUrl)) return true;
+  if (isYgoCroppedImageUrl(card.imageUrl)) return true;
   if (!card.imageUrl) return true;
   if (card.imageUrl.includes("ygoprodeck.com")) {
     return !card.imageUrl.includes(`/${passcode}`);

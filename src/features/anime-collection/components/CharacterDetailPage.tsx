@@ -21,7 +21,9 @@ import {
   animeCharacterCardToOwned,
   ownedUpdatesToAnimeCharacter,
 } from "@/features/anime-collection/utils/character-card-inspect";
-import { useCharacterCardTraderSync } from "@/features/anime-collection/hooks/useCharacterCardTraderSync";
+import { useAnimeCardTraderCatalogSync } from "@/features/anime-collection/hooks/useAnimeCardTraderCatalogSync";
+import { AnimeYugiohPasscodeSync } from "@/features/anime-collection/hooks/useAnimeYugiohPasscodeSync";
+import { YugiohPasscodeProvider } from "@/features/collection/context/yugioh-passcode-context";
 import {
   useCardTraderPrices,
   resolveDisplayPrice,
@@ -110,7 +112,7 @@ export function CharacterDetailPage({
     [characterCards, inspectCardId]
   );
 
-  useCharacterCardTraderSync(characterCards, profile.currency, updateAnimeCharacterCard);
+  useAnimeCardTraderCatalogSync(characterCards, cardTraderPrices, updateAnimeCharacterCard);
 
   if (!series || !character || character.seriesId !== series.id) {
     return (
@@ -150,6 +152,8 @@ export function CharacterDetailPage({
   };
 
   return (
+    <YugiohPasscodeProvider cards={ownedForPrices}>
+      <AnimeYugiohPasscodeSync cards={characterCards} onUpdate={updateAnimeCharacterCard}>
     <>
       <Link
         href={`/anime-collection/${seriesSlug}`}
@@ -328,5 +332,7 @@ export function CharacterDetailPage({
         </div>
       </Modal>
     </>
+      </AnimeYugiohPasscodeSync>
+    </YugiohPasscodeProvider>
   );
 }

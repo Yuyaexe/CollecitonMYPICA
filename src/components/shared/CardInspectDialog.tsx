@@ -36,11 +36,8 @@ import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
-import { fetchYugiohCardByName, fetchYugiohCardBySetNumber, yugiohSetNumberRef } from "@/lib/yugioh/lookup";
-import {
-  isCardTraderBlueprintExternalId,
-  isYugiohPasscodeId,
-} from "@/lib/yugioh/passcode";
+import { fetchYugiohOwnedCardDetail } from "@/lib/yugioh/lookup";
+import { isCardTraderBlueprintExternalId } from "@/lib/yugioh/passcode";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
@@ -79,21 +76,14 @@ async function fetchCardDetailForOwned(
   card: DemoOwnedCard["card"]
 ): Promise<CardDetailResponse> {
   if (card.gameSlug === "yugioh") {
-    const setRef = yugiohSetNumberRef(card.setCode, card.collectorNumber);
-    if (setRef) {
-      const bySet = await fetchYugiohCardBySetNumber(setRef);
-      if (bySet) {
-        return { result: bySet, relatedPrints: [] };
-      }
-    }
-
-    const byName = await fetchYugiohCardByName(card.name);
-    if (byName) {
-      return { result: byName, relatedPrints: [] };
-    }
-
-    if (card.externalId && isYugiohPasscodeId(card.externalId, card.imageUrl)) {
-      return fetchCardDetail(card.externalId, card.gameSlug);
+    const resolved = await fetchYugiohOwnedCardDetail({
+      name: card.name,
+      setCode: card.setCode,
+      collectorNumber: card.collectorNumber,
+      externalId: card.externalId,
+    });
+    if (resolved.result) {
+      return { result: resolved.result, relatedPrints: resolved.relatedPrints ?? [] };
     }
   }
 

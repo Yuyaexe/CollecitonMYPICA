@@ -25,11 +25,11 @@ export function buildYgoImageUrl(
   return `https://images.ygoprodeck.com/images/${folder}/${externalId}.jpg`;
 }
 
-export function pickYgoImageSizeForRarity(rarity: string | null | undefined): "full" | "cropped" {
-  if (!rarity) return "full";
-  const r = rarity.toLowerCase();
-  if (r.includes("secret") || r.includes("ghost") || r.includes("prismatic") || r.includes("starlight")) {
-    return "cropped";
-  }
+/** Always use full framed card scans — `cards_cropped` is landscape art-only and breaks grid layout. */
+export function pickYgoImageSizeForRarity(_rarity: string | null | undefined): "full" {
   return "full";
+}
+
+export function isYgoCroppedImageUrl(url: string | null | undefined): boolean {
+  return Boolean(url?.includes("/cards_cropped/"));
 }

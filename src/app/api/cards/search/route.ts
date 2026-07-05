@@ -1,27 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
-import { digimonCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
-import { SearchDebugLog } from "@/features/catalog/services/search-debug";
-import {
-  catalogSourceLabel,
-  serializeSearchResultsForResponse,
-} from "@/features/catalog/services/serialize-search-results";
+import { serializeSearchResultsForResponse } from "@/features/catalog/services/serialize-search-results";
 import { rankSearchResults, dedupeSearchResults } from "@/features/catalog/services/search-ranking";
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import {
-  getCardTraderPriceForProfile,
   isCardTraderConfigured,
   isCardTraderGameSupported,
   isCardTraderPrimarySearch,
-  resolveStoredBlueprintId,
   searchCardTraderCatalog,
   CARDTRADER_PRIMARY_MAX_EXPANSIONS,
 } from "@/lib/cardtrader";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 
 const SEARCH_RESULT_LIMIT = 24;
-/** Supplemental CardTrader merge — keep small to avoid rate limits during search. */
 const CT_MERGE_MAX_EXPANSIONS = 6;
 
 function mergeSearchResults(
@@ -53,31 +45,20 @@ export async function GET(request: NextRequest) {
   const rawQuery = searchParams.get("q") ?? "";
   const query = rawQuery.replace(/:+\s*$/, "").trim() || rawQuery.trim();
   const game = searchParams.get("game") ?? "yugioh";
-  const currency = (searchParams.get("currency") as "USD" | "BRL" | null) ?? "USD";
   const localeParam = searchParams.get("locale");
   const locale = localeParam === "pt" ? ("pt" as const) : ("en" as const);
-  const debugMode = searchParams.get("debug") === "1";
-  const enrichPrices = searchParams.get("enrich") === "1";
   const quickSearch = searchParams.get("quick") === "1";
 
-  const log = new SearchDebugLog();
-
   if (!query.trim()) {
-    return NextResponse.json({ results: [], debug: debugMode ? log.toJSON() : undefined });
+    return NextResponse.json({ results: [] });
   }
 
   const cardTraderReady = isCardTraderConfigured() && isCardTraderGameSupported(game);
-  log.push(
-    "info",
-    "init",
-    `Search "${query}" · game=${game} · locale=${locale} · quick=${quickSearch ? "on" : "off"} · CT=${cardTraderReady ? "on" : "off"} · enrich=${enrichPrices ? "on" : "off"}`
-  );
 
   if (!isApiSupported(game) && !cardTraderReady) {
     return NextResponse.json({
       results: [],
       message: `Search not available for ${game}. Use CSV import.`,
-      debug: debugMode ? log.toJSON() : undefined,
     });
   }
 
@@ -88,26 +69,10 @@ export async function GET(request: NextRequest) {
     if (isApiSupported(game)) {
       const adapter = getCardAdapter(game);
       if (!adapter) {
-        return NextResponse.json({ error: "Unknown game", debug: debugMode ? log.toJSON() : undefined }, { status: 400 });
+        return NextResponse.json({ error: "Unknown game" }, { status: 400 });
       }
 
-      try {
-        results = await log.time(
-          "catalog",
-          `${catalogSourceLabel(game)} catalog`,
-          () => adapter.search(query, game === "yugioh" ? { locale } : undefined)
-        );
-        log.push(
-          "info",
-          "catalog",
-          `${results.length} result(s) from ${catalogSourceLabel(game)}`
-        );
-      } catch (error) {
-        log.push("error", "catalog", "Catalog search failed", {
-          detail: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
+      results = await adapter.search(query, game === "yugioh" ? { locale } : undefined);
 
       if (cardTraderReady && locale === "en" && !quickSearch) {
         try {
@@ -116,113 +81,29 @@ export async function GET(request: NextRequest) {
               ? CARDTRADER_PRIMARY_MAX_EXPANSIONS
               : CT_MERGE_MAX_EXPANSIONS,
           };
-          const cardTraderResults = await log.time(
-            "cardtrader-merge",
-            `CardTrader catalog merge (max ${ctSearchOpts.maxExpansions} expansions)`,
-            () => searchCardTraderCatalog(game, query, ctSearchOpts)
-          );
+          const cardTraderResults = await searchCardTraderCatalog(game, query, ctSearchOpts);
 
           if (results.length === 0) {
             results = cardTraderResults;
             source = "cardtrader";
-            log.push("info", "cardtrader-merge", `Using ${cardTraderResults.length} CardTrader-only result(s)`);
           } else if (cardTraderResults.length > 0) {
             results = mergeSearchResults(results, cardTraderResults);
-            log.push(
-              "success",
-              "cardtrader-merge",
-              `Merged ${cardTraderResults.length} CT result(s) · total ${results.length}`
-            );
-          } else {
-            log.push("warn", "cardtrader-merge", "No CardTrader matches (catalog results kept)");
           }
         } catch (error) {
-          log.push("warn", "cardtrader-merge", "CardTrader merge skipped (rate limit or API error)", {
-            detail: error instanceof Error ? error.message : String(error),
-          });
-          if (results.length === 0) {
-            throw error;
-          }
+          if (results.length === 0) throw error;
         }
       }
     } else if (cardTraderReady) {
-      const ctSearchOpts = {
+      results = await searchCardTraderCatalog(game, query, {
         maxExpansions: CARDTRADER_PRIMARY_MAX_EXPANSIONS,
-      };
-      results = await log.time(
-        "cardtrader-primary",
-        "CardTrader primary search",
-        () => searchCardTraderCatalog(game, query, ctSearchOpts)
-      );
+      });
       source = "cardtrader";
     }
 
-    if (enrichPrices && cardTraderReady && results.length > 0) {
-      log.push("warn", "enrich", "Price/image enrich enabled — may hit CardTrader rate limits");
-      const enriched = [];
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        if (i >= 8) {
-          enriched.push(result);
-          continue;
-        }
-        try {
-          const blueprintId = resolveStoredBlueprintId(
-            result.externalId,
-            result.imageUrl,
-            result.metadata?.catalogSource === "cardtrader" ? result.externalId : null
-          );
-          const cardTrader = await getCardTraderPriceForProfile(
-            {
-              gameSlug: game,
-              name: result.name,
-              setName: result.setName,
-              setCode: result.setCode,
-              rarity: result.rarity,
-              blueprintId,
-              imageUrl: result.imageUrl,
-              cardTraderBlueprintId: blueprintId != null ? String(blueprintId) : null,
-              ...(game === "digimon" ? digimonCardPriceFields(result) : {}),
-            },
-            currency
-          );
-          if (cardTrader) {
-            enriched.push({
-              ...result,
-              price: cardTrader.price ?? result.price,
-              imageUrl: result.imageUrl,
-              metadata: {
-                ...result.metadata,
-                priceSource: "cardtrader",
-                cardTraderBlueprintId: cardTrader.blueprintId,
-              },
-            });
-          } else {
-            enriched.push(result);
-          }
-        } catch (error) {
-          enriched.push(result);
-          log.push("warn", "enrich", `Enrich failed for "${result.name}"`, {
-            detail: error instanceof Error ? error.message : String(error),
-          });
-        }
-        if (i < Math.min(results.length, 8) - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 40));
-        }
-      }
-      results = enriched;
-    } else {
-      log.push(
-        "info",
-        "images",
-        `Using ${catalogSourceLabel(game)} images — CardTrader art upgrades in collection later`
-      );
-    }
-
-    results = dedupeSearchResults(
-      rankSearchResults(query, results),
-      game
-    ).slice(0, SEARCH_RESULT_LIMIT);
+    results = dedupeSearchResults(rankSearchResults(query, results), game).slice(
+      0,
+      SEARCH_RESULT_LIMIT
+    );
 
     if (game === "yugioh") {
       results = results.map((result) => {
@@ -232,16 +113,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    log.push("info", "rank", `${results.length} result(s) after dedupe + A–Z sort`);
-    log.push("success", "done", `Returning ${results.length} result(s)`);
-
-    const safeResults = serializeSearchResultsForResponse(results);
-
     return NextResponse.json(
       {
-        results: safeResults,
+        results: serializeSearchResultsForResponse(results),
         priceSource: cardTraderReady ? "catalog-first" : source,
-        debug: debugMode ? log.toJSON() : undefined,
       },
       {
         headers: quickSearch
@@ -251,15 +126,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    log.push("error", "fatal", "Search failed", { detail });
     console.error("GET /api/cards/search", error);
-    return NextResponse.json(
-      {
-        error: "Search failed",
-        message: detail,
-        debug: debugMode ? log.toJSON() : undefined,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Search failed", message: detail }, { status: 500 });
   }
 }
