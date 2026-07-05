@@ -8,13 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import {
   countActiveYgoAdvancedFilters,
@@ -45,7 +40,17 @@ interface YugiohAdvancedSearchPanelProps {
   locale?: "en" | "pt";
   layout?: "stacked" | "sidebar";
   className?: string;
+  /** Native selects inside Dialog/Sheet — avoids Radix crash on mobile. */
+  preferNativeSelects?: boolean;
 }
+
+const YGO_SORT_OPTIONS = [
+  { value: "name", label: "Nome (A–Z)" },
+  { value: "atk", label: "ATK" },
+  { value: "def", label: "DEF" },
+  { value: "level", label: "Nível" },
+  { value: "new", label: "Mais recentes" },
+] as const;
 
 interface CardSetOption {
   setName: string;
@@ -311,8 +316,11 @@ export function YugiohAdvancedSearchPanel({
   isSearching = false,
   layout = "stacked",
   className,
+  preferNativeSelects = true,
 }: YugiohAdvancedSearchPanelProps) {
   const [editionFilter, setEditionFilter] = useState("");
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const useNativeSelect = preferNativeSelects || isMobile;
 
   const { data: cardSets = [] } = useQuery<CardSetOption[]>({
     queryKey: ["ygo-cardsets"],
@@ -349,8 +357,12 @@ export function YugiohAdvancedSearchPanel({
 
   const filtersScrollClass =
     layout === "sidebar"
-      ? "min-h-0 flex-1 pr-2"
+      ? isMobile
+        ? "overflow-visible"
+        : "min-h-0 flex-1 pr-2"
       : "h-[min(42vh,380px)] pr-2";
+
+  const FiltersScrollWrapper = isMobile && layout === "sidebar" ? "div" : ScrollArea;
 
   return (
     <div
@@ -380,46 +392,30 @@ export function YugiohAdvancedSearchPanel({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Modo</Label>
-            <Select
+            <ResponsiveSelect
+              preferNative={useNativeSelect}
               value={filters.searchField}
               onValueChange={(value) =>
                 patch({ searchField: value as YugiohAdvancedSearchFilters["searchField"] })
               }
-            >
-              <SelectTrigger className="h-9 bg-background/80 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {YGO_SEARCH_FIELD_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={YGO_SEARCH_FIELD_OPTIONS}
+              triggerClassName="h-10 bg-background/80 text-xs"
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Ordenar</Label>
-            <Select
+            <ResponsiveSelect
+              preferNative={useNativeSelect}
               value={filters.sort}
               onValueChange={(value) =>
                 patch({ sort: value as YugiohAdvancedSearchFilters["sort"] })
               }
-            >
-              <SelectTrigger className="h-9 bg-background/80 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Nome (A–Z)</SelectItem>
-                <SelectItem value="atk">ATK</SelectItem>
-                <SelectItem value="def">DEF</SelectItem>
-                <SelectItem value="level">Nível</SelectItem>
-                <SelectItem value="new">Mais recentes</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[...YGO_SORT_OPTIONS]}
+              triggerClassName="h-10 bg-background/80 text-xs"
+            />
           </div>
         </div>
       </div>
@@ -443,7 +439,7 @@ export function YugiohAdvancedSearchPanel({
         ))}
       </div>
 
-      <ScrollArea className={filtersScrollClass}>
+      <FiltersScrollWrapper className={filtersScrollClass}>
         <div className="space-y-2.5 pb-2">
           {showMonsterFilters && (
             <FilterSection
@@ -754,10 +750,10 @@ export function YugiohAdvancedSearchPanel({
             </ScrollArea>
           </FilterSection>
         </div>
-      </ScrollArea>
+      </FiltersScrollWrapper>
 
       {/* Sticky footer */}
-      <div className="mt-3 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5">
+      <div className="mt-3 flex shrink-0 flex-col gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           {activeCount > 0 ? (
             <>
@@ -773,7 +769,7 @@ export function YugiohAdvancedSearchPanel({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9"
+            className="h-10 flex-1 sm:h-9 sm:flex-none"
             onClick={() => onChange({ ...EMPTY_YGO_ADVANCED_FILTERS })}
           >
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -782,7 +778,7 @@ export function YugiohAdvancedSearchPanel({
           <Button
             type="button"
             size="sm"
-            className="h-9 min-w-[100px] shadow-sm"
+            className="h-10 min-w-[100px] flex-1 shadow-sm sm:h-9 sm:flex-none"
             onClick={onSearch}
             disabled={isSearching}
           >

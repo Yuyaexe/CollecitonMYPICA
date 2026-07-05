@@ -42,7 +42,7 @@ export function ResponsiveSelect({
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         className={cn(
-          "flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring",
+          "flex h-10 w-full min-w-0 appearance-none rounded-md border border-input bg-background px-3 py-2 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-ring sm:h-9 sm:py-1 sm:text-sm",
           triggerClassName
         )}
       >

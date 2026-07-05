@@ -9,14 +9,9 @@ import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAppData } from "@/hooks/useAppData";
 import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
@@ -61,6 +56,11 @@ interface QuickAddModalProps {
 const MAX_VARIANT_PRICE_FETCH = 16;
 const SEARCH_DEBOUNCE_MS = 120;
 
+const GAME_SELECT_OPTIONS = QUICK_ADD_GAMES.map((g) => ({
+  value: g.slug,
+  label: g.name,
+}));
+
 export function QuickAddModal({
   open,
   onOpenChange,
@@ -83,6 +83,8 @@ export function QuickAddModal({
   const [ygoAdvancedFilters, setYgoAdvancedFilters] =
     useState<YugiohAdvancedSearchFilters>(EMPTY_YGO_ADVANCED_FILTERS);
   const [advancedSearchNonce, setAdvancedSearchNonce] = useState(0);
+  const [mobileAdvancedTab, setMobileAdvancedTab] = useState<"filters" | "results">("filters");
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
 
@@ -121,12 +123,14 @@ export function QuickAddModal({
     setYgoSearchMode("simple");
     setYgoAdvancedFilters(EMPTY_YGO_ADVANCED_FILTERS);
     setAdvancedSearchNonce(0);
+    setMobileAdvancedTab("filters");
   }, [selectedGameSlug]);
 
   const triggerAdvancedSearch = useCallback(() => {
     if (!hasActiveYgoAdvancedFilters(ygoAdvancedFilters)) return;
     setAdvancedSearchNonce((n) => n + 1);
-  }, [ygoAdvancedFilters]);
+    if (isMobile) setMobileAdvancedTab("results");
+  }, [ygoAdvancedFilters, isMobile]);
 
   const {
     data: advancedData,
@@ -435,13 +439,13 @@ export function QuickAddModal({
             ? `Filtre o catálogo ${game.name} e adicione à coleção`
             : `Search ${game.name} catalog`
       }
-      className={
+      className={cn(
         pendingCard
           ? "sm:max-w-4xl"
           : isAdvancedMode
-            ? "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl"
-            : "sm:max-w-3xl"
-      }
+            ? "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl max-sm:fixed max-sm:inset-x-2 max-sm:top-[2dvh] max-sm:max-h-[96dvh] max-sm:w-auto max-sm:max-w-none max-sm:translate-x-[-50%] max-sm:translate-y-0"
+            : "sm:max-w-3xl max-sm:max-h-[92dvh] max-sm:overflow-y-auto"
+      )}
     >
       <div className={cn("flex flex-col", isAdvancedMode && !pendingCard ? "min-h-0 flex-1 gap-4" : "space-y-4")}>
         {pendingCard ? (
@@ -561,54 +565,38 @@ export function QuickAddModal({
           </>
         ) : isAdvancedMode ? (
           <>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <ResponsiveSelect
+                preferNative
                 value={selectedGameSlug}
                 onValueChange={(slug) => {
                   const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
                   if (next) setSelectedGameSlug(next.slug);
                 }}
-              >
-                <SelectTrigger className="h-9 w-full sm:w-[200px]">
-                  <SelectValue placeholder="Game" />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUICK_ADD_GAMES.map((g) => (
-                    <SelectItem key={g.slug} value={g.slug}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={GAME_SELECT_OPTIONS}
+                triggerClassName="h-10 w-full sm:w-[200px]"
+              />
 
-              <Select
+              <ResponsiveSelect
+                preferNative
                 value={searchLocale}
                 onValueChange={(value) => {
                   const locale = value as CatalogSearchLocale;
                   setSearchLocale(locale);
                   writeSearchLocale(locale);
                 }}
-              >
-                <SelectTrigger className="h-9 w-[88px]" aria-label="Search language">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SEARCH_LOCALE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={SEARCH_LOCALE_OPTIONS}
+                triggerClassName="h-10 w-full sm:w-[88px]"
+              />
 
-              <div className="flex rounded-lg border border-border/50 bg-muted/20 p-0.5">
+              <div className="col-span-2 flex rounded-lg border border-border/50 bg-muted/20 p-0.5 sm:col-span-1">
                 {(["simple", "advanced"] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setYgoSearchMode(mode)}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                      "flex-1 rounded-md px-3 py-2 text-xs font-medium transition-all sm:flex-none sm:py-1.5",
                       ygoSearchMode === mode
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -620,19 +608,62 @@ export function QuickAddModal({
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(300px,340px)_1fr] lg:gap-5">
-              <div className="flex min-h-0 flex-col lg:max-h-[min(58vh,560px)]">
-                <YugiohAdvancedSearchPanel
-                  filters={ygoAdvancedFilters}
-                  onChange={setYgoAdvancedFilters}
-                  onSearch={triggerAdvancedSearch}
-                  isSearching={advancedFetching}
-                  locale={searchLocale}
-                  layout="sidebar"
-                  className="min-h-0"
-                />
+            {isMobile && (
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/50 bg-muted/20 p-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileAdvancedTab("filters")}
+                  className={cn(
+                    "rounded-lg py-2.5 text-xs font-medium transition-all",
+                    mobileAdvancedTab === "filters"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  Filtros
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileAdvancedTab("results")}
+                  className={cn(
+                    "relative rounded-lg py-2.5 text-xs font-medium transition-all",
+                    mobileAdvancedTab === "results"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  Resultados
+                  {searchResults.length > 0 && (
+                    <span className="ml-1.5 inline-flex min-w-[1.25rem] rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                      {searchResults.length}
+                    </span>
+                  )}
+                </button>
               </div>
+            )}
 
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(300px,340px)_1fr] lg:gap-5">
+              {(!isMobile || mobileAdvancedTab === "filters") && (
+                <div
+                  className={cn(
+                    "flex min-h-0 flex-col",
+                    isMobile ? "overflow-y-auto" : "lg:max-h-[min(58vh,560px)]"
+                  )}
+                >
+                  <YugiohAdvancedSearchPanel
+                    filters={ygoAdvancedFilters}
+                    onChange={setYgoAdvancedFilters}
+                    onSearch={triggerAdvancedSearch}
+                    isSearching={advancedFetching}
+                    locale={searchLocale}
+                    layout="sidebar"
+                    preferNativeSelects
+                    className="min-h-0"
+                  />
+                </div>
+              )}
+
+              {(!isMobile || mobileAdvancedTab === "results") && (
               <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border/50 bg-muted/10">
                 <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
                   <div>
@@ -653,7 +684,12 @@ export function QuickAddModal({
                   )}
                 </div>
 
-                <ScrollArea className="min-h-[240px] flex-1 lg:min-h-0 lg:h-[min(52vh,520px)]">
+                <ScrollArea
+                  className={cn(
+                    "flex-1",
+                    isMobile ? "h-[min(52dvh,420px)]" : "min-h-[240px] lg:min-h-0 lg:h-[min(52vh,520px)]"
+                  )}
+                >
                   <div className="p-4">
                     {showInitialLoader && (
                       <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
@@ -734,50 +770,35 @@ export function QuickAddModal({
                   </div>
                 </ScrollArea>
               </div>
+              )}
             </div>
           </>
         ) : (
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Select
+              <ResponsiveSelect
+                preferNative
                 value={selectedGameSlug}
                 onValueChange={(slug) => {
                   const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
                   if (next) setSelectedGameSlug(next.slug);
                 }}
-              >
-                <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue placeholder="Game" />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUICK_ADD_GAMES.map((g) => (
-                    <SelectItem key={g.slug} value={g.slug}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={GAME_SELECT_OPTIONS}
+                triggerClassName="h-10 w-full sm:w-[220px]"
+              />
               {game.slug === "yugioh" && (
                 <>
-                  <Select
+                  <ResponsiveSelect
+                    preferNative
                     value={searchLocale}
                     onValueChange={(value) => {
                       const locale = value as CatalogSearchLocale;
                       setSearchLocale(locale);
                       writeSearchLocale(locale);
                     }}
-                  >
-                    <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SEARCH_LOCALE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={SEARCH_LOCALE_OPTIONS}
+                    triggerClassName="h-10 w-full sm:w-[100px]"
+                  />
                   <div className="flex rounded-lg border border-border/50 bg-muted/20 p-0.5">
                     {(["simple", "advanced"] as const).map((mode) => (
                       <button
@@ -785,7 +806,7 @@ export function QuickAddModal({
                         type="button"
                         onClick={() => setYgoSearchMode(mode)}
                         className={cn(
-                          "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                          "flex-1 rounded-md px-3 py-2 text-xs font-medium transition-all sm:flex-none sm:py-1.5",
                           ygoSearchMode === mode
                             ? "bg-background text-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
