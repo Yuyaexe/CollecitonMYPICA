@@ -131,7 +131,7 @@ export function CollectionCardTraderSyncModal({
           ? mode === "links"
             ? "Corrigindo links e blueprints…"
             : "Buscando preços e links para toda a coleção…"
-          : `${variantCount} variantes únicas nesta coleção (sem limite de 48).`
+          : `${variantCount} variantes únicas nesta coleção.`
       }
       footer={
         running ? (
@@ -207,11 +207,11 @@ export function CollectionCardTraderSyncModal({
               className="text-xs text-muted-foreground"
               onClick={() => {
                 refreshPrices();
-                toast.message("Atualizando preços rápidos (48 variantes)");
+                toast.message("Atualizando preços da coleção…");
                 onOpenChange(false);
               }}
             >
-              Só atualização rápida (48 variantes visíveis)
+              Atualizar preços ao vivo (todas as variantes)
             </Button>
           </div>
         )}

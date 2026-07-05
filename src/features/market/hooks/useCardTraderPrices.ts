@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl, cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
@@ -18,8 +18,40 @@ import type { Currency } from "@/types/tcg";
 type CardTraderQuote = CardTraderQuoteResult & { currency: Currency };
 
 const BATCH_SIZE = 8;
-/** Unique print variants fetched live per collection view (batched). */
-const MAX_CARDS = 96;
+/** Pause between batch requests to stay under CardTrader rate limits. */
+const BATCH_DELAY_MS = 180;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Unique print variants — no artificial cap. */
+function dedupeOwnedCardsForPrices(cards: DemoOwnedCard[]): DemoOwnedCard[] {
+  const seen = new Set<string>();
+  const list: DemoOwnedCard[] = [];
+
+  for (const item of cards) {
+    const key = cardPriceKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push(item);
+  }
+
+  return list;
+}
+
+function fingerprintPriceTargets(cards: DemoOwnedCard[]): string {
+  const keys = cards.map((c) => cardPriceKey(c)).sort();
+  if (keys.length === 0) return "0";
+
+  let hash = 0;
+  const payload = keys.join("\n");
+  for (let i = 0; i < payload.length; i++) {
+    hash = (Math.imul(31, hash) + payload.charCodeAt(i)) | 0;
+  }
+
+  return `${keys.length}:${hash}`;
+}
 
 export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
   const blueprintId = resolveStoredBlueprintId(
@@ -179,6 +211,9 @@ export function useCardTraderVariantPrices(
         }));
         const batchMap = await fetchCardTraderPriceMap(inputs, keys, currency);
         batchMap.forEach((value, key) => merged.set(key, value as CardTraderQuote));
+        if (i + BATCH_SIZE < variants.length) {
+          await sleep(BATCH_DELAY_MS);
+        }
       }
       return merged;
     },
@@ -190,35 +225,13 @@ export function useCardTraderPrices(
   currency: Currency,
   enabled = true
 ) {
+  const queryClient = useQueryClient();
   const priceRefreshKey = useCollectionUIStore((s) => s.priceRefreshKey);
 
-  const targets = useMemo(() => {
-    const seen = new Set<string>();
-    const list: DemoOwnedCard[] = [];
-
-    for (const item of cards) {
-      const key = cardPriceKey(item);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      list.push(item);
-      if (list.length >= MAX_CARDS) break;
-    }
-
-    return list;
-  }, [cards]);
+  const targets = useMemo(() => dedupeOwnedCardsForPrices(cards), [cards]);
 
   const queryKey = useMemo(
-    () => [
-      "cardtrader-prices",
-      priceRefreshKey,
-      currency,
-      targets
-        .map(
-          (c) =>
-            `${cardPriceKey(c)}|${c.card.setName ?? ""}|${c.card.setCode ?? ""}|${c.card.rarity ?? ""}|${c.condition}|${c.language}`
-        )
-        .join(","),
-    ],
+    () => ["cardtrader-prices", priceRefreshKey, currency, fingerprintPriceTargets(targets)],
     [priceRefreshKey, currency, targets]
   );
 
@@ -228,11 +241,20 @@ export function useCardTraderPrices(
     staleTime: 30 * 60 * 1000,
     queryFn: async () => {
       const merged = new Map<string, CardTraderQuote>();
+
       for (let i = 0; i < targets.length; i += BATCH_SIZE) {
         const batch = targets.slice(i, i + BATCH_SIZE);
         const batchMap = await fetchPriceBatch(batch, currency);
         batchMap.forEach((value, key) => merged.set(key, value));
+
+        // Progressive UI: show prices as each batch completes.
+        queryClient.setQueryData(queryKey, new Map(merged));
+
+        if (i + BATCH_SIZE < targets.length) {
+          await sleep(BATCH_DELAY_MS);
+        }
       }
+
       return merged;
     },
   });
