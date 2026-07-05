@@ -52,6 +52,8 @@ export async function GET(request: NextRequest) {
   const query = rawQuery.replace(/:+\s*$/, "").trim() || rawQuery.trim();
   const game = searchParams.get("game") ?? "yugioh";
   const currency = (searchParams.get("currency") as "USD" | "BRL" | null) ?? "USD";
+  const localeParam = searchParams.get("locale");
+  const locale = localeParam === "pt" ? ("pt" as const) : ("en" as const);
   const debugMode = searchParams.get("debug") === "1";
   const enrichPrices = searchParams.get("enrich") === "1";
 
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
   log.push(
     "info",
     "init",
-    `Search "${query}" · game=${game} · CT=${cardTraderReady ? "on" : "off"} · enrich=${enrichPrices ? "on" : "off"}`
+    `Search "${query}" · game=${game} · locale=${locale} · CT=${cardTraderReady ? "on" : "off"} · enrich=${enrichPrices ? "on" : "off"}`
   );
 
   if (!isApiSupported(game) && !cardTraderReady) {
@@ -90,7 +92,7 @@ export async function GET(request: NextRequest) {
         results = await log.time(
           "catalog",
           `${catalogSourceLabel(game)} catalog`,
-          () => adapter.search(query)
+          () => adapter.search(query, game === "yugioh" ? { locale } : undefined)
         );
         log.push(
           "info",
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
         throw error;
       }
 
-      if (cardTraderReady) {
+      if (cardTraderReady && locale === "en") {
         try {
           const ctSearchOpts = {
             maxExpansions: isCardTraderPrimarySearch(game)

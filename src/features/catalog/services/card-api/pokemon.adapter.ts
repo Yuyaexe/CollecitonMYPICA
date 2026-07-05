@@ -1,4 +1,4 @@
-import type { CardApiAdapter, CardDetail, CardSearchResult } from "./types";
+import type { CardApiAdapter, CardDetail, CardSearchResult, CatalogSearchOptions } from "./types";
 
 const API = "https://api.pokemontcg.io/v2";
 
@@ -51,7 +51,7 @@ function mapPokemonCard(card: PokemonCard): CardSearchResult {
 export const pokemonAdapter: CardApiAdapter = {
   gameSlug: "pokemon",
 
-  async search(query: string): Promise<CardSearchResult[]> {
+  async search(query: string, _options?: CatalogSearchOptions): Promise<CardSearchResult[]> {
     if (!query.trim()) return [];
     const res = await fetch(
       `${API}/cards?q=${encodeURIComponent(buildSearchQuery(query))}&pageSize=20`,

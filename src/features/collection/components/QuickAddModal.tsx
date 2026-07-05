@@ -30,12 +30,12 @@ import {
   type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
 import { digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
-import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
-import type { SearchDebugEntry } from "@/features/catalog/services/search-debug";
+import type { CardSearchResult, CatalogSearchLocale } from "@/features/catalog/services/card-api/types";
 import {
-  SearchDebugConsole,
-  SearchDebugToggle,
-} from "@/features/catalog/components/SearchDebugConsole";
+  readSearchLocale,
+  SEARCH_LOCALE_OPTIONS,
+  writeSearchLocale,
+} from "@/features/catalog/utils/search-locale";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSequentialVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
@@ -70,11 +70,16 @@ export function QuickAddModal({
   const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
     defaultGameSlug ?? QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
   );
-  const [debugEnabled, setDebugEnabled] = useState(true);
-  const [searchDebug, setSearchDebug] = useState<SearchDebugEntry[]>([]);
+  const [searchLocale, setSearchLocale] = useState<CatalogSearchLocale>("en");
   const [searchErrorDetail, setSearchErrorDetail] = useState<string | null>(null);
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
+
+  useEffect(() => {
+    if (open) {
+      setSearchLocale(readSearchLocale(profile.currency));
+    }
+  }, [open, profile.currency]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
@@ -105,22 +110,19 @@ export function QuickAddModal({
   }, [selectedGameSlug]);
 
   const { data, isLoading, isError, isFetching, error } = useQuery({
-    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, debugEnabled],
+    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, searchLocale],
     queryFn: async () => {
       setSearchErrorDetail(null);
-      const debugParam = debugEnabled ? "&debug=1" : "";
+      const localeParam =
+        game.slug === "yugioh" && searchLocale === "pt" ? "&locale=pt" : "";
       const res = await fetch(
-        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}${debugParam}`
+        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}${localeParam}`
       );
       const json = (await res.json()) as {
         results?: CardSearchResult[];
         error?: string;
         message?: string;
-        debug?: SearchDebugEntry[];
       };
-      if (json.debug?.length) {
-        setSearchDebug(json.debug);
-      }
       if (!res.ok) {
         const detail = json.message ?? json.error ?? "Search failed";
         setSearchErrorDetail(detail);
@@ -223,6 +225,23 @@ export function QuickAddModal({
             buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(result.rarity)) ??
             result.imageUrl,
         };
+        if (searchLocale === "pt") {
+          try {
+            const detailRes = await fetch(
+              `/api/cards/detail?game=yugioh&id=${encodeURIComponent(passcode)}`
+            );
+            if (detailRes.ok) {
+              const detailJson = (await detailRes.json()) as {
+                result?: { name?: string };
+              };
+              if (detailJson.result?.name) {
+                toAdd = { ...toAdd, name: detailJson.result.name };
+              }
+            }
+          } catch {
+            // keep Portuguese name if English lookup fails
+          }
+        }
       } else {
         const ygo = await fetchYugiohCardByName(result.name);
         if (ygo?.externalId) {
@@ -466,16 +485,37 @@ export function QuickAddModal({
                   ))}
                 </SelectContent>
               </Select>
+              {game.slug === "yugioh" && (
+                <Select
+                  value={searchLocale}
+                  onValueChange={(value) => {
+                    const locale = value as CatalogSearchLocale;
+                    setSearchLocale(locale);
+                    writeSearchLocale(locale);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SEARCH_LOCALE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <SearchBar
                 value={query}
                 onChange={setQuery}
-                placeholder={`Search ${game.name} cards...`}
+                placeholder={
+                  game.slug === "yugioh" && searchLocale === "pt"
+                    ? `Buscar cartas ${game.name}...`
+                    : `Search ${game.name} cards...`
+                }
                 enableShortcut={false}
                 className="flex-1"
-              />
-              <SearchDebugToggle
-                enabled={debugEnabled}
-                onToggle={() => setDebugEnabled((v) => !v)}
               />
             </div>
 
@@ -483,17 +523,6 @@ export function QuickAddModal({
               <p className="text-sm text-muted-foreground">
                 Search not available for {game.name}. Use CSV Import instead.
               </p>
-            )}
-
-            {debugEnabled && (
-              <SearchDebugConsole
-                entries={searchDebug}
-                errorMessage={
-                  isError
-                    ? (error instanceof Error ? error.message : searchErrorDetail)
-                    : null
-                }
-              />
             )}
 
             <ScrollArea className="h-[360px] pr-3">
@@ -534,9 +563,9 @@ export function QuickAddModal({
                 </div>
               )}
 
-              {isError && !debugEnabled && (
+              {isError && (
                 <p className="py-12 text-center text-sm text-destructive">
-                  Search failed. Enable Console for details.
+                  {error instanceof Error ? error.message : searchErrorDetail ?? "Search failed"}
                 </p>
               )}
 

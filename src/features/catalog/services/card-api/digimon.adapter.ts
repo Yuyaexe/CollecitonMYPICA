@@ -1,4 +1,4 @@
-import type { CardApiAdapter, CardDetail, CardSearchResult } from "./types";
+import type { CardApiAdapter, CardDetail, CardSearchResult, CatalogSearchOptions } from "./types";
 import { stripNestedPrintMetadata } from "@/features/catalog/services/serialize-search-results";
 import {
   buildDigimonCollectorNumber,
@@ -172,7 +172,7 @@ async function fetchDigimonCards(path: string): Promise<DigimonCard[]> {
 export const digimonAdapter: CardApiAdapter = {
   gameSlug: "digimon",
 
-  async search(query: string): Promise<CardSearchResult[]> {
+  async search(query: string, _options?: CatalogSearchOptions): Promise<CardSearchResult[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
 

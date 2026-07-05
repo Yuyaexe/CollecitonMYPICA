@@ -11,17 +11,24 @@ export interface CardSearchResult {
   metadata: Record<string, unknown>;
 }
 
+/** YGOPRODeck cardinfo.php language codes (English = omit param). */
+export type CatalogSearchLocale = "en" | "pt";
+
+export interface CatalogSearchOptions {
+  locale?: CatalogSearchLocale;
+}
+
 export interface CardDetail extends CardSearchResult {
   gameSlug: string;
 }
 
 export interface CardApiAdapter {
   gameSlug: string;
-  search(query: string): Promise<CardSearchResult[]>;
+  search(query: string, options?: CatalogSearchOptions): Promise<CardSearchResult[]>;
   getById(externalId: string): Promise<CardDetail | null>;
 }
 
 export interface YugiohCardApiAdapter extends CardApiAdapter {
-  searchByNameOnly(query: string): Promise<CardSearchResult[]>;
+  searchByNameOnly(query: string, options?: CatalogSearchOptions): Promise<CardSearchResult[]>;
   getBySetNumber(setNumber: string): Promise<CardDetail | null>;
 }

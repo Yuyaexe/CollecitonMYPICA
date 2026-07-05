@@ -1,4 +1,4 @@
-import type { CardApiAdapter, CardDetail, CardSearchResult, YugiohCardApiAdapter } from "./types";
+import type { CardApiAdapter, CardDetail, CardSearchResult, CatalogSearchOptions, YugiohCardApiAdapter } from "./types";
 import { rankSearchResults } from "@/features/catalog/services/search-ranking";
 
 const API = "https://db.ygoprodeck.com/api/v7";
@@ -61,8 +61,8 @@ async function fetchYgoCards(params: string): Promise<YgoCard[]> {
 export const yugiohAdapter: YugiohCardApiAdapter = {
   gameSlug: "yugioh",
 
-  async searchByNameOnly(query: string): Promise<CardSearchResult[]> {
-    return this.search(query);
+  async searchByNameOnly(query: string, options?: CatalogSearchOptions): Promise<CardSearchResult[]> {
+    return this.search(query, options);
   },
 
   async getBySetNumber(setNumber: string): Promise<CardDetail | null> {
@@ -76,11 +76,17 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
     return { ...mapYgoCard(card, normalized), gameSlug: "yugioh" };
   },
 
-  async search(query: string): Promise<CardSearchResult[]> {
+  async search(query: string, options?: CatalogSearchOptions): Promise<CardSearchResult[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
-    const cards = await fetchYgoCards(`fname=${encodeURIComponent(trimmed)}`);
+    const params = new URLSearchParams();
+    params.set("fname", trimmed);
+    if (options?.locale === "pt") {
+      params.set("language", "pt");
+    }
+
+    const cards = await fetchYgoCards(params.toString());
     const mapped = cards.map((card) => mapYgoCard(card));
     return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
   },
