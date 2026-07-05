@@ -8,7 +8,11 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { resolveCollectionThumbUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
+import { useDragReorder, emptySlotDragProps, binderCardDragProps } from "@/hooks/useDragReorder";
+import {
+  binderSpreadCount,
+  binderSpreadSlots,
+} from "@/lib/collections/binder-layout";
 import {
   useCollectionUIStore,
   type BinderGridLayout,
@@ -29,23 +33,11 @@ interface CollectionBinderViewProps {
   data: CollectionViewData;
 }
 
-function buildSpreads(cards: DemoOwnedCard[], pageSize: number): DemoOwnedCard[][] {
-  const spreadSize = pageSize * 2;
-  if (cards.length === 0) return [[]];
-  const spreads: DemoOwnedCard[][] = [];
-  for (let i = 0; i < cards.length; i += spreadSize) {
-    spreads.push(cards.slice(i, i + spreadSize));
-  }
-  return spreads;
-}
-
-function pageSlots(
-  cards: DemoOwnedCard[],
-  offset: number,
-  pageSize: number
+function resolvePageCards(
+  slotIds: (string | null)[],
+  cardById: Map<string, DemoOwnedCard>
 ): (DemoOwnedCard | null)[] {
-  const slice = cards.slice(offset, offset + pageSize);
-  return Array.from({ length: pageSize }, (_, i) => slice[i] ?? null);
+  return slotIds.map((id) => (id ? (cardById.get(id) ?? null) : null));
 }
 
 function BinderCardName({ name }: { name: string }) {
@@ -70,7 +62,8 @@ interface BinderSlotProps {
   onOpen: () => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   slotKey: string;
-  onDropAtIndex?: (draggedId: string) => void;
+  globalIndex: number;
+  moveToSlot: (draggedId: string, targetIndex: number) => void;
 }
 
 function BinderSlot({
@@ -82,7 +75,8 @@ function BinderSlot({
   onOpen,
   dragHandlers,
   slotKey,
-  onDropAtIndex,
+  globalIndex,
+  moveToSlot,
 }: BinderSlotProps) {
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? {
@@ -100,11 +94,13 @@ function BinderSlot({
     return (
       <div
         className={cn(
-          "flex flex-col gap-1 rounded-md transition-colors",
+          "flex min-h-[120px] flex-col gap-1 rounded-md transition-colors",
           dragHandlers.isDragOver(slotKey) && "ring-2 ring-primary/40"
         )}
         aria-hidden
-        {...emptySlotDragProps(dragHandlers, slotKey, onDropAtIndex)}
+        {...emptySlotDragProps(dragHandlers, slotKey, (draggedId) =>
+          moveToSlot(draggedId, globalIndex)
+        )}
       >
         <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
         <div className="h-9 rounded-md border border-dashed border-stone-400/20 bg-stone-500/5 dark:border-stone-600/25 dark:bg-stone-950/15" />
@@ -120,7 +116,7 @@ function BinderSlot({
 
   return (
     <div
-      {...dragHandleProps(dragHandlers, card.id)}
+      {...binderCardDragProps(dragHandlers, card.id, globalIndex, moveToSlot)}
       className={cn(
         "group flex flex-col gap-1 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
         selected && "ring-2 ring-primary ring-offset-1 ring-offset-stone-200 dark:ring-offset-stone-900",
@@ -191,7 +187,7 @@ interface BinderPageProps {
   resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
   onOpen: (id: string) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
-  onReorderToIndex: (draggedId: string, targetIndex: number) => void;
+  moveToSlot: (draggedId: string, targetIndex: number) => void;
 }
 
 function BinderPage({
@@ -208,7 +204,7 @@ function BinderPage({
   resolveCardTraderImage,
   onOpen,
   dragHandlers,
-  onReorderToIndex,
+  moveToSlot,
 }: BinderPageProps) {
   return (
     <div
@@ -250,7 +246,8 @@ function BinderPage({
               onOpen={() => card && onOpen(card.id)}
               dragHandlers={dragHandlers}
               slotKey={slotKey}
-              onDropAtIndex={(draggedId) => onReorderToIndex(draggedId, globalIndex)}
+              globalIndex={globalIndex}
+              moveToSlot={moveToSlot}
             />
           );
         })}
@@ -304,15 +301,19 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
   const pageSize = cols * rows;
   const spreadSize = pageSize * 2;
 
-  const spreads = useMemo(
-    () => buildSpreads(data.filtered, pageSize),
-    [data.filtered, pageSize]
+  const cardById = useMemo(
+    () => new Map(data.filtered.map((card) => [card.id, card])),
+    [data.filtered]
   );
-  const totalSpreads = spreads.length;
+
+  const totalSpreads = useMemo(
+    () => binderSpreadCount(data.binderLayout, spreadSize),
+    [data.binderLayout, spreadSize]
+  );
 
   const filterKey = useMemo(
-    () => `${binderGridLayout}:${data.filtered.map((c) => c.id).join(",")}`,
-    [binderGridLayout, data.filtered]
+    () => `${binderGridLayout}:${data.binderLayout.join(",")}`,
+    [binderGridLayout, data.binderLayout]
   );
 
   useEffect(() => {
@@ -325,12 +326,22 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
     }
   }, [spreadIndex, totalSpreads]);
 
-  const currentSpread = spreads[spreadIndex] ?? [];
-  const leftPage = pageSlots(currentSpread, 0, pageSize);
-  const rightPage = pageSlots(currentSpread, pageSize, pageSize);
+  const currentSpreadSlots = useMemo(
+    () => binderSpreadSlots(data.binderLayout, spreadIndex, spreadSize),
+    [data.binderLayout, spreadIndex, spreadSize]
+  );
 
-  const spreadStart = spreadIndex * spreadSize + 1;
-  const spreadEnd = Math.min((spreadIndex + 1) * spreadSize, data.filtered.length);
+  const leftPage = useMemo(
+    () => resolvePageCards(currentSpreadSlots.slice(0, pageSize), cardById),
+    [currentSpreadSlots, pageSize, cardById]
+  );
+
+  const rightPage = useMemo(
+    () => resolvePageCards(currentSpreadSlots.slice(pageSize, spreadSize), cardById),
+    [currentSpreadSlots, spreadSize, pageSize, cardById]
+  );
+
+  const cardsOnSpread = currentSpreadSlots.filter(Boolean).length;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background">
@@ -342,7 +353,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               <BinderLayoutToggle layout={binderGridLayout} onChange={setBinderGridLayout} />
             </div>
             <span className="tabular-nums">
-              {spreadStart}–{spreadEnd} de {data.filtered.length}
+              {cardsOnSpread} nesta página · {data.filtered.length} total
             </span>
           </div>
 
@@ -361,7 +372,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
               dragHandlers={dragHandlers}
-              onReorderToIndex={data.reorderCardToIndex}
+              moveToSlot={data.moveCardToBinderSlot}
             />
 
             <div
@@ -385,7 +396,7 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
               dragHandlers={dragHandlers}
-              onReorderToIndex={data.reorderCardToIndex}
+              moveToSlot={data.moveCardToBinderSlot}
             />
           </div>
         </div>

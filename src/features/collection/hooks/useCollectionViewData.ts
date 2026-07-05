@@ -15,6 +15,10 @@ import { useCardTraderBulkStore } from "@/features/collection/stores/cardtrader-
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeIdOrder } from "@/lib/collections/card-order";
+import {
+  initialBinderLayout,
+  mergeBinderLayout,
+} from "@/lib/collections/binder-layout";
 import { cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { Currency } from "@/types/tcg";
@@ -36,6 +40,8 @@ export interface CollectionViewData {
   activeCollectionId: string | null;
   reorderCard: (draggedId: string, targetId: string | null) => void;
   reorderCardToIndex: (draggedId: string, targetIndex: number) => void;
+  binderLayout: (string | null)[];
+  moveCardToBinderSlot: (draggedId: string, targetIndex: number) => void;
 }
 
 export function useCollectionViewData(): CollectionViewData {
@@ -55,9 +61,10 @@ export function useCollectionViewData(): CollectionViewData {
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
   const cardOrderByCollection = useDataUiStore((s) => s.cardOrderByCollection);
-  const setCardOrder = useDataUiStore((s) => s.setCardOrder);
+  const binderLayoutByCollection = useDataUiStore((s) => s.binderLayoutByCollection);
   const reorderCardInStore = useDataUiStore((s) => s.reorderCard);
   const reorderCardToIndexInStore = useDataUiStore((s) => s.reorderCardToIndex);
+  const moveCardToBinderSlotInStore = useDataUiStore((s) => s.moveCardToBinderSlot);
 
   const collectionCards = useMemo(
     () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
@@ -106,6 +113,16 @@ export function useCollectionViewData(): CollectionViewData {
 
   const allIds = useMemo(() => filtered.map((oc) => oc.id), [filtered]);
 
+  const binderLayout = useMemo(() => {
+    if (!activeCollectionId) return [];
+    const ids = filtered.map((item) => item.id);
+    const savedLayout = binderLayoutByCollection[activeCollectionId];
+    if (savedLayout?.length) return mergeBinderLayout(savedLayout, ids);
+    const savedOrder = cardOrderByCollection[activeCollectionId];
+    if (savedOrder?.length) return mergeBinderLayout(savedOrder, ids);
+    return initialBinderLayout(ids);
+  }, [activeCollectionId, filtered, binderLayoutByCollection, cardOrderByCollection]);
+
   useEffect(() => {
     if (focusedRowIndex >= filtered.length) {
       setFocusedRowIndex(Math.max(0, filtered.length - 1));
@@ -138,39 +155,25 @@ export function useCollectionViewData(): CollectionViewData {
   const reorderCard = useCallback(
     (draggedId: string, targetId: string | null) => {
       if (!activeCollectionId) return;
-      const current =
-        cardOrderByCollection[activeCollectionId] ?? filtered.map((item) => item.id);
-      if (!cardOrderByCollection[activeCollectionId]) {
-        setCardOrder(activeCollectionId, current);
-      }
       reorderCardInStore(activeCollectionId, draggedId, targetId);
     },
-    [
-      activeCollectionId,
-      cardOrderByCollection,
-      filtered,
-      setCardOrder,
-      reorderCardInStore,
-    ]
+    [activeCollectionId, reorderCardInStore]
   );
 
   const reorderCardToIndex = useCallback(
     (draggedId: string, targetIndex: number) => {
       if (!activeCollectionId) return;
-      const current =
-        cardOrderByCollection[activeCollectionId] ?? filtered.map((item) => item.id);
-      if (!cardOrderByCollection[activeCollectionId]) {
-        setCardOrder(activeCollectionId, current);
-      }
       reorderCardToIndexInStore(activeCollectionId, draggedId, targetIndex);
     },
-    [
-      activeCollectionId,
-      cardOrderByCollection,
-      filtered,
-      setCardOrder,
-      reorderCardToIndexInStore,
-    ]
+    [activeCollectionId, reorderCardToIndexInStore]
+  );
+
+  const moveCardToBinderSlot = useCallback(
+    (draggedId: string, targetIndex: number) => {
+      if (!activeCollectionId) return;
+      moveCardToBinderSlotInStore(activeCollectionId, draggedId, targetIndex);
+    },
+    [activeCollectionId, moveCardToBinderSlotInStore]
   );
 
   const syncedBlueprintRef = useRef(new Set<string>());
@@ -245,5 +248,7 @@ export function useCollectionViewData(): CollectionViewData {
     activeCollectionId,
     reorderCard,
     reorderCardToIndex,
+    binderLayout,
+    moveCardToBinderSlot,
   };
 }

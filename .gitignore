@@ -45,6 +45,8 @@ src-tauri/target/
 # logs
 *.log
 deckvault.log
+.tmp-video-frames/
+.ygo-test-result
 
 # CT / test backups (keep in Tools/CT/backup, not in repo)
 yugioh-backup-*.json

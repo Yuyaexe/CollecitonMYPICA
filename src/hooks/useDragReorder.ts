@@ -88,11 +88,15 @@ export function emptySlotDragProps(
   onDropAtIndex?: (draggedId: string) => void
 ) {
   return {
-    onDragOver: (e: React.DragEvent) => {
+    onDragEnter: (e: React.DragEvent) => {
       e.preventDefault();
       handlers.onDragOver(slotKey);
     },
-    onDragLeave: handlers.onDragLeave,
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      handlers.onDragOver(slotKey);
+    },
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       if (handlers.draggedId && onDropAtIndex) {
@@ -102,5 +106,35 @@ export function emptySlotDragProps(
       }
       handlers.onDragEnd();
     },
+  };
+}
+
+/** Binder filled slot: drop moves the dragged card into this slot index (swap if occupied). */
+export function binderCardDragProps(
+  handlers: DragReorderHandlers,
+  cardId: string,
+  targetIndex: number,
+  moveToSlot: (draggedId: string, targetIndex: number) => void
+) {
+  return {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = "move";
+      handlers.onDragStart(cardId);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      handlers.onDragOver(cardId);
+    },
+    onDragLeave: handlers.onDragLeave,
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (handlers.draggedId && handlers.draggedId !== cardId) {
+        moveToSlot(handlers.draggedId, targetIndex);
+      }
+      handlers.onDragEnd();
+    },
+    onDragEnd: handlers.onDragEnd,
   };
 }
