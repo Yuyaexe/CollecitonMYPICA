@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, RotateCcw, Search, X } from "lucide-react";
+import { ChevronDown, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,8 @@ interface YugiohAdvancedSearchPanelProps {
   onSearch: () => void;
   isSearching?: boolean;
   locale?: "en" | "pt";
+  layout?: "stacked" | "sidebar";
+  className?: string;
 }
 
 interface CardSetOption {
@@ -51,42 +53,90 @@ interface CardSetOption {
   tcgDate: string | null;
 }
 
+const ATTRIBUTE_STYLES: Record<string, { active: string; idle: string }> = {
+  DARK: {
+    active: "border-violet-500/60 bg-violet-500/20 text-violet-100",
+    idle: "hover:border-violet-500/30 hover:bg-violet-500/10",
+  },
+  LIGHT: {
+    active: "border-amber-400/60 bg-amber-400/20 text-amber-100",
+    idle: "hover:border-amber-400/30 hover:bg-amber-400/10",
+  },
+  EARTH: {
+    active: "border-orange-700/60 bg-orange-700/25 text-orange-100",
+    idle: "hover:border-orange-700/30 hover:bg-orange-700/10",
+  },
+  WATER: {
+    active: "border-sky-500/60 bg-sky-500/20 text-sky-100",
+    idle: "hover:border-sky-500/30 hover:bg-sky-500/10",
+  },
+  FIRE: {
+    active: "border-red-500/60 bg-red-500/20 text-red-100",
+    idle: "hover:border-red-500/30 hover:bg-red-500/10",
+  },
+  WIND: {
+    active: "border-emerald-500/60 bg-emerald-500/20 text-emerald-100",
+    idle: "hover:border-emerald-500/30 hover:bg-emerald-500/10",
+  },
+  DIVINE: {
+    active: "border-yellow-300/60 bg-yellow-300/15 text-yellow-100",
+    idle: "hover:border-yellow-300/30 hover:bg-yellow-300/10",
+  },
+};
+
 function FilterSection({
   title,
   defaultOpen = true,
+  activeCount = 0,
   onClear,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  activeCount?: number;
   onClear?: () => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className="rounded-lg border border-border/60 bg-muted/20">
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+    <section className="overflow-hidden rounded-xl border border-border/50 bg-card/40 shadow-sm">
+      <div className="flex items-center gap-2 px-3 py-2.5">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
           onClick={() => setOpen((v) => !v)}
         >
-          <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")} />
-          <span className="truncate">{title}</span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+              open && "rotate-180"
+            )}
+          />
+          <span className="truncate text-sm font-medium">{title}</span>
+          {activeCount > 0 && (
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+              {activeCount}
+            </span>
+          )}
         </button>
         {onClear && (
           <button
             type="button"
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            onClick={onClear}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
             aria-label={`Limpar ${title}`}
           >
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-      {open && <div className="space-y-3 border-t border-border/40 px-3 py-3">{children}</div>}
+      {open && (
+        <div className="space-y-3 border-t border-border/40 bg-muted/10 px-3 py-3">{children}</div>
+      )}
     </section>
   );
 }
@@ -107,14 +157,67 @@ function ToggleChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+        "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
         active
-          ? "border-primary bg-primary/15 text-primary"
-          : "border-border/60 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+          ? "border-primary/50 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border/50 bg-background/60 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
         className
       )}
     >
       {label}
+    </button>
+  );
+}
+
+function AttributeChip({
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const styles = ATTRIBUTE_STYLES[value];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+        active
+          ? styles?.active ?? "border-primary/50 bg-primary/15 text-primary"
+          : cn("border-border/50 bg-background/40 text-muted-foreground", styles?.idle)
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function NumberChip({
+  value,
+  active,
+  onClick,
+}: {
+  value: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-all",
+        active
+          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+          : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+      )}
+    >
+      {value}
     </button>
   );
 }
@@ -127,15 +230,17 @@ function LogicToggle({
   onChange: (value: YugiohFilterLogic) => void;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-border/60 p-0.5 text-[11px]">
+    <div className="inline-flex rounded-lg border border-border/50 bg-muted/30 p-0.5 text-[11px]">
       {(["or", "and"] as const).map((mode) => (
         <button
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
           className={cn(
-            "rounded px-2 py-0.5 font-semibold uppercase tracking-wide",
-            value === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            "rounded-md px-2.5 py-1 font-semibold uppercase tracking-wide transition-colors",
+            value === mode
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           {mode === "or" ? "ou" : "e"}
@@ -163,8 +268,8 @@ function StatRange({
   onMaxChange: (value: number | null) => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold">{label}</Label>
+    <div className="space-y-2">
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
       <div className="grid grid-cols-2 gap-2">
         <Input
           type="number"
@@ -172,7 +277,7 @@ function StatRange({
           placeholder="Mín."
           value={min ?? ""}
           onChange={(e) => onMinChange(e.target.value === "" ? null : Number(e.target.value))}
-          className="h-8 text-xs"
+          className="h-9 bg-background/80 text-xs"
         />
         <Input
           type="number"
@@ -180,18 +285,32 @@ function StatRange({
           placeholder="Máx."
           value={max ?? ""}
           onChange={(e) => onMaxChange(e.target.value === "" ? null : Number(e.target.value))}
-          className="h-8 text-xs"
+          className="h-9 bg-background/80 text-xs"
         />
       </div>
     </div>
   );
 }
 
+const LINK_GRID: ((typeof YGO_LINK_MARKERS)[number] | null)[] = [
+  YGO_LINK_MARKERS[0],
+  YGO_LINK_MARKERS[1],
+  YGO_LINK_MARKERS[2],
+  YGO_LINK_MARKERS[3],
+  null,
+  YGO_LINK_MARKERS[4],
+  YGO_LINK_MARKERS[5],
+  YGO_LINK_MARKERS[6],
+  YGO_LINK_MARKERS[7],
+];
+
 export function YugiohAdvancedSearchPanel({
   filters,
   onChange,
   onSearch,
   isSearching = false,
+  layout = "stacked",
+  className,
 }: YugiohAdvancedSearchPanelProps) {
   const [editionFilter, setEditionFilter] = useState("");
 
@@ -228,86 +347,116 @@ export function YugiohAdvancedSearchPanel({
   const showSpellTrapIcons =
     filters.category === "all" || filters.category === "spell" || filters.category === "trap";
 
+  const filtersScrollClass =
+    layout === "sidebar"
+      ? "min-h-0 flex-1 pr-2"
+      : "h-[min(42vh,380px)] pr-2";
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[140px] flex-1 space-y-1">
-          <Label className="text-xs text-muted-foreground">Modo de busca</Label>
-          <Select
-            value={filters.searchField}
-            onValueChange={(value) =>
-              patch({ searchField: value as YugiohAdvancedSearchFilters["searchField"] })
-            }
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {YGO_SEARCH_FIELD_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div
+      className={cn(
+        "flex flex-col",
+        layout === "sidebar" && "h-full min-h-0",
+        className
+      )}
+    >
+      {/* Search hero */}
+      <div className="mb-3 rounded-xl border border-border/50 bg-gradient-to-br from-muted/40 via-card/30 to-muted/20 p-3 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          Busca avançada YGOPRODeck
         </div>
-        <div className="min-w-[180px] flex-[2] space-y-1">
-          <Label className="text-xs text-muted-foreground">Palavra-chave</Label>
+
+        <div className="relative mb-3">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={filters.keyword}
             onChange={(e) => patch({ keyword: e.target.value })}
-            placeholder="Opcional — nome, arquetipo..."
-            className="h-9"
+            placeholder="Palavra-chave (opcional)"
+            className="h-10 border-border/60 bg-background/80 pl-9"
             onKeyDown={(e) => {
               if (e.key === "Enter") onSearch();
             }}
           />
         </div>
-        <div className="min-w-[120px] space-y-1">
-          <Label className="text-xs text-muted-foreground">Ordenar</Label>
-          <Select
-            value={filters.sort}
-            onValueChange={(value) =>
-              patch({ sort: value as YugiohAdvancedSearchFilters["sort"] })
-            }
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Nome (A–Z)</SelectItem>
-              <SelectItem value="atk">ATK</SelectItem>
-              <SelectItem value="def">DEF</SelectItem>
-              <SelectItem value="level">Nível</SelectItem>
-              <SelectItem value="new">Mais recentes</SelectItem>
-            </SelectContent>
-          </Select>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Modo</Label>
+            <Select
+              value={filters.searchField}
+              onValueChange={(value) =>
+                patch({ searchField: value as YugiohAdvancedSearchFilters["searchField"] })
+              }
+            >
+              <SelectTrigger className="h-9 bg-background/80 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {YGO_SEARCH_FIELD_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Ordenar</Label>
+            <Select
+              value={filters.sort}
+              onValueChange={(value) =>
+                patch({ sort: value as YugiohAdvancedSearchFilters["sort"] })
+              }
+            >
+              <SelectTrigger className="h-9 bg-background/80 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nome (A–Z)</SelectItem>
+                <SelectItem value="atk">ATK</SelectItem>
+                <SelectItem value="def">DEF</SelectItem>
+                <SelectItem value="level">Nível</SelectItem>
+                <SelectItem value="new">Mais recentes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      {/* Category segmented control */}
+      <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-border/50 bg-muted/20 p-1">
         {YGO_CATEGORY_TABS.map((tab) => (
-          <ToggleChip
+          <button
             key={tab.value}
-            label={tab.label}
-            active={filters.category === tab.value}
+            type="button"
             onClick={() => patch({ category: tab.value as YugiohSearchCategory })}
-          />
+            className={cn(
+              "rounded-lg px-2 py-2 text-xs font-medium transition-all",
+              filters.category === tab.value
+                ? "bg-background text-foreground shadow-sm ring-1 ring-border/60"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
 
-      <ScrollArea className="h-[min(52vh,420px)] pr-3">
-        <div className="space-y-3 pb-2">
+      <ScrollArea className={filtersScrollClass}>
+        <div className="space-y-2.5 pb-2">
           {showMonsterFilters && (
             <FilterSection
               title="Atributo"
+              activeCount={filters.attributes.length}
               onClear={filters.attributes.length ? () => patch({ attributes: [] }) : undefined}
             >
               <div className="flex flex-wrap gap-1.5">
                 {YGO_ATTRIBUTES.map((attr) => (
-                  <ToggleChip
+                  <AttributeChip
                     key={attr.value}
                     label={attr.label}
+                    value={attr.value}
                     active={filters.attributes.includes(attr.value)}
                     onClick={() =>
                       patch({ attributes: toggleInList(filters.attributes, attr.value) })
@@ -322,6 +471,7 @@ export function YugiohAdvancedSearchPanel({
             <FilterSection
               title="Ícone (Magia / Armadilha)"
               defaultOpen={filters.category !== "all"}
+              activeCount={filters.spellTrapRaces.length}
               onClear={
                 filters.spellTrapRaces.length ? () => patch({ spellTrapRaces: [] }) : undefined
               }
@@ -346,6 +496,8 @@ export function YugiohAdvancedSearchPanel({
           {showMonsterFilters && (
             <FilterSection
               title="Tipo de monstro"
+              defaultOpen={false}
+              activeCount={filters.monsterRaces.length}
               onClear={filters.monsterRaces.length ? () => patch({ monsterRaces: [] }) : undefined}
             >
               <div className="flex flex-wrap gap-1.5">
@@ -365,6 +517,8 @@ export function YugiohAdvancedSearchPanel({
 
           <FilterSection
             title="Tipo de card"
+            defaultOpen={false}
+            activeCount={filters.cardTypes.length}
             onClear={filters.cardTypes.length ? () => patch({ cardTypes: [] }) : undefined}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -389,6 +543,7 @@ export function YugiohAdvancedSearchPanel({
           <FilterSection
             title="Excluir tipos"
             defaultOpen={false}
+            activeCount={filters.excludeTypes.length}
             onClear={filters.excludeTypes.length ? () => patch({ excludeTypes: [] }) : undefined}
           >
             <div className="flex flex-wrap gap-1.5">
@@ -407,16 +562,17 @@ export function YugiohAdvancedSearchPanel({
             <>
               <FilterSection
                 title="Nível / Classe"
+                defaultOpen={false}
+                activeCount={filters.levels.length}
                 onClear={filters.levels.length ? () => patch({ levels: [] }) : undefined}
               >
-                <div className="flex flex-wrap gap-1">
+                <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
                   {YGO_LEVELS.map((level) => (
-                    <ToggleChip
+                    <NumberChip
                       key={level}
-                      label={String(level)}
+                      value={level}
                       active={filters.levels.includes(level)}
                       onClick={() => patch({ levels: toggleInList(filters.levels, level) })}
-                      className="min-w-[2rem] px-1.5"
                     />
                   ))}
                 </div>
@@ -425,16 +581,16 @@ export function YugiohAdvancedSearchPanel({
               <FilterSection
                 title="Escala Pêndulo"
                 defaultOpen={false}
+                activeCount={filters.scales.length}
                 onClear={filters.scales.length ? () => patch({ scales: [] }) : undefined}
               >
-                <div className="flex flex-wrap gap-1">
+                <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
                   {YGO_LEVELS.map((scale) => (
-                    <ToggleChip
+                    <NumberChip
                       key={scale}
-                      label={String(scale)}
+                      value={scale}
                       active={filters.scales.includes(scale)}
                       onClick={() => patch({ scales: toggleInList(filters.scales, scale) })}
-                      className="min-w-[2rem] px-1.5"
                     />
                   ))}
                 </div>
@@ -443,98 +599,107 @@ export function YugiohAdvancedSearchPanel({
               <FilterSection
                 title="Link"
                 defaultOpen={false}
+                activeCount={filters.linkValues.length + filters.linkMarkers.length}
                 onClear={
                   filters.linkValues.length || filters.linkMarkers.length
                     ? () => patch({ linkValues: [], linkMarkers: [] })
                     : undefined
                 }
               >
-                <Label className="text-xs text-muted-foreground">Classificação Link</Label>
-                <div className="mt-1.5 flex flex-wrap gap-1">
+                <Label className="text-xs text-muted-foreground">Classificação</Label>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {YGO_LINK_VALUES.map((link) => (
-                    <ToggleChip
+                    <NumberChip
                       key={link}
-                      label={String(link)}
+                      value={link}
                       active={filters.linkValues.includes(link)}
                       onClick={() =>
                         patch({ linkValues: toggleInList(filters.linkValues, link) })
                       }
-                      className="min-w-[2rem] px-1.5"
                     />
                   ))}
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <Label className="text-xs text-muted-foreground">Setas Link</Label>
+                  <Label className="text-xs text-muted-foreground">Setas</Label>
                   <LogicToggle
                     value={filters.linkMarkersLogic}
                     onChange={(linkMarkersLogic) => patch({ linkMarkersLogic })}
                   />
                 </div>
-                <div className="mt-2 inline-grid grid-cols-3 gap-1">
-                  {YGO_LINK_MARKERS.map((marker) => (
-                    <button
-                      key={marker.value}
-                      type="button"
-                      title={marker.value}
-                      onClick={() =>
-                        patch({
-                          linkMarkers: toggleInList(filters.linkMarkers, marker.value),
-                        })
-                      }
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-md border text-sm transition-colors",
-                        filters.linkMarkers.includes(marker.value)
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
-                      )}
-                    >
-                      {marker.label}
-                    </button>
-                  ))}
+                <div className="mt-2 inline-grid grid-cols-3 gap-1.5 rounded-xl border border-border/40 bg-muted/20 p-2">
+                  {LINK_GRID.map((marker, index) =>
+                    marker ? (
+                      <button
+                        key={marker.value}
+                        type="button"
+                        title={marker.value}
+                        onClick={() =>
+                          patch({
+                            linkMarkers: toggleInList(filters.linkMarkers, marker.value),
+                          })
+                        }
+                        className={cn(
+                          "flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition-all",
+                          filters.linkMarkers.includes(marker.value)
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40"
+                        )}
+                      >
+                        {marker.label}
+                      </button>
+                    ) : (
+                      <div key={`empty-${index}`} className="h-9 w-9" aria-hidden />
+                    )
+                  )}
+                </div>
+              </FilterSection>
+
+              <FilterSection
+                title="ATK / DEF"
+                defaultOpen={false}
+                activeCount={
+                  (filters.atkMin != null || filters.atkMax != null ? 1 : 0) +
+                  (filters.defMin != null || filters.defMax != null ? 1 : 0)
+                }
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <StatRange
+                    label="ATK"
+                    min={filters.atkMin}
+                    max={filters.atkMax}
+                    onMinChange={(atkMin) => patch({ atkMin })}
+                    onMaxChange={(atkMax) => patch({ atkMax })}
+                  />
+                  <StatRange
+                    label="DEF"
+                    min={filters.defMin}
+                    max={filters.defMax}
+                    onMinChange={(defMin) => patch({ defMin })}
+                    onMaxChange={(defMax) => patch({ defMax })}
+                  />
                 </div>
               </FilterSection>
             </>
           )}
 
-          {showMonsterFilters && (
-            <FilterSection title="ATK / DEF">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <StatRange
-                  label="ATK"
-                  min={filters.atkMin}
-                  max={filters.atkMax}
-                  onMinChange={(atkMin) => patch({ atkMin })}
-                  onMaxChange={(atkMax) => patch({ atkMax })}
-                />
-                <StatRange
-                  label="DEF"
-                  min={filters.defMin}
-                  max={filters.defMax}
-                  onMinChange={(defMin) => patch({ defMin })}
-                  onMaxChange={(defMax) => patch({ defMax })}
-                />
-              </div>
-            </FilterSection>
-          )}
-
           <FilterSection title="Data de lançamento (TCG)" defaultOpen={false}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Início</Label>
+                <Label className="text-xs text-muted-foreground">Início</Label>
                 <Input
                   type="date"
                   value={filters.startDate ?? ""}
                   onChange={(e) => patch({ startDate: e.target.value || null })}
-                  className="h-8 text-xs"
+                  className="h-9 bg-background/80 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Término</Label>
+                <Label className="text-xs text-muted-foreground">Término</Label>
                 <Input
                   type="date"
                   value={filters.endDate ?? ""}
                   onChange={(e) => patch({ endDate: e.target.value || null })}
-                  className="h-8 text-xs"
+                  className="h-9 bg-background/80 text-xs"
                 />
               </div>
             </div>
@@ -543,22 +708,26 @@ export function YugiohAdvancedSearchPanel({
           <FilterSection
             title="Edição"
             defaultOpen={false}
+            activeCount={filters.cardSets.length}
             onClear={filters.cardSets.length ? () => patch({ cardSets: [] }) : undefined}
           >
             <Input
               value={editionFilter}
               onChange={(e) => setEditionFilter(e.target.value)}
               placeholder="Filtrar edições..."
-              className="mb-2 h-8 text-xs"
+              className="mb-2 h-9 bg-background/80 text-xs"
             />
-            <ScrollArea className="h-44 pr-2">
-              <div className="space-y-1">
+            <ScrollArea className="h-40 rounded-lg border border-border/40 bg-background/40 pr-2">
+              <div className="space-y-0.5 p-1">
                 {filteredSets.slice(0, 200).map((set) => {
                   const checked = filters.cardSets.includes(set.setName);
                   return (
                     <label
                       key={`${set.setCode}-${set.setName}`}
-                      className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50"
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 transition-colors",
+                        checked ? "bg-primary/10" : "hover:bg-muted/50"
+                      )}
                     >
                       <Checkbox
                         checked={checked}
@@ -577,7 +746,7 @@ export function YugiohAdvancedSearchPanel({
                   );
                 })}
                 {filteredSets.length === 0 && (
-                  <p className="py-4 text-center text-xs text-muted-foreground">
+                  <p className="py-6 text-center text-xs text-muted-foreground">
                     Nenhuma edição encontrada
                   </p>
                 )}
@@ -587,23 +756,44 @@ export function YugiohAdvancedSearchPanel({
         </div>
       </ScrollArea>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
+      {/* Sticky footer */}
+      <div className="mt-3 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5">
         <p className="text-xs text-muted-foreground">
-          {activeCount > 0 ? `${activeCount} filtro(s) ativo(s)` : "Selecione filtros ou digite uma palavra-chave"}
+          {activeCount > 0 ? (
+            <>
+              <span className="font-semibold text-foreground">{activeCount}</span> filtro
+              {activeCount === 1 ? "" : "s"} ativo{activeCount === 1 ? "" : "s"}
+            </>
+          ) : (
+            "Selecione filtros ou digite uma palavra-chave"
+          )}
         </p>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
+            className="h-9"
             onClick={() => onChange({ ...EMPTY_YGO_ADVANCED_FILTERS })}
           >
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
             Limpar
           </Button>
-          <Button type="button" size="sm" onClick={onSearch} disabled={isSearching}>
-            <Search className="mr-1.5 h-3.5 w-3.5" />
-            {isSearching ? "Buscando..." : "Buscar"}
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 min-w-[100px] shadow-sm"
+            onClick={onSearch}
+            disabled={isSearching}
+          >
+            {isSearching ? (
+              "Buscando..."
+            ) : (
+              <>
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                Buscar
+              </>
+            )}
           </Button>
         </div>
       </div>

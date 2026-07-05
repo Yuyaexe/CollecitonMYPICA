@@ -421,21 +421,29 @@ export function QuickAddModal({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={pendingCard ? "Choose print" : title}
+      title={
+        pendingCard
+          ? "Choose print"
+          : isAdvancedMode
+            ? "Busca avançada"
+            : title
+      }
       description={
         pendingCard
           ? `${pendingCard.name} — select set and rarity`
-          : `Search ${game.name} catalog`
+          : isAdvancedMode
+            ? `Filtre o catálogo ${game.name} e adicione à coleção`
+            : `Search ${game.name} catalog`
       }
       className={
         pendingCard
           ? "sm:max-w-4xl"
           : isAdvancedMode
-            ? "sm:max-w-5xl"
+            ? "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl"
             : "sm:max-w-3xl"
       }
     >
-      <div className="space-y-4">
+      <div className={cn("flex flex-col", isAdvancedMode && !pendingCard ? "min-h-0 flex-1 gap-4" : "space-y-4")}>
         {pendingCard ? (
           <>
             <Button
@@ -551,87 +559,255 @@ export function QuickAddModal({
               </div>
             </div>
           </>
-        ) : (
+        ) : isAdvancedMode ? (
           <>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Select
-                  value={selectedGameSlug}
-                  onValueChange={(slug) => {
-                    const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
-                    if (next) setSelectedGameSlug(next.slug);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue placeholder="Game" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUICK_ADD_GAMES.map((g) => (
-                      <SelectItem key={g.slug} value={g.slug}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {game.slug === "yugioh" && (
-                  <>
-                    <Select
-                      value={searchLocale}
-                      onValueChange={(value) => {
-                        const locale = value as CatalogSearchLocale;
-                        setSearchLocale(locale);
-                        writeSearchLocale(locale);
-                      }}
-                    >
-                      <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SEARCH_LOCALE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant={ygoSearchMode === "advanced" ? "default" : "outline"}
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() =>
-                        setYgoSearchMode((mode) => (mode === "simple" ? "advanced" : "simple"))
-                      }
-                    >
-                      <SlidersHorizontal className="mr-1.5 h-4 w-4" />
-                      {ygoSearchMode === "advanced" ? "Busca simples" : "Busca avançada"}
-                    </Button>
-                  </>
-                )}
-                {!isAdvancedMode && (
-                  <SearchBar
-                    value={query}
-                    onChange={setQuery}
-                    placeholder={
-                      game.slug === "yugioh" && searchLocale === "pt"
-                        ? `Buscar cartas ${game.name}...`
-                        : `Search ${game.name} cards...`
-                    }
-                    enableShortcut={false}
-                    className="flex-1"
-                  />
-                )}
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={selectedGameSlug}
+                onValueChange={(slug) => {
+                  const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
+                  if (next) setSelectedGameSlug(next.slug);
+                }}
+              >
+                <SelectTrigger className="h-9 w-full sm:w-[200px]">
+                  <SelectValue placeholder="Game" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUICK_ADD_GAMES.map((g) => (
+                    <SelectItem key={g.slug} value={g.slug}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              {isAdvancedMode && (
+              <Select
+                value={searchLocale}
+                onValueChange={(value) => {
+                  const locale = value as CatalogSearchLocale;
+                  setSearchLocale(locale);
+                  writeSearchLocale(locale);
+                }}
+              >
+                <SelectTrigger className="h-9 w-[88px]" aria-label="Search language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEARCH_LOCALE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex rounded-lg border border-border/50 bg-muted/20 p-0.5">
+                {(["simple", "advanced"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setYgoSearchMode(mode)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                      ygoSearchMode === mode
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {mode === "simple" ? "Simples" : "Avançada"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(300px,340px)_1fr] lg:gap-5">
+              <div className="flex min-h-0 flex-col lg:max-h-[min(58vh,560px)]">
                 <YugiohAdvancedSearchPanel
                   filters={ygoAdvancedFilters}
                   onChange={setYgoAdvancedFilters}
                   onSearch={triggerAdvancedSearch}
                   isSearching={advancedFetching}
                   locale={searchLocale}
+                  layout="sidebar"
+                  className="min-h-0"
                 />
+              </div>
+
+              <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border/50 bg-muted/10">
+                <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Resultados</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hasSearchQuery && searchResults.length > 0
+                        ? `${searchResults.length} carta${searchResults.length === 1 ? "" : "s"}`
+                        : advancedSearchNonce === 0
+                          ? "Aguardando busca"
+                          : "Nenhum resultado"}
+                    </p>
+                  </div>
+                  {showRefetchIndicator && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Atualizando…
+                    </div>
+                  )}
+                </div>
+
+                <ScrollArea className="min-h-[240px] flex-1 lg:min-h-0 lg:h-[min(52vh,520px)]">
+                  <div className="p-4">
+                    {showInitialLoader && (
+                      <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        Buscando cartas…
+                      </div>
+                    )}
+
+                    {advancedSearchNonce === 0 && !showInitialLoader && !searchFetching && (
+                      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                        <SlidersHorizontal className="h-8 w-8 text-muted-foreground/50" />
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Configure os filtros
+                        </p>
+                        <p className="max-w-[220px] text-xs text-muted-foreground/80">
+                          Selecione atributos, tipos ou edições e clique em Buscar
+                        </p>
+                      </div>
+                    )}
+
+                    {hasSearchQuery && searchResults.length > 0 && (
+                      <div
+                        className={cn(
+                          "grid grid-cols-3 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5",
+                          showRefetchIndicator && "opacity-80"
+                        )}
+                      >
+                        {searchResults.map((result) => (
+                          <button
+                            key={`${result.externalId}-${result.name}`}
+                            type="button"
+                            onClick={() => handleCardClick(result)}
+                            className="group flex flex-col rounded-lg p-1 text-left transition-all hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            title={result.name}
+                          >
+                            <div className="relative aspect-[59/86] w-full overflow-hidden rounded-lg bg-muted/80 shadow-sm ring-1 ring-border/40 transition-all group-hover:ring-primary/40">
+                              <CardImage
+                                src={result.imageUrl}
+                                alt={result.name}
+                                fill
+                                sizes="120px"
+                                className="object-contain"
+                                fallbackSrc={
+                                  /^\d{7,10}$/.test(result.externalId)
+                                    ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
+                                    : null
+                                }
+                              />
+                              <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/25 group-hover:opacity-100">
+                                <Plus className="h-5 w-5 text-white drop-shadow-md" />
+                              </span>
+                            </div>
+                            <p className="mt-1.5 line-clamp-2 text-center text-[10px] font-medium leading-tight">
+                              {result.name}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchIsError && (
+                      <p className="py-16 text-center text-sm text-destructive">
+                        {searchQueryError instanceof Error
+                          ? searchQueryError.message
+                          : searchErrorDetail ?? "Search failed"}
+                      </p>
+                    )}
+
+                    {hasSearchQuery &&
+                      !showInitialLoader &&
+                      !searchFetching &&
+                      !searchIsError &&
+                      searchResults.length === 0 && (
+                        <p className="py-16 text-center text-sm text-muted-foreground">
+                          Nenhuma carta encontrada com esses filtros
+                        </p>
+                      )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Select
+                value={selectedGameSlug}
+                onValueChange={(slug) => {
+                  const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
+                  if (next) setSelectedGameSlug(next.slug);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Game" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUICK_ADD_GAMES.map((g) => (
+                    <SelectItem key={g.slug} value={g.slug}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {game.slug === "yugioh" && (
+                <>
+                  <Select
+                    value={searchLocale}
+                    onValueChange={(value) => {
+                      const locale = value as CatalogSearchLocale;
+                      setSearchLocale(locale);
+                      writeSearchLocale(locale);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SEARCH_LOCALE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex rounded-lg border border-border/50 bg-muted/20 p-0.5">
+                    {(["simple", "advanced"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setYgoSearchMode(mode)}
+                        className={cn(
+                          "rounded-md px-3 py-1.5 text-xs font-medium transition-all",
+                          ygoSearchMode === mode
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {mode === "simple" ? "Simples" : "Avançada"}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                placeholder={
+                  game.slug === "yugioh" && searchLocale === "pt"
+                    ? `Buscar cartas ${game.name}...`
+                    : `Search ${game.name} cards...`
+                }
+                enableShortcut={false}
+                className="flex-1"
+              />
             </div>
 
             {!isQuickAddSupported(game.slug) && (
@@ -640,7 +816,7 @@ export function QuickAddModal({
               </p>
             )}
 
-            <ScrollArea className={cn("pr-3", isAdvancedMode ? "h-[280px]" : "h-[360px]")}>
+            <ScrollArea className="h-[360px] pr-3">
               {showRefetchIndicator && (
                 <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -708,17 +884,7 @@ export function QuickAddModal({
                 !searchFetching &&
                 !searchIsError &&
                 searchResults.length === 0 && (
-                <p className="py-12 text-center text-sm text-muted-foreground">
-                  {isAdvancedMode ? "Nenhuma carta encontrada com esses filtros" : "No cards found"}
-                </p>
-              )}
-
-              {isAdvancedMode &&
-                advancedSearchNonce === 0 &&
-                !searchFetching && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    Configure os filtros e clique em Buscar
-                  </p>
+                  <p className="py-12 text-center text-sm text-muted-foreground">No cards found</p>
                 )}
             </ScrollArea>
           </>
