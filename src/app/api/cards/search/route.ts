@@ -6,7 +6,9 @@ import {
   catalogSourceLabel,
   serializeSearchResultsForResponse,
 } from "@/features/catalog/services/serialize-search-results";
-import { rankSearchResults } from "@/features/catalog/services/search-ranking";
+import { rankSearchResults, dedupeSearchResults } from "@/features/catalog/services/search-ranking";
+import { buildYgoImageUrl } from "@/lib/yugioh/urls";
+import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
@@ -56,6 +58,7 @@ export async function GET(request: NextRequest) {
   const locale = localeParam === "pt" ? ("pt" as const) : ("en" as const);
   const debugMode = searchParams.get("debug") === "1";
   const enrichPrices = searchParams.get("enrich") === "1";
+  const quickSearch = searchParams.get("quick") === "1";
 
   const log = new SearchDebugLog();
 
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
   log.push(
     "info",
     "init",
-    `Search "${query}" · game=${game} · locale=${locale} · CT=${cardTraderReady ? "on" : "off"} · enrich=${enrichPrices ? "on" : "off"}`
+    `Search "${query}" · game=${game} · locale=${locale} · quick=${quickSearch ? "on" : "off"} · CT=${cardTraderReady ? "on" : "off"} · enrich=${enrichPrices ? "on" : "off"}`
   );
 
   if (!isApiSupported(game) && !cardTraderReady) {
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
         throw error;
       }
 
-      if (cardTraderReady && locale === "en") {
+      if (cardTraderReady && locale === "en" && !quickSearch) {
         try {
           const ctSearchOpts = {
             maxExpansions: isCardTraderPrimarySearch(game)
@@ -216,17 +219,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    results = rankSearchResults(query, results).slice(0, SEARCH_RESULT_LIMIT);
-    log.push("info", "rank", `${results.length} result(s) after name filter + A–Z sort`);
+    results = dedupeSearchResults(
+      rankSearchResults(query, results),
+      game
+    ).slice(0, SEARCH_RESULT_LIMIT);
+
+    if (game === "yugioh") {
+      results = results.map((result) => {
+        if (!isYugiohPasscodeId(result.externalId, result.imageUrl)) return result;
+        const ygoUrl = buildYgoImageUrl(result.externalId, "small");
+        return ygoUrl ? { ...result, imageUrl: ygoUrl } : result;
+      });
+    }
+
+    log.push("info", "rank", `${results.length} result(s) after dedupe + A–Z sort`);
     log.push("success", "done", `Returning ${results.length} result(s)`);
 
     const safeResults = serializeSearchResultsForResponse(results);
 
-    return NextResponse.json({
-      results: safeResults,
-      priceSource: cardTraderReady ? "catalog-first" : source,
-      debug: debugMode ? log.toJSON() : undefined,
-    });
+    return NextResponse.json(
+      {
+        results: safeResults,
+        priceSource: cardTraderReady ? "catalog-first" : source,
+        debug: debugMode ? log.toJSON() : undefined,
+      },
+      {
+        headers: quickSearch
+          ? { "Cache-Control": "private, max-age=120, stale-while-revalidate=300" }
+          : undefined,
+      }
+    );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     log.push("error", "fatal", "Search failed", { detail });

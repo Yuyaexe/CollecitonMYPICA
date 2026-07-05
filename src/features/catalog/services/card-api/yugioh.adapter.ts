@@ -1,28 +1,19 @@
 import type { CardApiAdapter, CardDetail, CardSearchResult, CatalogSearchOptions, YugiohCardApiAdapter } from "./types";
 import { rankSearchResults } from "@/features/catalog/services/search-ranking";
+import {
+  applyYgoAdvancedClientFilters,
+  buildYgoAdvancedSearchParams,
+  hasActiveYgoAdvancedFilters,
+  type YgoRawCard,
+  type YugiohAdvancedSearchFilters,
+} from "@/lib/yugioh/advanced-search";
 
 const API = "https://db.ygoprodeck.com/api/v7";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
 const YGO_RESULT_CAP = 80;
+const YGO_ADVANCED_CAP = 120;
 
-interface YgoCard {
-  id: number;
-  name: string;
-  type: string;
-  card_sets?: {
-    set_name: string;
-    set_code: string;
-    set_rarity: string;
-    set_rarity_code: string;
-    set_price: string;
-  }[];
-  card_prices?: {
-    tcgplayer_price: string;
-    cardmarket_price: string;
-    ebay_price: string;
-  }[];
-  card_images?: { image_url: string; image_url_small: string }[];
-}
+interface YgoCard extends YgoRawCard {}
 
 function mapYgoCard(card: YgoCard, preferredSetCode?: string | null): CardSearchResult {
   const preferred = preferredSetCode?.toUpperCase();
@@ -47,7 +38,14 @@ function mapYgoCard(card: YgoCard, preferredSetCode?: string | null): CardSearch
     edition: primarySet?.set_rarity_code ?? null,
     imageUrl: image,
     price: tcgPrice,
-    metadata: { type: card.type, sets: card.card_sets, prices: card.card_prices },
+    metadata: {
+      type: card.type,
+      race: card.race,
+      attribute: card.attribute,
+      level: card.level,
+      sets: card.card_sets,
+      prices: card.card_prices,
+    },
   };
 }
 
@@ -56,6 +54,45 @@ async function fetchYgoCards(params: string): Promise<YgoCard[]> {
   if (!res.ok) return [];
   const data = await res.json();
   return Array.isArray(data.data) ? (data.data as YgoCard[]) : [];
+}
+
+async function fetchYgoAdvancedCards(
+  filters: YugiohAdvancedSearchFilters,
+  options?: CatalogSearchOptions
+): Promise<YgoCard[]> {
+  const localeOpts = options?.locale ? { locale: options.locale } : undefined;
+  const setNames = filters.cardSets;
+
+  if (setNames.length <= 1) {
+    const params = buildYgoAdvancedSearchParams(filters, {
+      ...localeOpts,
+      cardSet: setNames[0] ?? null,
+    });
+    const cards = await fetchYgoCards(params);
+    return applyYgoAdvancedClientFilters(cards, filters);
+  }
+
+  const seen = new Map<number, YgoCard>();
+  const batchSize = 3;
+  for (let i = 0; i < setNames.length; i += batchSize) {
+    const batch = setNames.slice(i, i + batchSize);
+    const results = await Promise.all(
+      batch.map(async (setName) => {
+        const params = buildYgoAdvancedSearchParams(filters, {
+          ...localeOpts,
+          cardSet: setName,
+        });
+        return fetchYgoCards(params);
+      })
+    );
+    for (const cards of results) {
+      for (const card of cards) {
+        seen.set(card.id, card);
+      }
+    }
+  }
+
+  return applyYgoAdvancedClientFilters([...seen.values()], filters);
 }
 
 export const yugiohAdapter: YugiohCardApiAdapter = {
@@ -89,6 +126,19 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
     const cards = await fetchYgoCards(params.toString());
     const mapped = cards.map((card) => mapYgoCard(card));
     return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
+  },
+
+  async advancedSearch(
+    filters: YugiohAdvancedSearchFilters,
+    options?: CatalogSearchOptions
+  ): Promise<CardSearchResult[]> {
+    if (!hasActiveYgoAdvancedFilters(filters)) return [];
+
+    const cards = await fetchYgoAdvancedCards(filters, options);
+    const mapped = cards.map((card) => mapYgoCard(card));
+    const keyword = filters.keyword.trim();
+    const ranked = keyword ? rankSearchResults(keyword, mapped) : mapped;
+    return ranked.slice(0, YGO_ADVANCED_CAP);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {

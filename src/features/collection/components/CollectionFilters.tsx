@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Button } from "@/components/ui/button";
@@ -17,20 +18,19 @@ interface CollectionFiltersProps {
 }
 
 function FilterSelect({
-  inSheet,
+  preferNative,
   value,
   onValueChange,
   options,
 }: {
-  inSheet: boolean;
+  preferNative: boolean;
   value: string;
   onValueChange: (value: string) => void;
   options: { value: string; label: string }[];
 }) {
-  const isMobile = useMediaQuery("(max-width: 767px)");
   return (
     <ResponsiveSelect
-      preferNative={inSheet || isMobile}
+      preferNative={preferNative}
       value={value}
       onValueChange={onValueChange}
       options={options}
@@ -44,16 +44,30 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const resetFilters = useCollectionUIStore((s) => s.resetFilters);
   const { ownedCards, activeCollectionId } = useAppData();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const preferNative = inSheet || isMobile;
 
-  const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
-  const sets = [...new Set(collectionCards.map((oc) => oc.card.setCode).filter(Boolean))];
-  const rarities = [
-    ...new Set(
-      collectionCards
-        .filter((oc) => isKnownRarity(oc.card.rarity, oc.card.gameSlug))
-        .map((oc) => oc.card.rarity!)
-    ),
-  ];
+  const collectionCards = useMemo(
+    () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
+    [ownedCards, activeCollectionId]
+  );
+
+  const sets = useMemo(
+    () => [...new Set(collectionCards.map((oc) => oc.card.setCode).filter(Boolean))] as string[],
+    [collectionCards]
+  );
+
+  const rarities = useMemo(
+    () =>
+      [
+        ...new Set(
+          collectionCards
+            .filter((oc) => isKnownRarity(oc.card.rarity, oc.card.gameSlug))
+            .map((oc) => oc.card.rarity!)
+        ),
+      ] as string[],
+    [collectionCards]
+  );
 
   const setFilterValue =
     filters.setCode && sets.includes(filters.setCode) ? filters.setCode : "all";
@@ -73,7 +87,7 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Game</Label>
           <FilterSelect
-            inSheet={inSheet}
+            preferNative={preferNative}
             value={filters.gameId ?? "all"}
             onValueChange={(v) => setFilters({ gameId: v === "all" ? null : v })}
             options={[
@@ -86,12 +100,12 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Set</Label>
           <FilterSelect
-            inSheet={inSheet}
+            preferNative={preferNative}
             value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
             options={[
               { value: "all", label: "All sets" },
-              ...sets.map((s) => ({ value: s!, label: s! })),
+              ...sets.map((s) => ({ value: s, label: s })),
             ]}
           />
         </div>
@@ -99,12 +113,12 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Rarity</Label>
           <FilterSelect
-            inSheet={inSheet}
+            preferNative={preferNative}
             value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
             options={[
               { value: "all", label: "All rarities" },
-              ...rarities.map((r) => ({ value: r!, label: r! })),
+              ...rarities.map((r) => ({ value: r, label: r })),
             ]}
           />
         </div>
@@ -112,7 +126,7 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Language</Label>
           <FilterSelect
-            inSheet={inSheet}
+            preferNative={preferNative}
             value={filters.language ?? "all"}
             onValueChange={(v) =>
               setFilters({ language: v === "all" ? null : (v as typeof filters.language) })
@@ -127,7 +141,7 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Condition</Label>
           <FilterSelect
-            inSheet={inSheet}
+            preferNative={preferNative}
             value={filters.condition ?? "all"}
             onValueChange={(v) =>
               setFilters({ condition: v === "all" ? null : (v as typeof filters.condition) })

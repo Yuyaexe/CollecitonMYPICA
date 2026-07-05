@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  resolveYugiohPasscodeForCard,
+  resolveYugiohPasscodesConcurrent,
   yugiohPasscodeCacheKey,
   type YugiohPasscodeInput,
 } from "@/lib/yugioh/resolve-passcode";
@@ -23,11 +23,9 @@ export async function POST(request: NextRequest) {
       uniqueByKey.set(yugiohPasscodeCacheKey(card), card);
     }
 
-    const resolvedByKey = new Map<string, string | null>();
-    await Promise.all(
-      [...uniqueByKey.entries()].map(async ([key, card]) => {
-        resolvedByKey.set(key, await resolveYugiohPasscodeForCard(card));
-      })
+    const resolvedByKey = await resolveYugiohPasscodesConcurrent(
+      [...uniqueByKey.values()],
+      8
     );
 
     const passcodes: Record<string, string | null> = {};
@@ -39,7 +37,10 @@ export async function POST(request: NextRequest) {
       passcodes[card.id] = resolvedByKey.get(yugiohPasscodeCacheKey(card)) ?? null;
     }
 
-    return NextResponse.json({ passcodes });
+    return NextResponse.json(
+      { passcodes },
+      { headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400" } }
+    );
   } catch (error) {
     console.error("POST /api/cards/yugioh/resolve-batch", error);
     return NextResponse.json({ error: "Failed to resolve passcodes" }, { status: 500 });

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, SlidersHorizontal } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CardImage } from "@/components/shared/CardImage";
@@ -38,7 +38,13 @@ import {
 } from "@/features/catalog/utils/search-locale";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { useSequentialVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
+import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
+import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
+import {
+  EMPTY_YGO_ADVANCED_FILTERS,
+  hasActiveYgoAdvancedFilters,
+  type YugiohAdvancedSearchFilters,
+} from "@/lib/yugioh/advanced-search";
 
 interface QuickAddModalProps {
   open: boolean;
@@ -53,6 +59,7 @@ interface QuickAddModalProps {
 }
 
 const MAX_VARIANT_PRICE_FETCH = 16;
+const SEARCH_DEBOUNCE_MS = 120;
 
 export function QuickAddModal({
   open,
@@ -72,6 +79,10 @@ export function QuickAddModal({
   );
   const [searchLocale, setSearchLocale] = useState<CatalogSearchLocale>("en");
   const [searchErrorDetail, setSearchErrorDetail] = useState<string | null>(null);
+  const [ygoSearchMode, setYgoSearchMode] = useState<"simple" | "advanced">("simple");
+  const [ygoAdvancedFilters, setYgoAdvancedFilters] =
+    useState<YugiohAdvancedSearchFilters>(EMPTY_YGO_ADVANCED_FILTERS);
+  const [advancedSearchNonce, setAdvancedSearchNonce] = useState(0);
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
 
@@ -82,7 +93,7 @@ export function QuickAddModal({
   }, [open, profile.currency]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    const t = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -107,16 +118,69 @@ export function QuickAddModal({
     setDebouncedQuery("");
     setRarityFilter("all");
     setPreviewKey(null);
+    setYgoSearchMode("simple");
+    setYgoAdvancedFilters(EMPTY_YGO_ADVANCED_FILTERS);
+    setAdvancedSearchNonce(0);
   }, [selectedGameSlug]);
 
-  const { data, isLoading, isError, isFetching, error } = useQuery({
+  const triggerAdvancedSearch = useCallback(() => {
+    if (!hasActiveYgoAdvancedFilters(ygoAdvancedFilters)) return;
+    setAdvancedSearchNonce((n) => n + 1);
+  }, [ygoAdvancedFilters]);
+
+  const {
+    data: advancedData,
+    isLoading: advancedLoading,
+    isError: advancedError,
+    isFetching: advancedFetching,
+    error: advancedQueryError,
+  } = useQuery<CardSearchResult[]>({
+    queryKey: [
+      "ygo-advanced-search",
+      ygoAdvancedFilters,
+      profile.currency,
+      searchLocale,
+      advancedSearchNonce,
+    ],
+    queryFn: async () => {
+      setSearchErrorDetail(null);
+      const res = await fetch("/api/cards/yugioh/advanced-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...ygoAdvancedFilters,
+          locale: searchLocale,
+        }),
+      });
+      const json = (await res.json()) as {
+        results?: CardSearchResult[];
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        const detail = json.message ?? json.error ?? "Advanced search failed";
+        setSearchErrorDetail(detail);
+        throw new Error(detail);
+      }
+      return json.results ?? [];
+    },
+    enabled:
+      game.slug === "yugioh" &&
+      ygoSearchMode === "advanced" &&
+      advancedSearchNonce > 0 &&
+      hasActiveYgoAdvancedFilters(ygoAdvancedFilters),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData: CardSearchResult[] | undefined) => previousData,
+  });
+
+  const { data, isLoading, isError, isFetching, error } = useQuery<CardSearchResult[]>({
     queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, searchLocale],
     queryFn: async () => {
       setSearchErrorDetail(null);
       const localeParam =
         game.slug === "yugioh" && searchLocale === "pt" ? "&locale=pt" : "";
       const res = await fetch(
-        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}${localeParam}`
+        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}&quick=1${localeParam}`
       );
       const json = (await res.json()) as {
         results?: CardSearchResult[];
@@ -130,9 +194,27 @@ export function QuickAddModal({
       }
       return json.results ?? [];
     },
-    enabled: debouncedQuery.length >= 2 && isQuickAddSupported(game.slug),
+    enabled:
+      ygoSearchMode === "simple" &&
+      debouncedQuery.length >= 2 &&
+      isQuickAddSupported(game.slug),
     staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData: CardSearchResult[] | undefined) => previousData,
   });
+
+  const isAdvancedMode = game.slug === "yugioh" && ygoSearchMode === "advanced";
+  const searchResults = isAdvancedMode ? (advancedData ?? []) : (data ?? []);
+  const searchLoading = isAdvancedMode ? advancedLoading : isLoading;
+  const searchFetching = isAdvancedMode ? advancedFetching : isFetching;
+  const searchIsError = isAdvancedMode ? advancedError : isError;
+  const searchQueryError = isAdvancedMode ? advancedQueryError : error;
+  const hasSearchQuery = isAdvancedMode
+    ? advancedSearchNonce > 0 && hasActiveYgoAdvancedFilters(ygoAdvancedFilters)
+    : debouncedQuery.length >= 2;
+
+  const showInitialLoader =
+    searchLoading && hasSearchQuery && searchResults.length === 0;
+  const showRefetchIndicator = searchFetching && !showInitialLoader && hasSearchQuery;
 
   const variants = useMemo(
     () => (pendingCard ? getSearchResultVariants(pendingCard, game.slug) : []),
@@ -186,9 +268,8 @@ export function QuickAddModal({
 
   const {
     data: variantPrices,
-    pendingKeys: pricePendingKeys,
-    resolvedKeys: priceResolvedKeys,
-  } = useSequentialVariantPrices(
+    isFetching: variantPricesFetching,
+  } = useCardTraderVariantPrices(
     pendingCard?.name ?? "",
     game.slug,
     variantInputs,
@@ -272,7 +353,7 @@ export function QuickAddModal({
 
   const handleCardClick = (result: CardSearchResult) => {
     const siblings =
-      data?.filter(
+      searchResults.filter(
         (r) =>
           r.externalId !== result.externalId &&
           (r.name === result.name ||
@@ -323,10 +404,10 @@ export function QuickAddModal({
         </span>
       );
     }
-    if (pricePendingKeys.has(variantKey)) {
+    if (variantPricesFetching && !variantPrices?.has(variantKey)) {
       return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
     }
-    if (priceResolvedKeys.has(variantKey)) {
+    if (variantPrices && variantPrices.has(variantKey)) {
       return (
         <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           NIL
@@ -346,7 +427,13 @@ export function QuickAddModal({
           ? `${pendingCard.name} — select set and rarity`
           : `Search ${game.name} catalog`
       }
-      className={pendingCard ? "sm:max-w-4xl" : "sm:max-w-3xl"}
+      className={
+        pendingCard
+          ? "sm:max-w-4xl"
+          : isAdvancedMode
+            ? "sm:max-w-5xl"
+            : "sm:max-w-3xl"
+      }
     >
       <div className="space-y-4">
         {pendingCard ? (
@@ -466,57 +553,85 @@ export function QuickAddModal({
           </>
         ) : (
           <>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Select
-                value={selectedGameSlug}
-                onValueChange={(slug) => {
-                  const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
-                  if (next) setSelectedGameSlug(next.slug);
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue placeholder="Game" />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUICK_ADD_GAMES.map((g) => (
-                    <SelectItem key={g.slug} value={g.slug}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {game.slug === "yugioh" && (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Select
-                  value={searchLocale}
-                  onValueChange={(value) => {
-                    const locale = value as CatalogSearchLocale;
-                    setSearchLocale(locale);
-                    writeSearchLocale(locale);
+                  value={selectedGameSlug}
+                  onValueChange={(slug) => {
+                    const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
+                    if (next) setSelectedGameSlug(next.slug);
                   }}
                 >
-                  <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
-                    <SelectValue />
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue placeholder="Game" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SEARCH_LOCALE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {QUICK_ADD_GAMES.map((g) => (
+                      <SelectItem key={g.slug} value={g.slug}>
+                        {g.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {game.slug === "yugioh" && (
+                  <>
+                    <Select
+                      value={searchLocale}
+                      onValueChange={(value) => {
+                        const locale = value as CatalogSearchLocale;
+                        setSearchLocale(locale);
+                        writeSearchLocale(locale);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[100px]" aria-label="Search language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SEARCH_LOCALE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant={ygoSearchMode === "advanced" ? "default" : "outline"}
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() =>
+                        setYgoSearchMode((mode) => (mode === "simple" ? "advanced" : "simple"))
+                      }
+                    >
+                      <SlidersHorizontal className="mr-1.5 h-4 w-4" />
+                      {ygoSearchMode === "advanced" ? "Busca simples" : "Busca avançada"}
+                    </Button>
+                  </>
+                )}
+                {!isAdvancedMode && (
+                  <SearchBar
+                    value={query}
+                    onChange={setQuery}
+                    placeholder={
+                      game.slug === "yugioh" && searchLocale === "pt"
+                        ? `Buscar cartas ${game.name}...`
+                        : `Search ${game.name} cards...`
+                    }
+                    enableShortcut={false}
+                    className="flex-1"
+                  />
+                )}
+              </div>
+
+              {isAdvancedMode && (
+                <YugiohAdvancedSearchPanel
+                  filters={ygoAdvancedFilters}
+                  onChange={setYgoAdvancedFilters}
+                  onSearch={triggerAdvancedSearch}
+                  isSearching={advancedFetching}
+                  locale={searchLocale}
+                />
               )}
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                placeholder={
-                  game.slug === "yugioh" && searchLocale === "pt"
-                    ? `Buscar cartas ${game.name}...`
-                    : `Search ${game.name} cards...`
-                }
-                enableShortcut={false}
-                className="flex-1"
-              />
             </div>
 
             {!isQuickAddSupported(game.slug) && (
@@ -525,19 +640,31 @@ export function QuickAddModal({
               </p>
             )}
 
-            <ScrollArea className="h-[360px] pr-3">
-              {(isLoading || isFetching) && debouncedQuery.length >= 2 && (
+            <ScrollArea className={cn("pr-3", isAdvancedMode ? "h-[280px]" : "h-[360px]")}>
+              {showRefetchIndicator && (
+                <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Updating…
+                </div>
+              )}
+
+              {showInitialLoader && (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Searching {game.name}…
                 </div>
               )}
 
-              {data && data.length > 0 && (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                  {data.map((result) => (
+              {hasSearchQuery && searchResults.length > 0 && (
+                <div
+                  className={cn(
+                    "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6",
+                    showRefetchIndicator && "opacity-80"
+                  )}
+                >
+                  {searchResults.map((result) => (
                     <button
-                      key={`${result.externalId}-${result.setCode ?? result.setName}-${result.collectorNumber ?? ""}`}
+                      key={`${result.externalId}-${result.name}`}
                       type="button"
                       onClick={() => handleCardClick(result)}
                       className="group flex flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -550,6 +677,11 @@ export function QuickAddModal({
                           fill
                           sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 120px"
                           className="object-contain"
+                          fallbackSrc={
+                            game.slug === "yugioh" && /^\d{7,10}$/.test(result.externalId)
+                              ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
+                              : null
+                          }
                         />
                         <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/20 group-hover:opacity-100">
                           <Plus className="h-6 w-6 text-white drop-shadow-md" />
@@ -563,15 +695,31 @@ export function QuickAddModal({
                 </div>
               )}
 
-              {isError && (
+              {searchIsError && (
                 <p className="py-12 text-center text-sm text-destructive">
-                  {error instanceof Error ? error.message : searchErrorDetail ?? "Search failed"}
+                  {searchQueryError instanceof Error
+                    ? searchQueryError.message
+                    : searchErrorDetail ?? "Search failed"}
                 </p>
               )}
 
-              {debouncedQuery.length >= 2 && !isLoading && !isFetching && !isError && data?.length === 0 && (
-                <p className="py-12 text-center text-sm text-muted-foreground">No cards found</p>
+              {hasSearchQuery &&
+                !showInitialLoader &&
+                !searchFetching &&
+                !searchIsError &&
+                searchResults.length === 0 && (
+                <p className="py-12 text-center text-sm text-muted-foreground">
+                  {isAdvancedMode ? "Nenhuma carta encontrada com esses filtros" : "No cards found"}
+                </p>
               )}
+
+              {isAdvancedMode &&
+                advancedSearchNonce === 0 &&
+                !searchFetching && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Configure os filtros e clique em Buscar
+                  </p>
+                )}
             </ScrollArea>
           </>
         )}

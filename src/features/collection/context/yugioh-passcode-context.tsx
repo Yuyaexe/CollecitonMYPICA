@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCollectionYugiohImageRepair } from "@/hooks/useCollectionYugiohImageRepair";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -56,12 +56,17 @@ export function YugiohPasscodeProvider({
     staleTime: 24 * 60 * 60 * 1000,
   });
 
-  const map = new Map<string, string | null>(Object.entries(data ?? {}));
+  const map = useMemo(
+    () => new Map<string, string | null>(Object.entries(data ?? {})),
+    [data]
+  );
+
+  const isReady = isFetched || yugiohIds.length === 0;
+
+  const value = useMemo(() => ({ map, isReady }), [map, isReady]);
 
   return (
-    <YugiohPasscodeContext.Provider
-      value={{ map, isReady: isFetched || yugiohIds.length === 0 }}
-    >
+    <YugiohPasscodeContext.Provider value={value}>
       {children}
     </YugiohPasscodeContext.Provider>
   );

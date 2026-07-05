@@ -31,4 +31,8 @@ export interface CardApiAdapter {
 export interface YugiohCardApiAdapter extends CardApiAdapter {
   searchByNameOnly(query: string, options?: CatalogSearchOptions): Promise<CardSearchResult[]>;
   getBySetNumber(setNumber: string): Promise<CardDetail | null>;
+  advancedSearch(
+    filters: import("@/lib/yugioh/advanced-search").YugiohAdvancedSearchFilters,
+    options?: CatalogSearchOptions
+  ): Promise<CardSearchResult[]>;
 }

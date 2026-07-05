@@ -31,9 +31,15 @@ export default function CollectionPage() {
   const { profile, ownedCards, activeCollectionId, isSupabaseMode, isLoading } =
     useAppData();
 
-  const filtered = useMemo(() => {
-    return filterOwnedCards(ownedCards, filters, activeCollectionId);
-  }, [ownedCards, filters, activeCollectionId]);
+  const collectionCards = useMemo(
+    () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
+    [ownedCards, activeCollectionId]
+  );
+
+  const filtered = useMemo(
+    () => filterOwnedCards(ownedCards, filters, activeCollectionId),
+    [ownedCards, filters, activeCollectionId]
+  );
 
   if (isLoading || !activeCollectionId) {
     return (
@@ -51,8 +57,8 @@ export default function CollectionPage() {
     : null;
 
   return (
-    <YugiohPasscodeProvider cards={ownedCards}>
-      <YugiohPasscodeSync cards={ownedCards}>
+    <YugiohPasscodeProvider cards={collectionCards}>
+      <YugiohPasscodeSync cards={collectionCards}>
         <CollectionPresenceProvider
           collectionId={activeCollectionId}
           displayName={profile.displayName ?? "Collector"}

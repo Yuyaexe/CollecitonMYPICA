@@ -38,6 +38,28 @@ function relevanceScore(name: string, query: string): number {
   return 3;
 }
 
+/** One grid tile per unique card (passcode for YGO, externalId otherwise). */
+export function dedupeSearchResults(
+  results: CardSearchResult[],
+  gameSlug: string
+): CardSearchResult[] {
+  const seen = new Set<string>();
+  const deduped: CardSearchResult[] = [];
+
+  for (const result of results) {
+    const passcode =
+      gameSlug === "yugioh" && /^\d{7,10}$/.test(result.externalId)
+        ? result.externalId
+        : null;
+    const key = passcode ?? `${gameSlug}:${normalizeSearchText(result.name)}:${result.externalId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(result);
+  }
+
+  return deduped;
+}
+
 /** Drop off-name matches, then sort by relevance and A–Z. */
 export function rankSearchResults(
   query: string,
@@ -51,9 +73,15 @@ export function rankSearchResults(
     ? results
     : results.filter((result) => cardNameMatchesQuery(result.name, trimmed));
 
+  const scoreByResult = new Map<CardSearchResult, number>();
+  for (const result of filtered) {
+    scoreByResult.set(result, relevanceScore(result.name, trimmed));
+  }
+
   return [...filtered].sort((a, b) => {
     if (!bySetCode) {
-      const scoreDiff = relevanceScore(a.name, trimmed) - relevanceScore(b.name, trimmed);
+      const scoreDiff =
+        (scoreByResult.get(a) ?? 3) - (scoreByResult.get(b) ?? 3);
       if (scoreDiff !== 0) return scoreDiff;
     }
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });

@@ -29,7 +29,7 @@ export function useYugiohPasscodeForDisplay(
 ): string | null | undefined {
   const batchContext = useYugiohPasscodeContext();
   const fromBatch = resolvePasscodeFromContext(ownedCardId, batchContext);
-  const useIndividualLookup = fromBatch === undefined;
+  const useIndividualLookup = fromBatch === undefined && batchContext === null;
 
   const { data: resolvedPasscode, isFetched } = useQuery({
     queryKey: ["ygo-passcode", card.name, card.setCode, card.collectorNumber],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { filterOwnedCards, sortOwnedCards } from "@/features/collection/utils/filters";
 import {
@@ -77,16 +77,9 @@ export function useCollectionViewData(): CollectionViewData {
     [bulkQuotes, liveCardTraderPrices]
   );
 
-  const filtered = useMemo(() => {
+  const filteredBase = useMemo(() => {
     const f = filterOwnedCards(ownedCards, filters, activeCollectionId);
     let sorted = sortOwnedCards(f, sortField, sortDir);
-    if (sortField === "marketPrice") {
-      sorted = [...sorted].sort((a, b) => {
-        const av = resolveDisplayPrice(a, cardTraderPrices, profile.currency) ?? 0;
-        const bv = resolveDisplayPrice(b, cardTraderPrices, profile.currency) ?? 0;
-        return sortDir === "asc" ? av - bv : bv - av;
-      });
-    }
 
     if (!activeCollectionId) return sorted;
     const savedOrder = cardOrderByCollection[activeCollectionId];
@@ -100,16 +93,16 @@ export function useCollectionViewData(): CollectionViewData {
     return merged
       .map((id) => byId.get(id))
       .filter((item): item is DemoOwnedCard => item != null);
-  }, [
-    ownedCards,
-    filters,
-    activeCollectionId,
-    sortField,
-    sortDir,
-    cardTraderPrices,
-    profile.currency,
-    cardOrderByCollection,
-  ]);
+  }, [ownedCards, filters, activeCollectionId, sortField, sortDir, cardOrderByCollection]);
+
+  const filtered = useMemo(() => {
+    if (sortField !== "marketPrice") return filteredBase;
+    return [...filteredBase].sort((a, b) => {
+      const av = resolveDisplayPrice(a, cardTraderPrices, profile.currency) ?? 0;
+      const bv = resolveDisplayPrice(b, cardTraderPrices, profile.currency) ?? 0;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [filteredBase, sortField, sortDir, cardTraderPrices, profile.currency]);
 
   const allIds = useMemo(() => filtered.map((oc) => oc.id), [filtered]);
 
@@ -180,12 +173,17 @@ export function useCollectionViewData(): CollectionViewData {
     ]
   );
 
+  const syncedBlueprintRef = useRef(new Set<string>());
+
   useEffect(() => {
     if (!cardTraderPrices?.size) return;
 
     for (const item of collectionCards) {
       const quote = cardTraderPrices.get(cardPriceKey(item));
       if (!quote?.blueprintId) continue;
+
+      const syncKey = `${item.id}:${quote.blueprintId}:${quote.imageUrl ?? ""}`;
+      if (syncedBlueprintRef.current.has(syncKey)) continue;
 
       const bpId = Number(quote.blueprintId);
       const blueprintValid =
@@ -211,6 +209,7 @@ export function useCollectionViewData(): CollectionViewData {
       }
 
       if (Object.keys(updates).length > 0) {
+        syncedBlueprintRef.current.add(syncKey);
         void updateOwnedCard(item.id, { card: updates });
       }
     }
