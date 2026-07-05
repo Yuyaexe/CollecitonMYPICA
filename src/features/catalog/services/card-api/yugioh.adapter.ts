@@ -1,4 +1,5 @@
 import type { CardApiAdapter, CardDetail, CardSearchResult, YugiohCardApiAdapter } from "./types";
+import { rankSearchResults } from "@/features/catalog/services/search-ranking";
 
 const API = "https://db.ygoprodeck.com/api/v7";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
@@ -57,25 +58,11 @@ async function fetchYgoCards(params: string): Promise<YgoCard[]> {
   return Array.isArray(data.data) ? (data.data as YgoCard[]) : [];
 }
 
-function mergeYgoCards(...lists: YgoCard[][]): YgoCard[] {
-  const byId = new Map<number, YgoCard>();
-  for (const list of lists) {
-    for (const card of list) {
-      if (!byId.has(card.id)) byId.set(card.id, card);
-    }
-  }
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export const yugiohAdapter: YugiohCardApiAdapter = {
   gameSlug: "yugioh",
 
   async searchByNameOnly(query: string): Promise<CardSearchResult[]> {
-    const trimmed = query.trim();
-    if (!trimmed) return [];
-
-    const cards = await fetchYgoCards(`fname=${encodeURIComponent(trimmed)}`);
-    return cards.slice(0, YGO_RESULT_CAP).map((card) => mapYgoCard(card));
+    return this.search(query);
   },
 
   async getBySetNumber(setNumber: string): Promise<CardDetail | null> {
@@ -93,15 +80,9 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
-    const encoded = encodeURIComponent(trimmed);
-    const [byName, byDesc] = await Promise.all([
-      fetchYgoCards(`fname=${encoded}`),
-      fetchYgoCards(`desc=${encoded}`),
-    ]);
-
-    return mergeYgoCards(byName, byDesc)
-      .slice(0, YGO_RESULT_CAP)
-      .map((card) => mapYgoCard(card));
+    const cards = await fetchYgoCards(`fname=${encodeURIComponent(trimmed)}`);
+    const mapped = cards.map((card) => mapYgoCard(card));
+    return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {

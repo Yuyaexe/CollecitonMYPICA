@@ -6,6 +6,7 @@ import {
   catalogSourceLabel,
   serializeSearchResultsForResponse,
 } from "@/features/catalog/services/serialize-search-results";
+import { rankSearchResults } from "@/features/catalog/services/search-ranking";
 import {
   getCardTraderPriceForProfile,
   isCardTraderConfigured,
@@ -213,6 +214,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    results = rankSearchResults(query, results).slice(0, SEARCH_RESULT_LIMIT);
+    log.push("info", "rank", `${results.length} result(s) after name filter + A–Z sort`);
     log.push("success", "done", `Returning ${results.length} result(s)`);
 
     const safeResults = serializeSearchResultsForResponse(results);
