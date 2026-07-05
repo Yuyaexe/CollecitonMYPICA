@@ -243,7 +243,7 @@ export function QuickAddModal({
           game.slug
         ),
       })),
-    [variants]
+    [variants, game.slug]
   );
 
   const rarityOptions = useMemo(

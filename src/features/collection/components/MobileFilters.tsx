@@ -11,12 +11,16 @@ export function MobileFilters() {
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="lg:hidden">
           <Filter className="h-4 w-4" />
-          Filters
+          Filtros
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex h-full w-[min(100vw-1rem,20rem)] max-w-[85vw] flex-col p-0">
+      <SheetContent
+        side="left"
+        lang="pt-BR"
+        className="flex h-full w-[min(100vw-1rem,20rem)] max-w-[85vw] flex-col p-0"
+      >
         <SheetHeader className="shrink-0 p-4 pb-0">
-          <SheetTitle>Filters</SheetTitle>
+          <SheetTitle>Filtros</SheetTitle>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col">
           <CollectionFilters inSheet />

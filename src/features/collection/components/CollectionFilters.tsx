@@ -34,7 +34,7 @@ function FilterSelect({
       value={value}
       onValueChange={onValueChange}
       options={options}
-      triggerClassName="h-8"
+      triggerClassName={preferNative ? "min-h-10" : "h-8"}
     />
   );
 }
@@ -78,53 +78,53 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
     <ScrollArea className={inSheet ? "min-h-0 flex-1" : "h-full"}>
       <div className="space-y-5 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Filters</h3>
+          <h3 className="text-sm font-semibold">Filtros</h3>
           <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 text-xs">
-            Reset
+            Reiniciar
           </Button>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Game</Label>
+          <Label className="text-xs text-muted-foreground">Jogo</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.gameId ?? "all"}
             onValueChange={(v) => setFilters({ gameId: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "All games" },
+              { value: "all", label: "Todos os jogos" },
               ...DEMO_GAMES.map((g) => ({ value: g.id, label: g.name })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Set</Label>
+          <Label className="text-xs text-muted-foreground">Conjunto</Label>
           <FilterSelect
             preferNative={preferNative}
             value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "All sets" },
+              { value: "all", label: "Todos os conjuntos" },
               ...sets.map((s) => ({ value: s, label: s })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Rarity</Label>
+          <Label className="text-xs text-muted-foreground">Raridade</Label>
           <FilterSelect
             preferNative={preferNative}
             value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "All rarities" },
+              { value: "all", label: "Todas as raridades" },
               ...rarities.map((r) => ({ value: r, label: r })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Language</Label>
+          <Label className="text-xs text-muted-foreground">Idioma</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.language ?? "all"}
@@ -132,14 +132,14 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
               setFilters({ language: v === "all" ? null : (v as typeof filters.language) })
             }
             options={[
-              { value: "all", label: "All" },
+              { value: "all", label: "Todos" },
               ...CARD_LANGUAGES.map((l) => ({ value: l, label: l })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Condition</Label>
+          <Label className="text-xs text-muted-foreground">Condição</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.condition ?? "all"}
@@ -147,7 +147,7 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
               setFilters({ condition: v === "all" ? null : (v as typeof filters.condition) })
             }
             options={[
-              { value: "all", label: "All" },
+              { value: "all", label: "Todas" },
               ...CARD_CONDITIONS.map((c) => ({ value: c, label: c })),
             ]}
           />

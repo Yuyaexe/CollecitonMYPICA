@@ -340,7 +340,7 @@ export function CardInspectDialog({
     const quote = variantPrices?.get(variantKey);
     if (quote?.price != null) {
       return (
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
           {formatCurrency(quote.price, currency)}
         </span>
       );
@@ -354,17 +354,18 @@ export function CardInspectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        lang="pt-BR"
         className={cn(
-          "gap-0 overflow-x-hidden overflow-y-auto p-0",
-          "inset-x-0 bottom-0 top-auto max-h-[92dvh] w-full max-w-[100vw] translate-x-0 translate-y-0 rounded-t-xl border-t",
+          "gap-0 overflow-y-auto overflow-x-clip p-0",
+          "inset-x-0 bottom-0 top-auto left-0 right-0 max-h-[92dvh] w-full max-w-full translate-x-0 translate-y-0 rounded-t-xl border-t",
           "sm:inset-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[min(90dvh,100%)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:border md:max-w-4xl"
         )}
       >
         <DialogTitle className="sr-only">{card.card.name}</DialogTitle>
 
         <div className="flex flex-col md:flex-row">
-          <div className="flex shrink-0 gap-3 border-b border-border/60 bg-muted/20 p-3 sm:flex-col sm:items-center sm:p-4 md:w-[220px] md:border-b-0 md:border-r md:p-6">
-            <div className="relative h-[123px] w-[88px] shrink-0 overflow-hidden rounded-md shadow-md ring-1 ring-border/40 sm:h-[140px] sm:w-[100px] sm:rounded-lg sm:shadow-lg md:h-[224px] md:w-[160px]">
+          <div className="flex shrink-0 flex-col items-center gap-3 border-b border-border/60 bg-muted/20 p-3 sm:p-4 md:w-[220px] md:items-stretch md:border-b-0 md:border-r md:p-6">
+            <div className="relative h-[140px] w-[100px] shrink-0 overflow-hidden rounded-lg shadow-lg ring-1 ring-border/40 md:h-[224px] md:w-[160px]">
               <CardImage
                 src={displayImage}
                 alt={card.card.name}
@@ -373,7 +374,7 @@ export function CardInspectDialog({
                 className="object-contain p-0.5"
               />
             </div>
-            <div className="min-w-0 flex-1 sm:w-full sm:text-center">
+            <div className="w-full min-w-0 text-center md:text-left">
               <h2 className="text-sm font-semibold leading-snug sm:text-base md:text-lg">
                 {card.card.name}
               </h2>
@@ -423,9 +424,9 @@ export function CardInspectDialog({
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6">
-            <div ref={marketplaceRef} className="space-y-3">
-              <h3 className="text-sm font-semibold">Marketplace</h3>
+          <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-hidden p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6">
+            <div ref={marketplaceRef} className="min-w-0 space-y-3">
+              <h3 className="text-sm font-semibold">Mercado</h3>
               <div className="space-y-2">
                 {listings.map((listing) => (
                   <a
@@ -433,9 +434,9 @@ export function CardInspectDialog({
                     href={listing.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40 sm:px-4 sm:py-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40 sm:px-4 sm:py-3"
                   >
-                    <span className="min-w-0 truncate text-xs font-medium sm:text-sm">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">
                       {listing.name}
                       {listing.primary && (
                         <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
@@ -443,25 +444,25 @@ export function CardInspectDialog({
                         </span>
                       )}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {listing.price !== null ? (
-                        <span className="text-sm tabular-nums text-muted-foreground">
+                        <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
                           {formatCurrency(listing.price, listing.currency as Currency)}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Abrir</span>
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">Abrir</span>
                       )}
-                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
                   </a>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-4 border-t border-border/60 pt-4">
+            <div className="min-w-0 space-y-4 border-t border-border/60 pt-4">
               {printVariants.length > 1 && (
                 <div className="space-y-2">
-                  <Label>Print</Label>
+                  <Label>Edição</Label>
                   <ScrollArea className="h-[180px] rounded-lg border border-border/60">
                     <div className="space-y-1 p-1">
                       {printVariants.map((variant) => {
@@ -475,22 +476,22 @@ export function CardInspectDialog({
                             type="button"
                             onClick={() => handleVariantSelect(variant)}
                             className={cn(
-                              "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50",
+                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50",
                               isActive && "bg-primary/10 ring-1 ring-primary/30"
                             )}
                           >
-                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
                               <RarityBadge rarity={variant.rarity} gameSlug={card.card.gameSlug} size="md" />
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-medium">
-                                  {variant.setName ?? "Unknown set"}
+                                  {variant.setName ?? "Edição desconhecida"}
                                 </p>
                                 {variant.setCode && (
                                   <p className="truncate text-xs text-muted-foreground">{variant.setCode}</p>
                                 )}
                               </div>
                             </div>
-                            {renderVariantPrice(variant.key)}
+                            <div className="shrink-0">{renderVariantPrice(variant.key)}</div>
                           </button>
                         );
                       })}
@@ -500,7 +501,7 @@ export function CardInspectDialog({
               )}
 
               <div className="space-y-2">
-                <Label>Qty</Label>
+                <Label>Quantidade</Label>
                 <QuantityStepper
                   value={card.quantity}
                   onChange={(quantity) => {
@@ -516,8 +517,9 @@ export function CardInspectDialog({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Condition</Label>
+                  <Label className="text-xs sm:text-sm">Condição</Label>
                   <ResponsiveSelect
+                    preferNative
                     value={card.condition}
                     onValueChange={(v) =>
                       updateOwnedCard(card.id, { condition: v as typeof card.condition })
@@ -529,8 +531,9 @@ export function CardInspectDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Language</Label>
+                  <Label className="text-xs sm:text-sm">Idioma</Label>
                   <ResponsiveSelect
+                    preferNative
                     value={card.language}
                     onValueChange={(v) =>
                       updateOwnedCard(card.id, { language: v as typeof card.language })
