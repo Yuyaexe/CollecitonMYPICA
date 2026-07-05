@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { MOBILE_DIALOG_SHEET } from "@/lib/ui/mobile-dialog";
 import { CardImage } from "@/components/shared/CardImage";
 import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
@@ -351,80 +351,94 @@ export function CardInspectDialog({
     return <span className="text-xs text-muted-foreground">—</span>;
   };
 
+  const ygoImageLoading = card.card.gameSlug === "yugioh" && ygoPasscode === undefined;
+  const ygoImageFallback =
+    ygoPasscode != null ? buildYgoImageUrl(ygoPasscode, "full") : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         lang="pt-BR"
         className={cn(
-          "gap-0 overflow-y-auto overflow-x-clip p-0",
-          "inset-x-0 bottom-0 top-auto left-0 right-0 max-h-[92dvh] w-full max-w-full translate-x-0 translate-y-0 rounded-t-xl border-t",
-          "sm:inset-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[min(90dvh,100%)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:border md:max-w-4xl"
+          "gap-0 overflow-x-hidden p-0",
+          MOBILE_DIALOG_SHEET,
+          "max-sm:pt-12",
+          "sm:fixed sm:inset-auto sm:left-[50%] sm:top-[50%] sm:block sm:max-h-[min(90dvh,100%)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:overflow-y-auto sm:rounded-xl md:max-w-4xl"
         )}
       >
         <DialogTitle className="sr-only">{card.card.name}</DialogTitle>
 
-        <div className="flex flex-col md:flex-row">
-          <div className="flex shrink-0 flex-col items-center gap-3 border-b border-border/60 bg-muted/20 p-3 sm:p-4 md:w-[220px] md:items-stretch md:border-b-0 md:border-r md:p-6">
-            <div className="relative h-[140px] w-[100px] shrink-0 overflow-hidden rounded-lg shadow-lg ring-1 ring-border/40 md:h-[224px] md:w-[160px]">
-              <CardImage
-                src={displayImage}
-                alt={card.card.name}
-                fill
-                sizes="160px"
-                className="object-contain p-0.5"
-              />
-            </div>
-            <div className="w-full min-w-0 text-center md:text-left">
-              <h2 className="text-sm font-semibold leading-snug sm:text-base md:text-lg">
-                {card.card.name}
-              </h2>
-              {card.card.rarity && (
-                <div className="mt-1.5 sm:flex sm:justify-center md:mt-2">
-                  <RarityBadge
-                    rarity={activeVariant?.rarity ?? card.card.rarity}
-                    gameSlug={card.card.gameSlug}
-                    size="sm"
+        <div className="flex min-w-0 flex-col md:max-h-[85dvh] md:flex-row md:overflow-hidden">
+          <section className="shrink-0 border-b border-border/60 bg-muted/20 md:w-[220px] md:border-b-0 md:border-r">
+            <div className="flex flex-col items-center gap-3 p-4 md:items-stretch md:p-6">
+              <div className="relative h-[168px] w-[120px] shrink-0 overflow-hidden rounded-lg bg-muted/40 shadow-lg ring-1 ring-border/40 md:h-[224px] md:w-[160px]">
+                {ygoImageLoading ? (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <CardImage
+                    src={displayImage}
+                    alt={card.card.name}
+                    fill
+                    sizes="(max-width: 768px) 120px, 160px"
+                    fallbackSrc={ygoImageFallback}
+                    className="object-contain p-0.5"
                   />
-                </div>
-              )}
-              <dl className="mt-2 space-y-1 text-xs sm:mt-3 sm:space-y-1.5 sm:text-sm md:mt-4">
-                <div className="flex justify-between gap-2 sm:gap-3">
-                  <dt className="shrink-0 text-muted-foreground">Set</dt>
-                  <dd className="min-w-0 truncate text-right font-medium">
-                    {activeVariant?.setName ?? card.card.setName ?? "—"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-2 sm:gap-3">
-                  <dt className="shrink-0 text-muted-foreground">Number</dt>
-                  <dd className="min-w-0 truncate font-medium">
-                    {activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-2 sm:gap-3">
-                  <dt className="shrink-0 text-muted-foreground">CardTrader</dt>
-                  <dd>
-                    {(pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <PriceBadge price={displayPrice} currency={currency} />
+                )}
+              </div>
+              <div className="w-full min-w-0 text-center md:text-left">
+                <h2 className="text-base font-semibold leading-snug break-words md:text-lg">
+                  {card.card.name}
+                </h2>
+                {card.card.rarity && (
+                  <div className="mt-2 flex justify-center md:justify-start">
+                    <RarityBadge
+                      rarity={activeVariant?.rarity ?? card.card.rarity}
+                      gameSlug={card.card.gameSlug}
+                      size="sm"
+                    />
+                  </div>
+                )}
+                <dl className="mt-3 grid w-full grid-cols-1 gap-2 text-sm">
+                  <div className="rounded-md bg-background/70 px-3 py-2 text-left">
+                    <dt className="text-xs text-muted-foreground">Conjunto</dt>
+                    <dd className="mt-0.5 font-medium leading-snug break-words">
+                      {activeVariant?.setName ?? card.card.setName ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="rounded-md bg-background/70 px-3 py-2 text-left">
+                    <dt className="text-xs text-muted-foreground">Número</dt>
+                    <dd className="mt-0.5 font-medium leading-snug break-all">
+                      {activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-background/70 px-3 py-2">
+                    <dt className="text-xs text-muted-foreground">CardTrader</dt>
+                    <dd>
+                      {(pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <PriceBadge price={displayPrice} currency={currency} />
+                      )}
+                    </dd>
+                  </div>
+                  {ygoSecondaryPrice != null &&
+                    ygoSecondaryPrice > 0 &&
+                    (resolvedQuote?.price == null || displayPrice == null) && (
+                      <div className="flex items-center justify-between gap-3 rounded-md bg-background/70 px-3 py-2">
+                        <dt className="text-xs text-muted-foreground">YGOPRODeck</dt>
+                        <dd>
+                          <PriceBadge price={ygoSecondaryPrice} currency="USD" />
+                        </dd>
+                      </div>
                     )}
-                  </dd>
-                </div>
-                {ygoSecondaryPrice != null &&
-                  ygoSecondaryPrice > 0 &&
-                  (resolvedQuote?.price == null || displayPrice == null) && (
-                    <div className="flex items-center justify-between gap-2 sm:gap-3">
-                      <dt className="shrink-0 text-muted-foreground">YGOPRODeck</dt>
-                      <dd>
-                        <PriceBadge price={ygoSecondaryPrice} currency="USD" />
-                      </dd>
-                    </div>
-                  )}
-              </dl>
+                </dl>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-hidden p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6">
+          <section className="flex min-w-0 flex-1 flex-col gap-4 p-4 md:gap-6 md:overflow-y-auto md:p-6">
             <div ref={marketplaceRef} className="min-w-0 space-y-3">
               <h3 className="text-sm font-semibold">Mercado</h3>
               <div className="space-y-2">
@@ -434,9 +448,9 @@ export function CardInspectDialog({
                     href={listing.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-muted/40 sm:px-4 sm:py-3"
+                    className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 transition-colors hover:border-primary/40 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3"
                   >
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">
+                    <span className="text-sm font-medium leading-snug">
                       {listing.name}
                       {listing.primary && (
                         <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
@@ -444,13 +458,13 @@ export function CardInspectDialog({
                         </span>
                       )}
                     </span>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
                       {listing.price !== null ? (
-                        <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                        <span className="text-sm tabular-nums text-muted-foreground">
                           {formatCurrency(listing.price, listing.currency as Currency)}
                         </span>
                       ) : (
-                        <span className="whitespace-nowrap text-xs text-muted-foreground">Abrir</span>
+                        <span className="text-xs text-muted-foreground">Abrir</span>
                       )}
                       <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
@@ -463,40 +477,44 @@ export function CardInspectDialog({
               {printVariants.length > 1 && (
                 <div className="space-y-2">
                   <Label>Edição</Label>
-                  <ScrollArea className="h-[180px] rounded-lg border border-border/60">
-                    <div className="space-y-1 p-1">
-                      {printVariants.map((variant) => {
-                        const isActive =
-                          activeVariant?.key === variant.key ||
-                          (!activeVariant &&
-                            variantMatchesOwnedCard(variant, card.card, card.card.gameSlug));
-                        return (
-                          <button
-                            key={variant.key}
-                            type="button"
-                            onClick={() => handleVariantSelect(variant)}
-                            className={cn(
-                              "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50",
-                              isActive && "bg-primary/10 ring-1 ring-primary/30"
-                            )}
-                          >
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <RarityBadge rarity={variant.rarity} gameSlug={card.card.gameSlug} size="md" />
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">
-                                  {variant.setName ?? "Edição desconhecida"}
-                                </p>
-                                {variant.setCode && (
-                                  <p className="truncate text-xs text-muted-foreground">{variant.setCode}</p>
-                                )}
-                              </div>
+                  <div className="max-h-[min(40dvh,240px)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border/60 p-1">
+                    {printVariants.map((variant) => {
+                      const isActive =
+                        activeVariant?.key === variant.key ||
+                        (!activeVariant &&
+                          variantMatchesOwnedCard(variant, card.card, card.card.gameSlug));
+                      return (
+                        <button
+                          key={variant.key}
+                          type="button"
+                          onClick={() => handleVariantSelect(variant)}
+                          className={cn(
+                            "flex w-full flex-col gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between",
+                            isActive && "bg-primary/10 ring-1 ring-primary/30"
+                          )}
+                        >
+                          <div className="flex min-w-0 items-start gap-2">
+                            <RarityBadge
+                              rarity={variant.rarity}
+                              gameSlug={card.card.gameSlug}
+                              size="md"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-snug">
+                                {variant.setName ?? "Edição desconhecida"}
+                              </p>
+                              {variant.setCode && (
+                                <p className="text-xs text-muted-foreground">{variant.setCode}</p>
+                              )}
                             </div>
-                            <div className="shrink-0">{renderVariantPrice(variant.key)}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
+                          </div>
+                          <div className="pl-8 sm:shrink-0 sm:pl-0">
+                            {renderVariantPrice(variant.key)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -543,7 +561,7 @@ export function CardInspectDialog({
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
