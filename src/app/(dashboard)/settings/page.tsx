@@ -8,16 +8,10 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useAppData } from "@/hooks/useAppData";
 import type { DemoProfile } from "@/lib/demo/types";
-import { CURRENCIES } from "@/types/tcg";
+import { CURRENCIES, type Currency } from "@/types/tcg";
 import {
   buildBackupPayload,
   downloadBackup,
@@ -55,14 +49,22 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     const currencyChanged = draft.currency !== profile.currency;
-    await updateProfile(draft);
-    if (currencyChanged) {
-      useCollectionUIStore.getState().refreshPrices();
-      await queryClient.invalidateQueries({ queryKey: ["cardtrader-prices"] });
-      await queryClient.invalidateQueries({ queryKey: ["cardtrader-owned-quote"] });
-      await queryClient.invalidateQueries({ queryKey: ["cardtrader-variant-prices"] });
+    const nextCurrency = CURRENCIES.includes(draft.currency as Currency)
+      ? draft.currency
+      : profile.currency;
+
+    try {
+      await updateProfile({ ...draft, currency: nextCurrency });
+      if (currencyChanged) {
+        useCollectionUIStore.getState().refreshPrices();
+        await queryClient.invalidateQueries({ queryKey: ["cardtrader-prices"] });
+        await queryClient.invalidateQueries({ queryKey: ["cardtrader-owned-quote"] });
+        await queryClient.invalidateQueries({ queryKey: ["cardtrader-variant-prices"] });
+      }
+      toast.success("Settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
     }
-    toast.success("Settings saved");
   };
 
   const handleBackup = async () => {
@@ -153,36 +155,26 @@ export default function SettingsPage() {
 
           <div className="space-y-2">
             <Label>Currency</Label>
-            <Select
+            <ResponsiveSelect
               value={draft.currency}
-              onValueChange={(v) =>
-                setDraft({ ...draft, currency: v as typeof draft.currency })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(v) => {
+                if (!CURRENCIES.includes(v as Currency)) return;
+                setDraft({ ...draft, currency: v as Currency });
+              }}
+              options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Theme</Label>
-            <Select value={theme ?? "dark"} onValueChange={setTheme}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dark">Dark (Obsidian)</SelectItem>
-                <SelectItem value="light">Light</SelectItem>
-              </SelectContent>
-            </Select>
+            <ResponsiveSelect
+              value={theme ?? "dark"}
+              onValueChange={setTheme}
+              options={[
+                { value: "dark", label: "Dark (Obsidian)" },
+                { value: "light", label: "Light" },
+              ]}
+            />
           </div>
         </section>
 

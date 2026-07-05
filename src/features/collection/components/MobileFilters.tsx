@@ -14,7 +14,7 @@ export function MobileFilters() {
           Filters
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex h-full w-72 flex-col p-0">
+      <SheetContent side="left" className="flex h-full w-[min(100vw-1rem,20rem)] max-w-[85vw] flex-col p-0">
         <SheetHeader className="shrink-0 p-4 pb-0">
           <SheetTitle>Filters</SheetTitle>
         </SheetHeader>

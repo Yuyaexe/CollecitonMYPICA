@@ -9,10 +9,13 @@ export function formatCurrency(
   amount: number,
   currency: "USD" | "BRL" = "USD"
 ): string {
-  return new Intl.NumberFormat(currency === "BRL" ? "pt-BR" : "en-US", {
+  const code = currency === "BRL" ? "BRL" : "USD";
+  const locale = code === "BRL" ? "pt-BR" : "en-US";
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency,
-  }).format(amount);
+    currency: code,
+  }).format(safeAmount);
 }
 
 export function formatNumber(n: number): string {

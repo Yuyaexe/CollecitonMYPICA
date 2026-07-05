@@ -10,7 +10,7 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
-import { cn } from "@/lib/utils";
+import { MOBILE_DIALOG_FULL } from "@/lib/ui/mobile-dialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAppData } from "@/hooks/useAppData";
 import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
@@ -31,7 +31,7 @@ import {
   SEARCH_LOCALE_OPTIONS,
   writeSearchLocale,
 } from "@/features/catalog/utils/search-locale";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
@@ -441,14 +441,13 @@ export function QuickAddModal({
       }
       className={cn(
         pendingCard
-          ? "sm:max-w-4xl"
+          ? "sm:max-w-4xl max-sm:max-h-[96dvh] max-sm:overflow-y-auto"
           : isAdvancedMode
             ? cn(
                 "flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden sm:max-w-6xl",
-                "max-sm:inset-x-0 max-sm:top-[2dvh] max-sm:bottom-auto max-sm:max-h-[96dvh]",
-                "max-sm:w-full max-sm:max-w-[100vw] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-xl"
+                MOBILE_DIALOG_FULL
               )
-            : "sm:max-w-3xl max-sm:max-h-[92dvh] max-sm:overflow-y-auto"
+            : "sm:max-w-3xl max-sm:max-h-[96dvh] max-sm:overflow-y-auto"
       )}
     >
       <div className={cn("flex flex-col", isAdvancedMode && !pendingCard ? "min-h-0 flex-1 gap-4" : "space-y-4")}>

@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MOBILE_DIALOG_SHEET } from "@/lib/ui/mobile-dialog";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +33,7 @@ export function Modal({
 }: ModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("sm:max-w-lg", className)}>
+      <DialogContent className={cn("sm:max-w-lg", MOBILE_DIALOG_SHEET, "max-sm:p-4", className)}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

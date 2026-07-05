@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   title: "DeckVault — TCG Collection Manager",
   description: "Modern TCG collection manager for Yu-Gi-Oh, Pokemon, Magic, and more.",
   icons: { icon: "/icon.svg" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

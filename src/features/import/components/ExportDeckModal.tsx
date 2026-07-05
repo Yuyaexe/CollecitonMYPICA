@@ -5,13 +5,7 @@ import { Copy, Download } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import {
   EXPORT_FORMAT_LABELS,
   buildCollectionDecklistContent,
@@ -89,18 +83,15 @@ export function ExportDeckModal({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Formato</Label>
-          <Select value={format} onValueChange={(v) => setFormat(v as DeckExportFormat)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {formats.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {EXPORT_FORMAT_LABELS[value]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ResponsiveSelect
+            preferNative
+            value={format}
+            onValueChange={(v) => setFormat(v as DeckExportFormat)}
+            options={formats.map((value) => ({
+              value,
+              label: EXPORT_FORMAT_LABELS[value],
+            }))}
+          />
         </div>
 
         <p className="text-xs text-muted-foreground">

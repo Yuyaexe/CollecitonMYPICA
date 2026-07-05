@@ -7,13 +7,7 @@ import { Modal } from "@/components/shared/Modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import {
   autoMapColumns,
   parseCsvRows,
@@ -236,21 +230,12 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Jogo</Label>
-                <Select
+                <ResponsiveSelect
+                  preferNative
                   value={gamePreference}
                   onValueChange={(v) => setGamePreference(v as DecklistGameSlug | "auto")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GAME_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={GAME_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
               </div>
               <div className="flex items-end">
                 <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm transition-colors hover:border-primary/50 hover:bg-muted/30">
@@ -273,7 +258,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                 onChange={(e) => setDeckText(e.target.value)}
                 placeholder={`Cole YDKE, YDK ou lista de cartas:\n\n// Digimon\n4 Pagumon   BT25-005\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring`}
                 className={cn(
-                  "flex min-h-[220px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm transition-all duration-150",
+                  "flex min-h-[220px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-base shadow-sm transition-all duration-150 sm:text-xs",
                   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 )}
               />
@@ -333,16 +318,16 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
               <>
                 <div className="space-y-2">
                   <Label>Preset</Label>
-                  <Select value={preset} onValueChange={(v) => applyPreset(v as CsvPreset)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="generic">Generic</SelectItem>
-                      <SelectItem value="cardtrader">CardTrader</SelectItem>
-                      <SelectItem value="tcgplayer">TCGPlayer</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <ResponsiveSelect
+                    preferNative
+                    value={preset}
+                    onValueChange={(v) => applyPreset(v as CsvPreset)}
+                    options={[
+                      { value: "generic", label: "Generic" },
+                      { value: "cardtrader", label: "CardTrader" },
+                      { value: "tcgplayer", label: "TCGPlayer" },
+                    ]}
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
