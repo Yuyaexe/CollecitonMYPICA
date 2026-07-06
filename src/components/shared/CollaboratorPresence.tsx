@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n/context";
 import type { PresencePeer } from "@/hooks/useCollectionPresence";
 
 interface CollaboratorPresenceProps {
@@ -9,11 +10,13 @@ interface CollaboratorPresenceProps {
 }
 
 export function CollaboratorPresence({ peers }: CollaboratorPresenceProps) {
+  const t = useT();
+
   if (peers.length === 0) return null;
 
   return (
     <div className="flex items-center gap-1">
-      <span className="mr-1 text-xs text-muted-foreground">Online:</span>
+      <span className="mr-1 text-xs text-muted-foreground">{t("presence.online")}</span>
       {peers.map((peer) => (
         <Tooltip key={peer.userId} delayDuration={0}>
           <TooltipTrigger asChild>
@@ -32,9 +35,9 @@ export function CollaboratorPresence({ peers }: CollaboratorPresenceProps) {
           <TooltipContent side="bottom">
             <p className="font-medium">{peer.displayName}</p>
             {peer.selectedOwnedCardId ? (
-              <p className="text-xs text-muted-foreground">Viewing a card</p>
+              <p className="text-xs text-muted-foreground">{t("presence.viewingCard")}</p>
             ) : (
-              <p className="text-xs text-muted-foreground">Browsing collection</p>
+              <p className="text-xs text-muted-foreground">{t("presence.browsingCollection")}</p>
             )}
           </TooltipContent>
         </Tooltip>

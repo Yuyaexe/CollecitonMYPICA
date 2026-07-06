@@ -6,23 +6,44 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export interface DashboardNavItem {
   href: string;
-  label: string;
-  shortLabel: string;
+  labelKey: MessageKey;
+  shortLabelKey: MessageKey;
   icon: LucideIcon;
 }
 
 export const dashboardNavItems: DashboardNavItem[] = [
-  { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutDashboard },
-  { href: "/collections", label: "Collection Manager", shortLabel: "Folders", icon: LayoutGrid },
-  { href: "/collection", label: "Collection", shortLabel: "Cards", icon: Layers },
+  {
+    href: "/dashboard",
+    labelKey: "nav.dashboard",
+    shortLabelKey: "nav.dashboardShort",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/collections",
+    labelKey: "nav.collectionManager",
+    shortLabelKey: "nav.collectionManagerShort",
+    icon: LayoutGrid,
+  },
+  {
+    href: "/collection",
+    labelKey: "nav.collection",
+    shortLabelKey: "nav.collectionShort",
+    icon: Layers,
+  },
   {
     href: "/anime-collection",
-    label: "Anime Collection",
-    shortLabel: "Anime",
+    labelKey: "nav.animeCollection",
+    shortLabelKey: "nav.animeCollectionShort",
     icon: Sparkles,
   },
-  { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
+  {
+    href: "/settings",
+    labelKey: "nav.settings",
+    shortLabelKey: "nav.settingsShort",
+    icon: Settings,
+  },
 ];

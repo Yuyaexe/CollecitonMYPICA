@@ -16,9 +16,11 @@ import {
 import { EditSeriesCoverModal } from "@/features/anime-collection/components/EditSeriesCoverModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
 import type { AnimeSeries } from "@/features/anime-collection/types";
+import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
 export function AnimeSeriesPage() {
+  const t = useT();
   const router = useRouter();
   const {
     animeSeries,
@@ -50,7 +52,7 @@ export function AnimeSeriesPage() {
     setNewName("");
     setNewCoverUrl("");
     setCreateOpen(false);
-    toast.success(`Added "${trimmed}"`);
+    toast.success(t("anime.seriesAdded", { name: trimmed }));
   };
 
   const openRename = (series: AnimeSeries) => {
@@ -66,7 +68,7 @@ export function AnimeSeriesPage() {
     renameAnimeSeries(renameTarget.id, trimmed);
     setRenameOpen(false);
     setRenameTarget(null);
-    toast.success("Series renamed");
+    toast.success(t("anime.seriesRenamed"));
   };
 
   const openCoverEdit = (series: AnimeSeries) => {
@@ -84,22 +86,22 @@ export function AnimeSeriesPage() {
     deleteAnimeSeries(deleteTarget.id);
     setDeleteOpen(false);
     setDeleteTarget(null);
-    toast.success("Series deleted");
+    toast.success(t("anime.seriesDeleted"));
   };
 
   return (
     <>
       <PageHeader
-        title="Anime Collection"
-        description="Organize by series and character"
+        title={t("anime.title")}
+        description={t("anime.description")}
       />
 
       {animeSeries.length === 0 ? (
         <EmptyState
           icon={Sparkles}
-          title="No series yet"
-          description="Add a series to start organizing characters, figures, and merch."
-          actionLabel="Add series"
+          title={t("anime.noSeriesTitle")}
+          description={t("anime.noSeriesDescription")}
+          actionLabel={t("anime.addSeries")}
           onAction={() => setCreateOpen(true)}
           className="mt-12"
         />
@@ -133,7 +135,7 @@ export function AnimeSeriesPage() {
                   }}
                   className="absolute right-2 top-2 z-10 rounded-md bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
                 >
-                  Delete
+                  {t("common.delete")}
                 </button>
               )}
             </div>
@@ -148,37 +150,37 @@ export function AnimeSeriesPage() {
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title="Add series"
-        description="Create a new anime series folder."
+        title={t("anime.addSeriesTitle")}
+        description={t("anime.addSeriesDescription")}
         footer={
           <>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={!newName.trim()}>
-              Add series
+              {t("anime.addSeries")}
             </Button>
           </>
         }
       >
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="series-name">Name</Label>
+            <Label htmlFor="series-name">{t("anime.seriesName")}</Label>
             <Input
               id="series-name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Yu-Gi-Oh! 5D's"
+              placeholder={t("anime.seriesNamePlaceholder")}
               autoFocus
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="series-cover">Cover image URL (optional)</Label>
+            <Label htmlFor="series-cover">{t("anime.coverUrl")}</Label>
             <Input
               id="series-cover"
               value={newCoverUrl}
               onChange={(e) => setNewCoverUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder={t("common.urlPlaceholder")}
             />
           </div>
         </div>
@@ -187,20 +189,20 @@ export function AnimeSeriesPage() {
       <Modal
         open={renameOpen}
         onOpenChange={setRenameOpen}
-        title="Rename series"
+        title={t("anime.renameSeriesTitle")}
         footer={
           <>
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleRename} disabled={!renameName.trim()}>
-              Save
+              {t("common.save")}
             </Button>
           </>
         }
       >
         <div className="space-y-2 py-2">
-          <Label htmlFor="rename-series">Name</Label>
+          <Label htmlFor="rename-series">{t("anime.seriesName")}</Label>
           <Input
             id="rename-series"
             value={renameName}
@@ -224,28 +226,28 @@ export function AnimeSeriesPage() {
       <Modal
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title="Delete series?"
+        title={t("anime.deleteSeriesTitle")}
         description={
           deleteTarget?.isSeeded
-            ? "This is a built-in series and cannot be deleted."
-            : `Delete "${deleteTarget?.name}" and all its characters? This cannot be undone.`
+            ? t("anime.deleteSeriesBuiltin")
+            : t("anime.deleteSeriesConfirm", { name: deleteTarget?.name ?? "" })
         }
         footer={
           deleteTarget?.isSeeded ? (
-            <Button onClick={() => setDeleteOpen(false)}>OK</Button>
+            <Button onClick={() => setDeleteOpen(false)}>{t("common.close")}</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
-                Delete
+                {t("common.delete")}
               </Button>
             </>
           )
         }
       >
-        <span className="sr-only">Confirm delete series</span>
+        <span className="sr-only">{t("anime.confirmDeleteSeries")}</span>
       </Modal>
     </>
   );

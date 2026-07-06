@@ -25,6 +25,7 @@ import { AnimeYugiohPasscodeSync } from "@/features/anime-collection/hooks/useAn
 import { YugiohPasscodeProvider } from "@/features/collection/context/yugioh-passcode-context";
 import { useAppData } from "@/hooks/useAppData";
 import { useDemoStore } from "@/lib/demo/store";
+import { useT } from "@/lib/i18n/context";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ export function CharacterDetailPage({
   seriesSlug,
   characterId,
 }: CharacterDetailPageProps) {
+  const t = useT();
   const router = useRouter();
   const { profile } = useAppData();
   const {
@@ -92,9 +94,9 @@ export function CharacterDetailPage({
     return (
       <EmptyState
         icon={PackageOpen}
-        title="Character not found"
-        description="This character may have been removed."
-        actionLabel="Back to series"
+        title={t("anime.characterNotFoundTitle")}
+        description={t("anime.characterNotFoundDescription")}
+        actionLabel={t("anime.backToSeries")}
         onAction={() => router.push(`/anime-collection/${seriesSlug}`)}
         className="mt-12"
       />
@@ -106,23 +108,23 @@ export function CharacterDetailPage({
     if (!trimmed) return;
     renameAnimeCharacter(character.id, trimmed);
     setRenameOpen(false);
-    toast.success("Character renamed");
+    toast.success(t("anime.characterRenamed"));
   };
 
   const handleDelete = () => {
     if (character.isSeeded) {
-      toast.error("Built-in characters cannot be deleted.");
+      toast.error(t("anime.builtinNoDelete"));
       return;
     }
-    if (!confirm(`Delete "${character.name}"?`)) return;
+    if (!confirm(t("anime.deleteCharacterConfirm", { name: character.name }))) return;
     deleteAnimeCharacter(character.id);
-    toast.success("Character deleted");
+    toast.success(t("anime.characterDeleted"));
     router.push(`/anime-collection/${seriesSlug}`);
   };
 
   const handleRemoveCard = (cardId: string) => {
     removeAnimeCharacterCard(cardId);
-    toast.success("Card removed");
+    toast.success(t("anime.cardRemoved"));
   };
 
   return (
@@ -168,7 +170,7 @@ export function CharacterDetailPage({
           </Button>
           {!character.isSeeded && (
             <Button variant="outline" size="sm" onClick={handleDelete}>
-              Delete
+              {t("common.delete")}
             </Button>
           )}
         </div>
@@ -177,13 +179,13 @@ export function CharacterDetailPage({
       <div className="mx-auto mt-10 w-full max-w-6xl">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Cards</h2>
+            <h2 className="text-lg font-semibold">{t("anime.cardsSection")}</h2>
             <p className="text-sm text-muted-foreground">
               {characterCards.length === 0
-                ? "No cards linked to this character yet"
+                ? t("anime.noCardsLinked")
                 : characterCards.length === 1
-                  ? "1 card"
-                  : `${characterCards.length} cards`}
+                  ? `1 ${t("common.cards").replace(/s$/, "")}`
+                  : `${characterCards.length} ${t("common.cards")}`}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -193,11 +195,11 @@ export function CharacterDetailPage({
               disabled={characterCards.length === 0}
             >
               <Download className="mr-1.5 h-4 w-4" />
-              Exportar deck
+              {t("anime.exportCharacterDeck")}
             </Button>
             <Button onClick={() => setAddCardOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
-              Add card
+              {t("anime.addCard")}
             </Button>
           </div>
         </div>
@@ -206,9 +208,9 @@ export function CharacterDetailPage({
           <div className="rounded-xl border border-border/70 bg-card/50">
             <EmptyState
               icon={Layers}
-              title="No cards yet"
-              description="Search the catalog and add TCG cards associated with this character."
-              actionLabel="Add card"
+              title={t("anime.noCardsTitle")}
+              description={t("anime.noCardsDescription")}
+              actionLabel={t("anime.addCard")}
               onAction={() => setAddCardOpen(true)}
             />
           </div>
@@ -247,14 +249,14 @@ export function CharacterDetailPage({
         onOpenChange={setExportOpen}
         cards={exportCards}
         collectionName={`${character.name}_deck`}
-        title="Exportar deck do personagem"
-        description="TXT, YDK ou YDKE para EDOPro e CardTrader"
+        title={t("anime.exportCharacterDeck")}
+        description={t("anime.exportCharacterDeckDescription")}
       />
 
       <QuickAddModal
         open={addCardOpen}
         onOpenChange={setAddCardOpen}
-        title="Add card"
+        title={t("anime.addCard")}
         defaultGameSlug="yugioh"
         closeOnAdd={false}
         onAdd={(result, game) => {
@@ -280,20 +282,20 @@ export function CharacterDetailPage({
       <Modal
         open={renameOpen}
         onOpenChange={setRenameOpen}
-        title="Edit character"
+        title={t("anime.editCharacter")}
         footer={
           <>
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleRename} disabled={!renameName.trim()}>
-              Save
+              {t("common.save")}
             </Button>
           </>
         }
       >
         <div className="space-y-2 py-2">
-          <Label htmlFor="rename-char">Name</Label>
+          <Label htmlFor="rename-char">{t("common.name")}</Label>
           <Input
             id="rename-char"
             value={renameName}

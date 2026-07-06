@@ -33,6 +33,7 @@ import {
 } from "@/features/catalog/utils/search-locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
 import {
   EMPTY_YGO_ADVANCED_FILTERS,
@@ -63,10 +64,11 @@ export function QuickAddModal({
   open,
   onOpenChange,
   onAdd,
-  title = "Quick Add",
+  title,
   defaultGameSlug,
   closeOnAdd = true,
 }: QuickAddModalProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [pendingCard, setPendingCard] = useState<CardSearchResult | null>(null);
@@ -82,6 +84,7 @@ export function QuickAddModal({
     useState<YugiohAdvancedSearchFilters>(EMPTY_YGO_ADVANCED_FILTERS);
   const [advancedSearchNonce, setAdvancedSearchNonce] = useState(0);
   const [mobileAdvancedTab, setMobileAdvancedTab] = useState<"filters" | "results">("filters");
+  const [adding, setAdding] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
@@ -160,7 +163,7 @@ export function QuickAddModal({
         message?: string;
       };
       if (!res.ok) {
-        const detail = json.message ?? json.error ?? "Advanced search failed";
+        const detail = json.message ?? json.error ?? t("quickAdd.advancedSearchFailed");
         setSearchErrorDetail(detail);
         throw new Error(detail);
       }
@@ -190,7 +193,7 @@ export function QuickAddModal({
         message?: string;
       };
       if (!res.ok) {
-        const detail = json.message ?? json.error ?? "Search failed";
+        const detail = json.message ?? json.error ?? t("quickAdd.searchFailed");
         setSearchErrorDetail(detail);
         throw new Error(detail);
       }
@@ -275,6 +278,9 @@ export function QuickAddModal({
   }, [pendingCard, previewVariant]);
 
   const handleAdd = async (result: CardSearchResult) => {
+    if (adding) return;
+    setAdding(true);
+    try {
     let toAdd = result;
     if (game.slug === "yugioh") {
       const passcode = resolveYugiohPasscode(result.externalId, result.imageUrl);
@@ -321,7 +327,7 @@ export function QuickAddModal({
     } else {
       await addCardFromSearch(toAdd, game.id, game.slug, game.name);
     }
-    toast.success(`Added ${result.name}`);
+    toast.success(t("quickAdd.added", { name: toAdd.name }));
     if (closeOnAdd) {
       onOpenChange(false);
       setQuery("");
@@ -329,6 +335,11 @@ export function QuickAddModal({
     setPendingCard(null);
     setRarityFilter("all");
     setPreviewKey(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("quickAdd.addFailed"));
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleCardClick = (result: CardSearchResult) => {
@@ -377,17 +388,17 @@ export function QuickAddModal({
       onOpenChange={onOpenChange}
       title={
         pendingCard
-          ? "Choose print"
+          ? t("quickAdd.choosePrint")
           : isAdvancedMode
-            ? "Busca avançada"
-            : title
+            ? t("quickAdd.advancedTitle")
+            : (title ?? t("quickAdd.title"))
       }
       description={
         pendingCard
-          ? `${pendingCard.name} — select set and rarity`
+          ? t("quickAdd.choosePrintDescription", { name: pendingCard.name })
           : isAdvancedMode
-            ? `Filtre o catálogo ${game.name} e adicione à coleção`
-            : `Search ${game.name} catalog`
+            ? t("quickAdd.advancedDescription", { game: game.name })
+            : t("quickAdd.searchDescription", { game: game.name })
       }
       className={cn(
         pendingCard
@@ -414,7 +425,7 @@ export function QuickAddModal({
               }}
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to search
+              {t("quickAdd.backToSearch")}
             </Button>
 
             <div className="flex flex-col gap-5 md:flex-row md:gap-6">
@@ -449,7 +460,7 @@ export function QuickAddModal({
                           : "border-border/60 text-muted-foreground hover:bg-muted/50"
                       )}
                     >
-                      All
+                      {t("quickAdd.allRarities")}
                     </button>
                     {rarityOptions.map((r) => (
                       <button
@@ -490,7 +501,7 @@ export function QuickAddModal({
                           <RarityBadge rarity={variant.rarity} gameSlug={game.slug} size="md" />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">
-                              {variant.setName ?? "Unknown set"}
+                              {variant.setName ?? t("quickAdd.unknownSet")}
                               {variant.variantLabel ? ` · ${variant.variantLabel}` : ""}
                             </p>
                             {(variant.collectorNumber ?? variant.setCode) && (
@@ -507,7 +518,7 @@ export function QuickAddModal({
                     ))}
                     {filteredVariants.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">
-                        No prints for this rarity
+                        {t("quickAdd.noPrintsForRarity")}
                       </p>
                     )}
                   </div>
@@ -554,7 +565,7 @@ export function QuickAddModal({
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {mode === "simple" ? "Simples" : "Avançada"}
+                    {mode === "simple" ? t("quickAdd.simpleMode") : t("quickAdd.advancedMode")}
                   </button>
                 ))}
               </div>
@@ -572,7 +583,7 @@ export function QuickAddModal({
                       : "text-muted-foreground"
                   )}
                 >
-                  Filtros
+                  {t("quickAdd.filtersTab")}
                 </button>
                 <button
                   type="button"
@@ -584,7 +595,7 @@ export function QuickAddModal({
                       : "text-muted-foreground"
                   )}
                 >
-                  Resultados
+                  {t("quickAdd.resultsTab")}
                   {searchResults.length > 0 && (
                     <span className="ml-1.5 inline-flex min-w-[1.25rem] rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
                       {searchResults.length}
@@ -619,19 +630,19 @@ export function QuickAddModal({
               <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border/50 bg-muted/10">
                 <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
                   <div>
-                    <p className="text-sm font-medium">Resultados</p>
+                    <p className="text-sm font-medium">{t("quickAdd.results")}</p>
                     <p className="text-xs text-muted-foreground">
                       {hasSearchQuery && searchResults.length > 0
-                        ? `${searchResults.length} carta${searchResults.length === 1 ? "" : "s"}`
+                        ? t("quickAdd.cardCount", { count: searchResults.length })
                         : advancedSearchNonce === 0
-                          ? "Aguardando busca"
-                          : "Nenhum resultado"}
+                          ? t("quickAdd.waitingSearch")
+                          : t("quickAdd.noResults")}
                     </p>
                   </div>
                   {showRefetchIndicator && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Atualizando…
+                      {t("quickAdd.updating")}
                     </div>
                   )}
                 </div>
@@ -646,7 +657,7 @@ export function QuickAddModal({
                     {showInitialLoader && (
                       <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        Buscando cartas…
+                        {t("quickAdd.searchingCards")}
                       </div>
                     )}
 
@@ -654,10 +665,10 @@ export function QuickAddModal({
                       <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
                         <SlidersHorizontal className="h-8 w-8 text-muted-foreground/50" />
                         <p className="text-sm font-medium text-muted-foreground">
-                          Configure os filtros
+                          {t("quickAdd.configureFilters")}
                         </p>
                         <p className="max-w-[220px] text-xs text-muted-foreground/80">
-                          Selecione atributos, tipos ou edições e clique em Buscar
+                          {t("quickAdd.configureFiltersHint")}
                         </p>
                       </div>
                     )}
@@ -706,7 +717,7 @@ export function QuickAddModal({
                       <p className="py-16 text-center text-sm text-destructive">
                         {searchQueryError instanceof Error
                           ? searchQueryError.message
-                          : searchErrorDetail ?? "Search failed"}
+                          : searchErrorDetail ?? t("quickAdd.searchFailed")}
                       </p>
                     )}
 
@@ -716,7 +727,7 @@ export function QuickAddModal({
                       !searchIsError &&
                       searchResults.length === 0 && (
                         <p className="py-16 text-center text-sm text-muted-foreground">
-                          Nenhuma carta encontrada com esses filtros
+                          {t("quickAdd.noCardsWithFilters")}
                         </p>
                       )}
                   </div>
@@ -764,7 +775,7 @@ export function QuickAddModal({
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        {mode === "simple" ? "Simples" : "Avançada"}
+                        {mode === "simple" ? t("quickAdd.simpleMode") : t("quickAdd.advancedMode")}
                       </button>
                     ))}
                   </div>
@@ -775,8 +786,8 @@ export function QuickAddModal({
                 onChange={setQuery}
                 placeholder={
                   game.slug === "yugioh" && searchLocale === "pt"
-                    ? `Buscar cartas ${game.name}...`
-                    : `Search ${game.name} cards...`
+                    ? t("quickAdd.searchPlaceholderPt", { game: game.name })
+                    : t("quickAdd.searchPlaceholder", { game: game.name })
                 }
                 enableShortcut={false}
                 className="flex-1"
@@ -785,7 +796,7 @@ export function QuickAddModal({
 
             {!isQuickAddSupported(game.slug) && (
               <p className="text-sm text-muted-foreground">
-                Search not available for {game.name}. Use CSV Import instead.
+                {t("quickAdd.unsupportedGame", { game: game.name })}
               </p>
             )}
 
@@ -793,14 +804,14 @@ export function QuickAddModal({
               {showRefetchIndicator && (
                 <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Updating…
+                  {t("quickAdd.updating")}
                 </div>
               )}
 
               {showInitialLoader && (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Searching {game.name}…
+                  {t("quickAdd.searchingGame", { game: game.name })}
                 </div>
               )}
 
@@ -848,7 +859,7 @@ export function QuickAddModal({
                 <p className="py-12 text-center text-sm text-destructive">
                   {searchQueryError instanceof Error
                     ? searchQueryError.message
-                    : searchErrorDetail ?? "Search failed"}
+                    : searchErrorDetail ?? t("quickAdd.searchFailed")}
                 </p>
               )}
 
@@ -857,7 +868,7 @@ export function QuickAddModal({
                 !searchFetching &&
                 !searchIsError &&
                 searchResults.length === 0 && (
-                  <p className="py-12 text-center text-sm text-muted-foreground">No cards found</p>
+                  <p className="py-12 text-center text-sm text-muted-foreground">{t("quickAdd.noCardsFound")}</p>
                 )}
             </ScrollArea>
           </>

@@ -12,6 +12,7 @@ import {
   isValidImageUrl,
   readImageFileAsDataUrl,
 } from "@/features/anime-collection/utils/image";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -32,6 +33,7 @@ export function EditCharacterPhotoModal({
   accentColor,
   onSave,
 }: EditCharacterPhotoModalProps) {
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageUrl, setImageUrl] = useState(currentImageUrl ?? "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl);
@@ -60,7 +62,7 @@ export function EditCharacterPhotoModal({
       setPreviewUrl(dataUrl);
       setImageUrl(dataUrl);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load image.");
+      toast.error(err instanceof Error ? err.message : t("anime.photoLoadFailed"));
     } finally {
       setLoadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -72,42 +74,42 @@ export function EditCharacterPhotoModal({
     if (!trimmed) {
       onSave(null);
       onOpenChange(false);
-      toast.success("Photo removed");
+      toast.success(t("anime.photoRemoved"));
       return;
     }
     if (!isValidImageUrl(trimmed)) {
-      toast.error("Enter a valid image URL or upload a file.");
+      toast.error(t("anime.coverInvalid"));
       return;
     }
     onSave(trimmed);
     onOpenChange(false);
-    toast.success("Photo updated");
+    toast.success(t("anime.photoUpdated"));
   };
 
   const handleRemove = () => {
     onSave(null);
     onOpenChange(false);
-    toast.success("Photo removed");
+    toast.success(t("anime.photoRemoved"));
   };
 
   return (
     <Modal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Change photo"
-      description={`Update the photo for ${characterName}.`}
+      title={t("anime.changePhoto")}
+      description={t("anime.changePhotoDescription", { name: characterName })}
       footer={
         <>
           {currentImageUrl && (
             <Button variant="ghost" className="mr-auto text-destructive" onClick={handleRemove}>
-              Remove photo
+              {t("anime.removePhoto")}
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={loadingFile}>
-            Save
+            {t("common.save")}
           </Button>
         </>
       }
@@ -143,11 +145,11 @@ export function EditCharacterPhotoModal({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="char-photo-url">Image URL</Label>
+          <Label htmlFor="char-photo-url">{t("anime.imageUrl")}</Label>
           <Input
             id="char-photo-url"
             value={imageUrl.startsWith("data:") ? "" : imageUrl}
-            placeholder="https://..."
+            placeholder={t("common.urlPlaceholder")}
             onChange={(e) => {
               const value = e.target.value;
               setImageUrl(value);
@@ -157,7 +159,7 @@ export function EditCharacterPhotoModal({
         </div>
 
         <div className="space-y-2">
-          <Label>Upload from computer</Label>
+          <Label>{t("anime.uploadFromComputer")}</Label>
           <input
             ref={fileInputRef}
             type="file"
@@ -177,9 +179,9 @@ export function EditCharacterPhotoModal({
             ) : (
               <Upload className="mr-2 h-4 w-4" />
             )}
-            Choose image
+            {t("anime.chooseImage")}
           </Button>
-          <p className="text-xs text-muted-foreground">JPG, PNG or WebP — max 1.5 MB</p>
+          <p className="text-xs text-muted-foreground">{t("anime.photoFormatHint")}</p>
         </div>
       </div>
     </Modal>
@@ -203,6 +205,7 @@ export function CharacterAvatar({
   editable = false,
   onEdit,
 }: CharacterAvatarProps) {
+  const t = useT();
   const initials = getCharacterInitials(name);
   const sizeClass = size === "lg" ? "h-40 w-40" : "h-[88px] w-[88px]";
   const textClass = size === "lg" ? "text-4xl" : "text-lg";
@@ -252,7 +255,7 @@ export function CharacterAvatar({
         onClick={onEdit}
         className={cn(className, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background")}
         style={style}
-        aria-label={`Change photo for ${name}`}
+        aria-label={t("anime.changePhotoFor", { name })}
       >
         {inner}
       </button>

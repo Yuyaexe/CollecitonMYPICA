@@ -7,6 +7,7 @@ import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -29,6 +30,7 @@ export const CollectionCompactCard = memo(function CollectionCompactCard({
   onQuantityChange,
   onRemove,
 }: CollectionCompactCardProps) {
+  const t = useT();
   const ygoPasscode = useYugiohPasscodeFromContext(item.id);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
   const dragOver = dragHandlers.isDragOver(item.id);
@@ -43,7 +45,11 @@ export const CollectionCompactCard = memo(function CollectionCompactCard({
       )}
     >
       <div className="flex shrink-0 items-start pt-1">
-        <Checkbox checked={selected} onCheckedChange={onSelect} aria-label={`Select ${item.card.name}`} />
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onSelect}
+          aria-label={t("collection.selectCard", { name: item.card.name })}
+        />
       </div>
 
       <button

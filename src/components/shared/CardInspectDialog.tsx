@@ -28,6 +28,7 @@ import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { fetchYugiohOwnedCardDetail } from "@/lib/yugioh/lookup";
+import { useT, useLocale } from "@/lib/i18n/context";
 
 export type CardInspectTab = "details" | "marketplace";
 
@@ -92,6 +93,8 @@ export function CardInspectDialog({
   onUpdate,
   onDelete,
 }: CardInspectDialogProps) {
+  const t = useT();
+  const locale = useLocale();
   const { updateOwnedCard: defaultUpdate, deleteOwnedCards: defaultDelete } = useAppData();
   const updateOwnedCard = onUpdate ?? defaultUpdate;
   const deleteOwnedCards = onDelete ?? defaultDelete;
@@ -181,7 +184,7 @@ export function CardInspectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        lang="pt-BR"
+        lang={locale === "pt-BR" ? "pt-BR" : "en"}
         className={cn(
           "gap-0 overflow-x-hidden p-0",
           MOBILE_DIALOG_SHEET,
@@ -225,13 +228,13 @@ export function CardInspectDialog({
                 )}
                 <dl className="mt-3 grid w-full grid-cols-1 gap-2 text-sm">
                   <div className="rounded-md bg-background/70 px-3 py-2 text-left">
-                    <dt className="text-xs text-muted-foreground">Conjunto</dt>
+                    <dt className="text-xs text-muted-foreground">{t("inspect.set")}</dt>
                     <dd className="mt-0.5 font-medium leading-snug break-words">
                       {card.card.setName ?? "—"}
                     </dd>
                   </div>
                   <div className="rounded-md bg-background/70 px-3 py-2 text-left">
-                    <dt className="text-xs text-muted-foreground">Número</dt>
+                    <dt className="text-xs text-muted-foreground">{t("inspect.number")}</dt>
                     <dd className="mt-0.5 font-medium leading-snug break-all">
                       {card.card.collectorNumber ?? card.card.setCode ?? "—"}
                     </dd>
@@ -243,7 +246,7 @@ export function CardInspectDialog({
 
           <section className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:overflow-y-auto md:p-6">
             <div ref={marketplaceRef} className="min-w-0 w-full max-w-full space-y-3">
-              <h3 className="text-sm font-semibold">Mercado</h3>
+              <h3 className="text-sm font-semibold">{t("inspect.market")}</h3>
               <div className="space-y-2">
                 {listings.map((listing) => (
                   <a
@@ -257,12 +260,12 @@ export function CardInspectDialog({
                       {listing.name}
                       {listing.primary && (
                         <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
-                          Principal
+                          {t("common.primary")}
                         </span>
                       )}
                     </span>
                     <div className="flex w-full items-center justify-between gap-2 md:w-auto md:shrink-0 md:justify-end">
-                      <span className="text-xs text-muted-foreground">Abrir</span>
+                      <span className="text-xs text-muted-foreground">{t("inspect.open")}</span>
                       <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
                   </a>
@@ -272,7 +275,7 @@ export function CardInspectDialog({
 
             <div className="min-w-0 w-full max-w-full space-y-4 border-t border-border/60 pt-4">
               <div className="space-y-2">
-                <Label>Quantidade</Label>
+                <Label>{t("inspect.quantity")}</Label>
                 <QuantityStepper
                   value={card.quantity}
                   onChange={(quantity) => {
@@ -288,7 +291,7 @@ export function CardInspectDialog({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Condição</Label>
+                  <Label className="text-xs sm:text-sm">{t("inspect.condition")}</Label>
                   <ResponsiveSelect
                     preferNative
                     value={card.condition}
@@ -302,7 +305,7 @@ export function CardInspectDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm">Idioma</Label>
+                  <Label className="text-xs sm:text-sm">{t("inspect.language")}</Label>
                   <ResponsiveSelect
                     preferNative
                     value={card.language}

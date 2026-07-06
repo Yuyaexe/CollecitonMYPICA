@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Camera, Plus } from "lucide-react";
 import { CardImage } from "@/components/shared/CardImage";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/context";
 import { getCharacterInitials } from "@/features/anime-collection/types";
 
 export interface AnimeSeriesCardProps {
@@ -92,12 +93,14 @@ export function AnimeSeriesCard({
 export function AddAnimeSeriesCard({
   onClick,
   index = 0,
-  label = "Add series",
+  label,
 }: {
   onClick: () => void;
   index?: number;
   label?: string;
 }) {
+  const t = useT();
+  const displayLabel = label ?? t("anime.addSeries");
   return (
     <motion.button
       type="button"
@@ -107,7 +110,7 @@ export function AddAnimeSeriesCard({
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      aria-label={label}
+      aria-label={displayLabel}
       className={cn(
         "flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed",
         "border-border/80 bg-card/30 text-muted-foreground",
@@ -118,7 +121,7 @@ export function AddAnimeSeriesCard({
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-muted/30">
         <Plus className="h-8 w-8" />
       </div>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium">{displayLabel}</span>
     </motion.button>
   );
 }
@@ -130,6 +133,8 @@ export function AddCharacterBubble({
   onClick: () => void;
   index?: number;
 }) {
+  const t = useT();
+
   return (
     <motion.button
       type="button"
@@ -140,12 +145,12 @@ export function AddCharacterBubble({
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className="flex flex-col items-center gap-2 p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full"
-      aria-label="Add character"
+      aria-label={t("anime.addCharacter")}
     >
       <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-2 border-dashed border-border/80 bg-card/40 text-2xl">
         <Plus className="h-8 w-8" />
       </div>
-      <span className="max-w-[96px] text-center text-xs">Add character</span>
+      <span className="max-w-[96px] text-center text-xs">{t("anime.addCharacter")}</span>
     </motion.button>
   );
 }

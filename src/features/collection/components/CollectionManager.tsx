@@ -24,6 +24,7 @@ import {
   sortCollectionsByOrder,
 } from "@/lib/collections/order";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
 
 function getCollectionCover(
@@ -38,6 +39,7 @@ function getCollectionCover(
 }
 
 export function CollectionManager() {
+  const t = useT();
   const router = useRouter();
   const {
     collections,
@@ -121,10 +123,10 @@ export function CollectionManager() {
       setActiveCollection(created.id);
       setNewName("");
       setCreateOpen(false);
-      toast.success(`Coleção "${trimmed}" criada`);
+      toast.success(t("collections.created", { name: trimmed }));
       router.push("/collection");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao criar coleção");
+      toast.error(err instanceof Error ? err.message : t("collections.createFailed"));
     }
   };
 
@@ -136,9 +138,9 @@ export function CollectionManager() {
       await renameCollection(renameTarget.id, trimmed);
       setRenameOpen(false);
       setRenameTarget(null);
-      toast.success("Coleção renomeada");
+      toast.success(t("collections.renamed"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao renomear coleção");
+      toast.error(err instanceof Error ? err.message : t("collections.renameFailed"));
     }
   };
 
@@ -148,9 +150,9 @@ export function CollectionManager() {
       await deleteCollection(deleteTarget.id);
       setDeleteOpen(false);
       setDeleteTarget(null);
-      toast.success("Coleção excluída");
+      toast.success(t("collections.deleted"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao excluir coleção");
+      toast.error(err instanceof Error ? err.message : t("collections.deleteFailed"));
     }
   };
 
@@ -193,7 +195,7 @@ export function CollectionManager() {
   return (
     <>
       <p className="mb-4 text-sm text-muted-foreground">
-        Arraste os tiles para reordenar suas coleções.
+        {t("collections.dragHint")}
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {sortedCollections.map((collection, index) =>
@@ -206,10 +208,10 @@ export function CollectionManager() {
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem onClick={() => handleSelect(collection.id)}>
-                  Abrir
+                  {t("common.open")}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => openRename(collection)}>
-                  Renomear
+                  {t("common.rename")}
                 </ContextMenuItem>
                 {!collection.isDefault && (
                   <>
@@ -218,7 +220,7 @@ export function CollectionManager() {
                       className="text-destructive focus:text-destructive"
                       onClick={() => openDelete(collection)}
                     >
-                      Excluir
+                      {t("common.delete")}
                     </ContextMenuItem>
                   </>
                 )}
@@ -235,26 +237,26 @@ export function CollectionManager() {
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title="New Collection"
-        description="Give your collection a name. You can add cards after opening it."
+        title={t("collections.createTitle")}
+        description={t("collections.createDescription")}
         footer={
           <>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={!newName.trim()}>
-              Create
+              {t("common.create")}
             </Button>
           </>
         }
       >
         <div className="space-y-2 py-2">
-          <Label htmlFor="collection-name">Collection name</Label>
+          <Label htmlFor="collection-name">{t("collections.collectionName")}</Label>
           <Input
             id="collection-name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Yu-Gi-Oh! Main Deck"
+            placeholder={t("collections.namePlaceholder")}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             autoFocus
           />
@@ -264,21 +266,21 @@ export function CollectionManager() {
       <Modal
         open={menuOpen}
         onOpenChange={setMenuOpen}
-        title={menuTarget?.name ?? "Coleção"}
-        description="Gerenciar esta coleção"
+        title={menuTarget?.name ?? t("collections.defaultName")}
+        description={t("collections.manage")}
         footer={
           <>
             <Button variant="outline" onClick={() => setMenuOpen(false)}>
-              Fechar
+              {t("common.close")}
             </Button>
             {menuTarget && (
               <>
                 <Button variant="outline" onClick={() => openRename(menuTarget)}>
-                  Renomear
+                  {t("common.rename")}
                 </Button>
                 {!menuTarget.isDefault && (
                   <Button variant="destructive" onClick={() => openDelete(menuTarget)}>
-                    Excluir
+                    {t("common.delete")}
                   </Button>
                 )}
               </>
@@ -288,8 +290,8 @@ export function CollectionManager() {
       >
         {menuTarget && (
           <p className="py-2 text-sm text-muted-foreground">
-            {cardCounts.get(menuTarget.id) ?? 0} cartas nesta coleção.
-            {menuTarget.isDefault && " A coleção padrão não pode ser excluída."}
+            {t("collections.cardsIn", { count: cardCounts.get(menuTarget.id) ?? 0 })}
+            {menuTarget.isDefault && t("collections.defaultNoDelete")}
           </p>
         )}
       </Modal>
@@ -297,20 +299,20 @@ export function CollectionManager() {
       <Modal
         open={renameOpen}
         onOpenChange={setRenameOpen}
-        title="Renomear coleção"
+        title={t("collections.renameTitle")}
         footer={
           <>
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleRename} disabled={!renameName.trim()}>
-              Salvar
+              {t("common.save")}
             </Button>
           </>
         }
       >
         <div className="space-y-2 py-2">
-          <Label htmlFor="rename-collection">Nome</Label>
+          <Label htmlFor="rename-collection">{t("common.name")}</Label>
           <Input
             id="rename-collection"
             value={renameName}
@@ -324,19 +326,22 @@ export function CollectionManager() {
       <Modal
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title="Excluir coleção?"
+        title={t("collections.deleteTitle")}
         description={
           deleteTarget
-            ? `Todas as ${cardCounts.get(deleteTarget.id) ?? 0} cartas em "${deleteTarget.name}" serão removidas. Esta ação não pode ser desfeita.`
+            ? t("collections.deleteDescription", {
+                count: cardCounts.get(deleteTarget.id) ?? 0,
+                name: deleteTarget.name,
+              })
             : undefined
         }
         footer={
           <>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              Excluir
+              {t("common.delete")}
             </Button>
           </>
         }

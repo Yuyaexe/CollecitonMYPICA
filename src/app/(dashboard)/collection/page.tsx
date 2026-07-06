@@ -14,15 +14,12 @@ import {
 } from "@/features/collection/context/yugioh-passcode-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
+import { PageLoading } from "@/components/shared/PageLoading";
+import { useT } from "@/lib/i18n/context";
 
 const QuickAddModal = dynamic(
   () =>
     import("@/features/collection/components/QuickAddModal").then((m) => m.QuickAddModal),
-  { ssr: false }
-);
-
-const ImportModal = dynamic(
-  () => import("@/features/import/components/ImportModal").then((m) => m.ImportModal),
   { ssr: false }
 );
 
@@ -37,8 +34,6 @@ function CollectionPageBody() {
   const closeCardInspect = useCollectionUIStore((s) => s.closeCardInspect);
   const quickAddOpen = useCollectionUIStore((s) => s.quickAddOpen);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
-  const importOpen = useCollectionUIStore((s) => s.importOpen);
-  const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
 
   const { profile, ownedCards, activeCollectionId, isSupabaseMode } = useAppData();
@@ -71,7 +66,6 @@ function CollectionPageBody() {
         {quickAddOpen && (
           <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
         )}
-        {importOpen && <ImportModal open={importOpen} onOpenChange={setImportOpen} />}
         {inspectCardId && inspectCard && (
           <CardInspectDialog
             card={inspectCard}
@@ -87,6 +81,7 @@ function CollectionPageBody() {
 }
 
 export default function CollectionPage() {
+  const t = useT();
   const { ownedCards, activeCollectionId, isLoading } = useAppData();
 
   const collectionCards = useMemo(
@@ -95,11 +90,7 @@ export default function CollectionPage() {
   );
 
   if (isLoading || !activeCollectionId) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Carregando coleção...
-      </div>
-    );
+    return <PageLoading label={t("collection.loading")} />;
   }
 
   return (

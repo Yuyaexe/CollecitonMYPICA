@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 
 export default function SignupPage() {
+  const t = useT();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,7 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSupabaseConfigured()) {
-      toast.info("Configure Supabase in .env.local to enable signup");
+      toast.info(t("auth.signup.supabaseHint"));
       router.push("/collection");
       return;
     }
@@ -39,7 +41,7 @@ export default function SignupPage() {
       toast.error(error.message);
       return;
     }
-    toast.success("Check your email to verify your account!");
+    toast.success(t("auth.signup.checkEmail"));
     router.push("/login");
   };
 
@@ -50,32 +52,32 @@ export default function SignupPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Sparkles className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-semibold">Create account</h1>
-          <p className="text-sm text-muted-foreground">Start tracking your collection</p>
+          <h1 className="text-2xl font-semibold">{t("auth.signup.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("auth.signup.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Display Name</Label>
+            <Label htmlFor="name">{t("auth.signup.displayName")}</Label>
             <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("common.email")}</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("common.password")}</Label>
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating..." : "Create account"}
+            {loading ? t("auth.signup.creating") : t("auth.signup.create")}
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          {t("auth.signup.hasAccount")}{" "}
           <Link href="/login" className="text-primary hover:underline">
-            Sign in
+            {t("auth.signup.signIn")}
           </Link>
         </p>
       </div>

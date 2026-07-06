@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
+import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { cn } from "@/lib/utils";
+
+const ImportModal = dynamic(
+  () => import("@/features/import/components/ImportModal").then((m) => m.ImportModal),
+  { ssr: false }
+);
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const importOpen = useCollectionUIStore((s) => s.importOpen);
+  const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
@@ -22,6 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <MobileBottomNav />
+      {importOpen && <ImportModal open={importOpen} onOpenChange={setImportOpen} />}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useAppData } from "@/hooks/useAppData";
 import { computeCollectionStats } from "@/features/collection/utils/filters";
 import { formatNumber } from "@/lib/utils";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
+import { useT } from "@/lib/i18n/context";
 
 function StatCard({
   label,
@@ -32,6 +33,7 @@ function StatCard({
 }
 
 export default function DashboardPage() {
+  const t = useT();
   const { ownedCards, activeCollectionId, isLoading } = useAppData();
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
@@ -44,41 +46,45 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
-      <PageHeader title="Dashboard" description="Overview of your TCG collection">
+      <PageHeader title={t("dashboard.title")} description={t("dashboard.description")}>
         <Button asChild>
           <Link href="/collection">
             <Layers className="h-4 w-4" />
-            View Collection
+            {t("dashboard.viewCollection")}
           </Link>
         </Button>
       </PageHeader>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <StatCard
-          label="Total Cards"
+          label={t("dashboard.totalCards")}
           value={isLoading ? "…" : formatNumber(stats.totalCards)}
           icon={Layers}
         />
-        <StatCard label="Unique Sets" value={formatNumber(stats.uniqueSets)} icon={BarChart3} />
+        <StatCard
+          label={t("dashboard.uniqueSets")}
+          value={formatNumber(stats.uniqueSets)}
+          icon={BarChart3}
+        />
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="font-semibold">Quick Actions</h3>
+          <h3 className="font-semibold">{t("dashboard.quickActions")}</h3>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/collection">Go to Collection</Link>
+              <Link href="/collection">{t("dashboard.goToCollection")}</Link>
             </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
-              Import CSV
+              {t("dashboard.import")}
             </Button>
           </div>
         </div>
 
         <div className="rounded-xl border border-dashed border-border bg-card/50 p-6">
-          <h3 className="font-semibold text-muted-foreground">Value History</h3>
-          <p className="mt-2 text-sm text-muted-foreground">Charts coming in Phase 3</p>
+          <h3 className="font-semibold text-muted-foreground">{t("dashboard.valueHistory")}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.valueHistoryHint")}</p>
           <div className="mt-4 space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-3/4" />

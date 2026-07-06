@@ -10,6 +10,7 @@ import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardHoverPreviewUrl, resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 
@@ -45,6 +46,7 @@ export const CollectionRow = memo(function CollectionRow({
   className,
   style,
 }: CollectionRowProps) {
+  const t = useT();
   const ygoPasscode = useYugiohPasscodeFromContext(item.id);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
   const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode);
@@ -59,7 +61,9 @@ export const CollectionRow = memo(function CollectionRow({
         ...style,
         ...(peerPresence ? { boxShadow: `inset 0 0 0 2px ${peerPresence.color}` } : {}),
       }}
-      title={peerPresence ? `${peerPresence.name} is viewing this card` : undefined}
+      title={
+        peerPresence ? t("collection.peerViewing", { name: peerPresence.name }) : undefined
+      }
       className={cn(
         "group flex cursor-pointer items-center gap-3 border-b border-border/40 px-4 py-2 transition-colors duration-100 hover:bg-muted/40",
         selected && "border-l-2 border-l-primary bg-primary/[0.07]",
@@ -93,7 +97,7 @@ export const CollectionRow = memo(function CollectionRow({
         <Checkbox
           checked={selected}
           onCheckedChange={() => onCheckboxChange(item.id, shiftKeyRef.current)}
-          aria-label={`Select ${item.card.name}`}
+          aria-label={t("collection.selectCard", { name: item.card.name })}
         />
       </div>
 
@@ -172,7 +176,7 @@ export const CollectionRow = memo(function CollectionRow({
 
       {item.isFoil && (
         <Badge className="hidden border-0 bg-amber-500/15 text-[10px] text-amber-400 md:inline-flex">
-          Foil
+          {t("collection.foil")}
         </Badge>
       )}
     </div>

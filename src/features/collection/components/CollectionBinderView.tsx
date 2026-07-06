@@ -19,6 +19,7 @@ import {
   type BinderGridLayout,
 } from "@/features/collection/stores/collection-ui.store";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
+import { useT } from "@/lib/i18n/context";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 
 const LAYOUT_CONFIG: Record<
@@ -231,11 +232,12 @@ function BinderLayoutToggle({
   layout: BinderGridLayout;
   onChange: (layout: BinderGridLayout) => void;
 }) {
+  const t = useT();
   return (
     <div
       className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5"
       role="group"
-      aria-label="Binder grid layout"
+      aria-label={t("collection.binderGridLayout")}
     >
       {(Object.keys(LAYOUT_CONFIG) as BinderGridLayout[]).map((id) => (
         <Button
@@ -274,6 +276,7 @@ function BinderSpreadNav({
   onNext,
   onDropToSpread,
 }: BinderSpreadNavProps) {
+  const t = useT();
   const dragging = dragHandlers.draggedId != null;
   const prevDropDisabled = spreadIndex <= 0;
   const canDropNext = spreadIndex < totalSpreads - 1 || dragging;
@@ -300,18 +303,18 @@ function BinderSpreadNav({
           size="sm"
           disabled={prevDropDisabled}
           onClick={onPrevious}
-          aria-label="Previous spread"
+          aria-label={t("binder.previous")}
         >
           <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Anterior</span>
+          <span className="hidden sm:inline">{t("binder.previous")}</span>
         </Button>
       </div>
 
       <span className="min-w-[7rem] text-center text-sm tabular-nums text-muted-foreground">
         {showNavHint ? (
-          <span className="text-xs text-primary">Solte para mudar de página</span>
+          <span className="text-xs text-primary">{t("binder.dropToChangePage")}</span>
         ) : (
-          <>Página {spreadIndex + 1} / {totalSpreads}</>
+          t("binder.pageOf", { current: spreadIndex + 1, total: totalSpreads })
         )}
       </span>
 
@@ -332,9 +335,9 @@ function BinderSpreadNav({
           size="sm"
           disabled={spreadIndex >= totalSpreads - 1}
           onClick={onNext}
-          aria-label="Next spread"
+          aria-label={t("binder.next")}
         >
-          <span className="hidden sm:inline">Próxima</span>
+          <span className="hidden sm:inline">{t("binder.next")}</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -343,6 +346,7 @@ function BinderSpreadNav({
 }
 
 export function CollectionBinderView() {
+  const t = useT();
   const data = useCollectionView();
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
@@ -421,11 +425,16 @@ export function CollectionBinderView() {
         <div className={cn("w-full", maxWidth)}>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground/80">Binder · {label}</span>
+              <span className="font-medium text-foreground/80">
+                {t("binder.label", { layout: label })}
+              </span>
               <BinderLayoutToggle layout={binderGridLayout} onChange={setBinderGridLayout} />
             </div>
             <span className="tabular-nums">
-              {cardsOnSpread} nesta página · {data.filtered.length} total
+              {t("binder.cardsOnPageTotal", {
+                onPage: cardsOnSpread,
+                total: data.filtered.length,
+              })}
             </span>
           </div>
 

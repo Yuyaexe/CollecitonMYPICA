@@ -11,6 +11,7 @@ import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useT } from "@/lib/i18n/context";
 
 interface CollectionFiltersProps {
   /** Sheet on mobile — native selects avoid Radix crashes. */
@@ -40,9 +41,13 @@ function FilterSelect({
 }
 
 export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
+  const t = useT();
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const resetFilters = useCollectionUIStore((s) => s.resetFilters);
+  const sortField = useCollectionUIStore((s) => s.sortField);
+  const sortDir = useCollectionUIStore((s) => s.sortDir);
+  const setSort = useCollectionUIStore((s) => s.setSort);
   const { ownedCards, activeCollectionId } = useAppData();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const preferNative = inSheet || isMobile;
@@ -78,53 +83,73 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
     <ScrollArea className={inSheet ? "min-h-0 flex-1" : "h-full"}>
       <div className="space-y-5 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Filtros</h3>
+          <h3 className="text-sm font-semibold">{t("collection.filters")}</h3>
           <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 text-xs">
-            Reiniciar
+            {t("collection.reset")}
           </Button>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Jogo</Label>
+          <Label className="text-xs text-muted-foreground">{t("collection.sortBy")}</Label>
+          <FilterSelect
+            preferNative={preferNative}
+            value={`${sortField}:${sortDir}`}
+            onValueChange={(v) => {
+              const [field, dir] = v.split(":") as [string, "asc" | "desc"];
+              setSort(field, dir);
+            }}
+            options={[
+              { value: "name:asc", label: t("collection.sortNameAsc") },
+              { value: "name:desc", label: t("collection.sortNameDesc") },
+              { value: "quantity:desc", label: t("collection.sortQtyDesc") },
+              { value: "quantity:asc", label: t("collection.sortQtyAsc") },
+              { value: "set:asc", label: t("collection.sortSetAsc") },
+              { value: "rarity:asc", label: t("collection.sortRarityAsc") },
+            ]}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">{t("collection.game")}</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.gameId ?? "all"}
             onValueChange={(v) => setFilters({ gameId: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "Todos os jogos" },
+              { value: "all", label: t("collection.allGames") },
               ...DEMO_GAMES.map((g) => ({ value: g.id, label: g.name })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Conjunto</Label>
+          <Label className="text-xs text-muted-foreground">{t("collection.set")}</Label>
           <FilterSelect
             preferNative={preferNative}
             value={setFilterValue}
             onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "Todos os conjuntos" },
+              { value: "all", label: t("collection.allSets") },
               ...sets.map((s) => ({ value: s, label: s })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Raridade</Label>
+          <Label className="text-xs text-muted-foreground">{t("collection.rarity")}</Label>
           <FilterSelect
             preferNative={preferNative}
             value={rarityFilterValue}
             onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
             options={[
-              { value: "all", label: "Todas as raridades" },
+              { value: "all", label: t("collection.allRarities") },
               ...rarities.map((r) => ({ value: r, label: r })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Idioma</Label>
+          <Label className="text-xs text-muted-foreground">{t("collection.language")}</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.language ?? "all"}
@@ -132,14 +157,14 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
               setFilters({ language: v === "all" ? null : (v as typeof filters.language) })
             }
             options={[
-              { value: "all", label: "Todos" },
+              { value: "all", label: t("collection.allLanguages") },
               ...CARD_LANGUAGES.map((l) => ({ value: l, label: l })),
             ]}
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Condição</Label>
+          <Label className="text-xs text-muted-foreground">{t("collection.condition")}</Label>
           <FilterSelect
             preferNative={preferNative}
             value={filters.condition ?? "all"}
@@ -147,7 +172,7 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
               setFilters({ condition: v === "all" ? null : (v as typeof filters.condition) })
             }
             options={[
-              { value: "all", label: "Todas" },
+              { value: "all", label: t("collection.allConditions") },
               ...CARD_CONDITIONS.map((c) => ({ value: c, label: c })),
             ]}
           />

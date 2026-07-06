@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Layers, MoreVertical, Star } from "lucide-react";
 import { CardImage } from "@/components/shared/CardImage";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 export interface CollectionGridCardProps {
@@ -42,6 +43,8 @@ export function CollectionGridCard({
   onDrop,
   onDragEnd,
 }: CollectionGridCardProps) {
+  const t = useT();
+
   return (
     <div
       draggable={draggable}
@@ -112,7 +115,7 @@ export function CollectionGridCard({
       {onOpenMenu && (
         <button
           type="button"
-          aria-label={`Opções de ${name}`}
+          aria-label={t("collections.optionsFor", { name })}
           onClick={(e) => {
             e.stopPropagation();
             onOpenMenu();
@@ -131,7 +134,9 @@ export function CollectionGridCard({
       {onToggleFavorite && (
         <button
           type="button"
-          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          aria-label={
+            isFavorite ? t("collections.favoriteRemove") : t("collections.favoriteAdd")
+          }
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite();
@@ -149,7 +154,9 @@ export function CollectionGridCard({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-background/95 via-background/80 to-transparent px-3 pb-3 pt-10">
         <p className="truncate text-sm font-semibold tracking-tight">{name}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {cardCount === 1 ? "1 card" : `${cardCount} cards`}
+          {cardCount === 1
+            ? t("collections.cardCountOne")
+            : t("collections.cardCount", { count: cardCount })}
         </p>
       </div>
       </motion.div>

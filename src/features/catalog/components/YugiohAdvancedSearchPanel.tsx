@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useT, useLocale } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import {
   countActiveYgoAdvancedFilters,
@@ -17,20 +18,23 @@ import {
   type YugiohAdvancedSearchFilters,
 } from "@/lib/yugioh/advanced-search";
 import {
-  YGO_ATTRIBUTES,
-  YGO_CARD_TYPE_KEYS,
-  YGO_CARD_TYPE_LABELS,
   YGO_CATEGORY_TABS,
-  YGO_LEVELS,
   YGO_LINK_MARKERS,
-  YGO_LINK_VALUES,
-  YGO_MONSTER_RACES,
-  YGO_SEARCH_FIELD_OPTIONS,
-  YGO_SPELL_TRAP_RACES,
   type YugiohCardTypeKey,
   type YugiohFilterLogic,
   type YugiohSearchCategory,
 } from "@/lib/yugioh/advanced-search.constants";
+import {
+  getLocalizedYgoAttributes,
+  getLocalizedYgoCardTypeKeys,
+  getLocalizedYgoCategoryTabs,
+  getLocalizedYgoMonsterRaces,
+  getLocalizedYgoSearchFieldOptions,
+  getLocalizedYgoSpellTrapRaces,
+  YGO_LEVELS_LIST,
+  YGO_LINK_MARKERS_LIST,
+  YGO_LINK_VALUES_LIST,
+} from "@/lib/yugioh/advanced-search-labels";
 
 interface YugiohAdvancedSearchPanelProps {
   filters: YugiohAdvancedSearchFilters;
@@ -44,13 +48,13 @@ interface YugiohAdvancedSearchPanelProps {
   preferNativeSelects?: boolean;
 }
 
-const YGO_SORT_OPTIONS = [
-  { value: "name", label: "Nome (A–Z)" },
-  { value: "atk", label: "ATK" },
-  { value: "def", label: "DEF" },
-  { value: "level", label: "Nível" },
-  { value: "new", label: "Mais recentes" },
-] as const;
+const YGO_SORT_OPTION_KEYS = [
+  { value: "name", key: "ygoSearch.sortName" as const },
+  { value: "atk", key: "ygoSearch.sortAtk" as const },
+  { value: "def", key: "ygoSearch.sortDef" as const },
+  { value: "level", key: "ygoSearch.sortLevel" as const },
+  { value: "new", key: "ygoSearch.sortNew" as const },
+];
 
 interface CardSetOption {
   setName: string;
@@ -91,12 +95,14 @@ const ATTRIBUTE_STYLES: Record<string, { active: string; idle: string }> = {
 
 function FilterSection({
   title,
+  clearAriaLabel,
   defaultOpen = true,
   activeCount = 0,
   onClear,
   children,
 }: {
   title: string;
+  clearAriaLabel?: string;
   defaultOpen?: boolean;
   activeCount?: number;
   onClear?: () => void;
@@ -133,7 +139,7 @@ function FilterSection({
               e.stopPropagation();
               onClear();
             }}
-            aria-label={`Limpar ${title}`}
+            aria-label={clearAriaLabel ?? `Clear ${title}`}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -230,9 +236,13 @@ function NumberChip({
 function LogicToggle({
   value,
   onChange,
+  orLabel,
+  andLabel,
 }: {
   value: YugiohFilterLogic;
   onChange: (value: YugiohFilterLogic) => void;
+  orLabel: string;
+  andLabel: string;
 }) {
   return (
     <div className="inline-flex rounded-lg border border-border/50 bg-muted/30 p-0.5 text-[11px]">
@@ -248,7 +258,7 @@ function LogicToggle({
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {mode === "or" ? "ou" : "e"}
+          {mode === "or" ? orLabel : andLabel}
         </button>
       ))}
     </div>
@@ -263,12 +273,16 @@ function StatRange({
   label,
   min,
   max,
+  minPlaceholder,
+  maxPlaceholder,
   onMinChange,
   onMaxChange,
 }: {
   label: string;
   min: number | null;
   max: number | null;
+  minPlaceholder: string;
+  maxPlaceholder: string;
   onMinChange: (value: number | null) => void;
   onMaxChange: (value: number | null) => void;
 }) {
@@ -279,7 +293,7 @@ function StatRange({
         <Input
           type="number"
           inputMode="numeric"
-          placeholder="Mín."
+          placeholder={minPlaceholder}
           value={min ?? ""}
           onChange={(e) => onMinChange(e.target.value === "" ? null : Number(e.target.value))}
           className="h-9 bg-background/80 text-xs"
@@ -287,7 +301,7 @@ function StatRange({
         <Input
           type="number"
           inputMode="numeric"
-          placeholder="Máx."
+          placeholder={maxPlaceholder}
           value={max ?? ""}
           onChange={(e) => onMaxChange(e.target.value === "" ? null : Number(e.target.value))}
           className="h-9 bg-background/80 text-xs"
@@ -297,16 +311,16 @@ function StatRange({
   );
 }
 
-const LINK_GRID: ((typeof YGO_LINK_MARKERS)[number] | null)[] = [
-  YGO_LINK_MARKERS[0],
-  YGO_LINK_MARKERS[1],
-  YGO_LINK_MARKERS[2],
-  YGO_LINK_MARKERS[3],
+const LINK_GRID: ((typeof YGO_LINK_MARKERS_LIST)[number] | null)[] = [
+  YGO_LINK_MARKERS_LIST[0],
+  YGO_LINK_MARKERS_LIST[1],
+  YGO_LINK_MARKERS_LIST[2],
+  YGO_LINK_MARKERS_LIST[3],
   null,
-  YGO_LINK_MARKERS[4],
-  YGO_LINK_MARKERS[5],
-  YGO_LINK_MARKERS[6],
-  YGO_LINK_MARKERS[7],
+  YGO_LINK_MARKERS_LIST[4],
+  YGO_LINK_MARKERS_LIST[5],
+  YGO_LINK_MARKERS_LIST[6],
+  YGO_LINK_MARKERS_LIST[7],
 ];
 
 export function YugiohAdvancedSearchPanel({
@@ -318,9 +332,26 @@ export function YugiohAdvancedSearchPanel({
   className,
   preferNativeSelects = true,
 }: YugiohAdvancedSearchPanelProps) {
+  const t = useT();
+  const locale = useLocale();
   const [editionFilter, setEditionFilter] = useState("");
   const isMobile = useMediaQuery("(max-width: 767px)");
   const useNativeSelect = preferNativeSelects || isMobile;
+
+  const searchFieldOptions = useMemo(
+    () => getLocalizedYgoSearchFieldOptions(locale),
+    [locale]
+  );
+  const categoryTabs = useMemo(() => getLocalizedYgoCategoryTabs(locale), [locale]);
+  const ygoAttributes = useMemo(() => getLocalizedYgoAttributes(locale), [locale]);
+  const spellTrapRaces = useMemo(() => getLocalizedYgoSpellTrapRaces(locale), [locale]);
+  const monsterRaces = useMemo(() => getLocalizedYgoMonsterRaces(locale), [locale]);
+  const cardTypeKeys = useMemo(() => getLocalizedYgoCardTypeKeys(locale), [locale]);
+  const sortOptions = useMemo(
+    () => YGO_SORT_OPTION_KEYS.map((o) => ({ value: o.value, label: t(o.key) })),
+    [t]
+  );
+  const sectionClear = (title: string) => t("ygoSearch.clearSection", { title });
 
   const { data: cardSets = [] } = useQuery<CardSetOption[]>({
     queryKey: ["ygo-cardsets"],
@@ -376,7 +407,7 @@ export function YugiohAdvancedSearchPanel({
       <div className="mb-3 rounded-xl border border-border/50 bg-gradient-to-br from-muted/40 via-card/30 to-muted/20 p-3 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Busca avançada YGOPRODeck
+          {t("ygoSearch.hero")}
         </div>
 
         <div className="relative mb-3">
@@ -384,7 +415,7 @@ export function YugiohAdvancedSearchPanel({
           <Input
             value={filters.keyword}
             onChange={(e) => patch({ keyword: e.target.value })}
-            placeholder="Palavra-chave (opcional)"
+            placeholder={t("ygoSearch.keywordPlaceholder")}
             className="h-10 border-border/60 bg-background/80 pl-9"
             onKeyDown={(e) => {
               if (e.key === "Enter") onSearch();
@@ -394,26 +425,26 @@ export function YugiohAdvancedSearchPanel({
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Modo</Label>
+            <Label className="text-[11px] text-muted-foreground">{t("ygoSearch.mode")}</Label>
             <ResponsiveSelect
               preferNative={useNativeSelect}
               value={filters.searchField}
               onValueChange={(value) =>
                 patch({ searchField: value as YugiohAdvancedSearchFilters["searchField"] })
               }
-              options={YGO_SEARCH_FIELD_OPTIONS}
+              options={searchFieldOptions}
               triggerClassName="h-10 bg-background/80 text-xs"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Ordenar</Label>
+            <Label className="text-[11px] text-muted-foreground">{t("ygoSearch.sort")}</Label>
             <ResponsiveSelect
               preferNative={useNativeSelect}
               value={filters.sort}
               onValueChange={(value) =>
                 patch({ sort: value as YugiohAdvancedSearchFilters["sort"] })
               }
-              options={[...YGO_SORT_OPTIONS]}
+              options={sortOptions}
               triggerClassName="h-10 bg-background/80 text-xs"
             />
           </div>
@@ -422,7 +453,7 @@ export function YugiohAdvancedSearchPanel({
 
       {/* Category segmented control */}
       <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-border/50 bg-muted/20 p-1">
-        {YGO_CATEGORY_TABS.map((tab) => (
+        {categoryTabs.map((tab) => (
           <button
             key={tab.value}
             type="button"
@@ -443,12 +474,13 @@ export function YugiohAdvancedSearchPanel({
         <div className="space-y-2.5 pb-2">
           {showMonsterFilters && (
             <FilterSection
-              title="Atributo"
+              title={t("ygoSearch.attribute")}
+              clearAriaLabel={sectionClear(t("ygoSearch.attribute"))}
               activeCount={filters.attributes.length}
               onClear={filters.attributes.length ? () => patch({ attributes: [] }) : undefined}
             >
               <div className="flex flex-wrap gap-1.5">
-                {YGO_ATTRIBUTES.map((attr) => (
+                {ygoAttributes.map((attr) => (
                   <AttributeChip
                     key={attr.value}
                     label={attr.label}
@@ -465,7 +497,8 @@ export function YugiohAdvancedSearchPanel({
 
           {showSpellTrapIcons && (
             <FilterSection
-              title="Ícone (Magia / Armadilha)"
+              title={t("ygoSearch.spellTrapIcon")}
+              clearAriaLabel={sectionClear(t("ygoSearch.spellTrapIcon"))}
               defaultOpen={filters.category !== "all"}
               activeCount={filters.spellTrapRaces.length}
               onClear={
@@ -473,7 +506,7 @@ export function YugiohAdvancedSearchPanel({
               }
             >
               <div className="flex flex-wrap gap-1.5">
-                {YGO_SPELL_TRAP_RACES.map((race) => (
+                {spellTrapRaces.map((race) => (
                   <ToggleChip
                     key={race.value}
                     label={race.label}
@@ -491,13 +524,14 @@ export function YugiohAdvancedSearchPanel({
 
           {showMonsterFilters && (
             <FilterSection
-              title="Tipo de monstro"
+              title={t("ygoSearch.monsterType")}
+              clearAriaLabel={sectionClear(t("ygoSearch.monsterType"))}
               defaultOpen={false}
               activeCount={filters.monsterRaces.length}
               onClear={filters.monsterRaces.length ? () => patch({ monsterRaces: [] }) : undefined}
             >
               <div className="flex flex-wrap gap-1.5">
-                {YGO_MONSTER_RACES.map((race) => (
+                {monsterRaces.map((race) => (
                   <ToggleChip
                     key={race.value}
                     label={race.label}
@@ -512,23 +546,26 @@ export function YugiohAdvancedSearchPanel({
           )}
 
           <FilterSection
-            title="Tipo de card"
+            title={t("ygoSearch.cardType")}
+            clearAriaLabel={sectionClear(t("ygoSearch.cardType"))}
             defaultOpen={false}
             activeCount={filters.cardTypes.length}
             onClear={filters.cardTypes.length ? () => patch({ cardTypes: [] }) : undefined}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Combinar tipos</span>
+              <span className="text-xs text-muted-foreground">{t("ygoSearch.combineTypes")}</span>
               <LogicToggle
                 value={filters.cardTypesLogic}
                 onChange={(cardTypesLogic) => patch({ cardTypesLogic })}
+                orLabel={t("ygoSearch.logicOr")}
+                andLabel={t("ygoSearch.logicAnd")}
               />
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {YGO_CARD_TYPE_KEYS.map((key) => (
+              {cardTypeKeys.map(({ key, label }) => (
                 <ToggleChip
                   key={key}
-                  label={YGO_CARD_TYPE_LABELS[key]}
+                  label={label}
                   active={filters.cardTypes.includes(key)}
                   onClick={() => toggleCardType(key, "cardTypes")}
                 />
@@ -537,16 +574,17 @@ export function YugiohAdvancedSearchPanel({
           </FilterSection>
 
           <FilterSection
-            title="Excluir tipos"
+            title={t("ygoSearch.excludeTypes")}
+            clearAriaLabel={sectionClear(t("ygoSearch.excludeTypes"))}
             defaultOpen={false}
             activeCount={filters.excludeTypes.length}
             onClear={filters.excludeTypes.length ? () => patch({ excludeTypes: [] }) : undefined}
           >
             <div className="flex flex-wrap gap-1.5">
-              {YGO_CARD_TYPE_KEYS.map((key) => (
+              {cardTypeKeys.map(({ key, label }) => (
                 <ToggleChip
                   key={key}
-                  label={YGO_CARD_TYPE_LABELS[key]}
+                  label={label}
                   active={filters.excludeTypes.includes(key)}
                   onClick={() => toggleCardType(key, "excludeTypes")}
                 />
@@ -557,13 +595,14 @@ export function YugiohAdvancedSearchPanel({
           {showMonsterFilters && (
             <>
               <FilterSection
-                title="Nível / Classe"
+                title={t("ygoSearch.levelClass")}
+                clearAriaLabel={sectionClear(t("ygoSearch.levelClass"))}
                 defaultOpen={false}
                 activeCount={filters.levels.length}
                 onClear={filters.levels.length ? () => patch({ levels: [] }) : undefined}
               >
                 <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
-                  {YGO_LEVELS.map((level) => (
+                  {YGO_LEVELS_LIST.map((level) => (
                     <NumberChip
                       key={level}
                       value={level}
@@ -575,13 +614,14 @@ export function YugiohAdvancedSearchPanel({
               </FilterSection>
 
               <FilterSection
-                title="Escala Pêndulo"
+                title={t("ygoSearch.pendulumScale")}
+                clearAriaLabel={sectionClear(t("ygoSearch.pendulumScale"))}
                 defaultOpen={false}
                 activeCount={filters.scales.length}
                 onClear={filters.scales.length ? () => patch({ scales: [] }) : undefined}
               >
                 <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
-                  {YGO_LEVELS.map((scale) => (
+                  {YGO_LEVELS_LIST.map((scale) => (
                     <NumberChip
                       key={scale}
                       value={scale}
@@ -593,7 +633,8 @@ export function YugiohAdvancedSearchPanel({
               </FilterSection>
 
               <FilterSection
-                title="Link"
+                title={t("ygoSearch.link")}
+                clearAriaLabel={sectionClear(t("ygoSearch.link"))}
                 defaultOpen={false}
                 activeCount={filters.linkValues.length + filters.linkMarkers.length}
                 onClear={
@@ -602,9 +643,9 @@ export function YugiohAdvancedSearchPanel({
                     : undefined
                 }
               >
-                <Label className="text-xs text-muted-foreground">Classificação</Label>
+                <Label className="text-xs text-muted-foreground">{t("ygoSearch.classification")}</Label>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {YGO_LINK_VALUES.map((link) => (
+                  {YGO_LINK_VALUES_LIST.map((link) => (
                     <NumberChip
                       key={link}
                       value={link}
@@ -616,10 +657,12 @@ export function YugiohAdvancedSearchPanel({
                   ))}
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <Label className="text-xs text-muted-foreground">Setas</Label>
+                  <Label className="text-xs text-muted-foreground">{t("ygoSearch.arrows")}</Label>
                   <LogicToggle
                     value={filters.linkMarkersLogic}
                     onChange={(linkMarkersLogic) => patch({ linkMarkersLogic })}
+                    orLabel={t("ygoSearch.logicOr")}
+                    andLabel={t("ygoSearch.logicAnd")}
                   />
                 </div>
                 <div className="mt-2 inline-grid grid-cols-3 gap-1.5 rounded-xl border border-border/40 bg-muted/20 p-2">
@@ -651,7 +694,8 @@ export function YugiohAdvancedSearchPanel({
               </FilterSection>
 
               <FilterSection
-                title="ATK / DEF"
+                title={t("ygoSearch.atkDef")}
+                clearAriaLabel={sectionClear(t("ygoSearch.atkDef"))}
                 defaultOpen={false}
                 activeCount={
                   (filters.atkMin != null || filters.atkMax != null ? 1 : 0) +
@@ -663,6 +707,8 @@ export function YugiohAdvancedSearchPanel({
                     label="ATK"
                     min={filters.atkMin}
                     max={filters.atkMax}
+                    minPlaceholder={t("ygoSearch.min")}
+                    maxPlaceholder={t("ygoSearch.max")}
                     onMinChange={(atkMin) => patch({ atkMin })}
                     onMaxChange={(atkMax) => patch({ atkMax })}
                   />
@@ -670,6 +716,8 @@ export function YugiohAdvancedSearchPanel({
                     label="DEF"
                     min={filters.defMin}
                     max={filters.defMax}
+                    minPlaceholder={t("ygoSearch.min")}
+                    maxPlaceholder={t("ygoSearch.max")}
                     onMinChange={(defMin) => patch({ defMin })}
                     onMaxChange={(defMax) => patch({ defMax })}
                   />
@@ -678,10 +726,10 @@ export function YugiohAdvancedSearchPanel({
             </>
           )}
 
-          <FilterSection title="Data de lançamento (TCG)" defaultOpen={false}>
+          <FilterSection title={t("ygoSearch.releaseDate")} defaultOpen={false}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Início</Label>
+                <Label className="text-xs text-muted-foreground">{t("ygoSearch.start")}</Label>
                 <Input
                   type="date"
                   value={filters.startDate ?? ""}
@@ -690,7 +738,7 @@ export function YugiohAdvancedSearchPanel({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Término</Label>
+                <Label className="text-xs text-muted-foreground">{t("ygoSearch.end")}</Label>
                 <Input
                   type="date"
                   value={filters.endDate ?? ""}
@@ -702,7 +750,8 @@ export function YugiohAdvancedSearchPanel({
           </FilterSection>
 
           <FilterSection
-            title="Edição"
+            title={t("ygoSearch.edition")}
+            clearAriaLabel={sectionClear(t("ygoSearch.edition"))}
             defaultOpen={false}
             activeCount={filters.cardSets.length}
             onClear={filters.cardSets.length ? () => patch({ cardSets: [] }) : undefined}
@@ -710,7 +759,7 @@ export function YugiohAdvancedSearchPanel({
             <Input
               value={editionFilter}
               onChange={(e) => setEditionFilter(e.target.value)}
-              placeholder="Filtrar edições..."
+              placeholder={t("ygoSearch.filterEditions")}
               className="mb-2 h-9 bg-background/80 text-xs"
             />
             <ScrollArea className="h-40 rounded-lg border border-border/40 bg-background/40 pr-2">
@@ -743,7 +792,7 @@ export function YugiohAdvancedSearchPanel({
                 })}
                 {filteredSets.length === 0 && (
                   <p className="py-6 text-center text-xs text-muted-foreground">
-                    Nenhuma edição encontrada
+                    {t("ygoSearch.noEditionFound")}
                   </p>
                 )}
               </div>
@@ -756,12 +805,11 @@ export function YugiohAdvancedSearchPanel({
       <div className="mt-3 flex shrink-0 flex-col gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           {activeCount > 0 ? (
-            <>
-              <span className="font-semibold text-foreground">{activeCount}</span> filtro
-              {activeCount === 1 ? "" : "s"} ativo{activeCount === 1 ? "" : "s"}
-            </>
+            t(activeCount === 1 ? "ygoSearch.activeFilters" : "ygoSearch.activeFiltersPlural", {
+              count: activeCount,
+            })
           ) : (
-            "Selecione filtros ou digite uma palavra-chave"
+            t("ygoSearch.selectFiltersHint")
           )}
         </p>
         <div className="flex shrink-0 gap-2">
@@ -773,7 +821,7 @@ export function YugiohAdvancedSearchPanel({
             onClick={() => onChange({ ...EMPTY_YGO_ADVANCED_FILTERS })}
           >
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            Limpar
+            {t("common.clear")}
           </Button>
           <Button
             type="button"
@@ -783,11 +831,11 @@ export function YugiohAdvancedSearchPanel({
             disabled={isSearching}
           >
             {isSearching ? (
-              "Buscando..."
+              t("ygoSearch.searching")
             ) : (
               <>
                 <Search className="mr-1.5 h-3.5 w-3.5" />
-                Buscar
+                {t("ygoSearch.search")}
               </>
             )}
           </Button>

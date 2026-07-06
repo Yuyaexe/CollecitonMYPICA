@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { FileText, Loader2, Upload } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
+import { LoadingOverlay } from "@/components/shared/LoadingOverlay";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +27,8 @@ import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
+import { useT } from "@/lib/i18n/context";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,18 +39,14 @@ interface ImportModalProps {
 
 type ImportTab = "decklist" | "csv";
 
-const GAME_OPTIONS: { value: DecklistGameSlug | "auto"; label: string }[] = [
-  { value: "auto", label: "Auto-detect" },
-  { value: "yugioh", label: "Yu-Gi-Oh!" },
-  { value: "digimon", label: "Digimon" },
-];
+const RESOLVE_FAILED = "RESOLVE_FAILED";
 
-const FORMAT_LABELS: Record<string, string> = {
-  ydke: "YDKE",
-  ydk: "YDK",
-  "yugioh-text": "Yu-Gi-Oh! (texto)",
-  "digimon-text": "DigimonCard.io",
-  unknown: "Texto",
+const FORMAT_KEYS: Record<string, MessageKey> = {
+  ydke: "import.formatYdke",
+  ydk: "import.formatYdk",
+  "yugioh-text": "import.formatYugiohText",
+  "digimon-text": "import.formatDigimonText",
+  unknown: "import.formatUnknown",
 };
 
 async function resolveDeckEntries(
@@ -59,17 +58,19 @@ async function resolveDeckEntries(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ gameSlug, entries }),
   });
-  if (!res.ok) throw new Error("Failed to resolve decklist");
+  if (!res.ok) throw new Error(RESOLVE_FAILED);
   const json = (await res.json()) as { resolved: ResolvedDeckEntry[] };
   return json.resolved;
 }
 
 export function ImportModal({ open, onOpenChange }: ImportModalProps) {
+  const t = useT();
   const [tab, setTab] = useState<ImportTab>("decklist");
   const [deckText, setDeckText] = useState("");
   const [gamePreference, setGamePreference] = useState<DecklistGameSlug | "auto">("auto");
   const [mergeDuplicates, setMergeDuplicates] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const [preset, setPreset] = useState<CsvPreset>("generic");
   const [mapping, setMapping] = useState<CsvColumnMapping | null>(null);
@@ -78,6 +79,15 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const [fullData, setFullData] = useState<Record<string, string>[]>([]);
 
   const { importRows, importDeckFromSearch } = useAppData();
+
+  const gameOptions = useMemo(
+    () => [
+      { value: "auto" as const, label: t("import.gameAuto") },
+      { value: "yugioh" as const, label: "Yu-Gi-Oh!" },
+      { value: "digimon" as const, label: "Digimon" },
+    ],
+    [t]
+  );
 
   const parsedDeck = useMemo(() => {
     if (!deckText.trim()) return null;
@@ -129,9 +139,24 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     setMapping({ ...base, ...CSV_PRESETS[p] });
   };
 
+  const formatLabel = (format: string) => {
+    const key = FORMAT_KEYS[format];
+    return key ? t(key) : format;
+  };
+
+  const resolvedGameLabel = (parsed: NonNullable<typeof parsedDeck>) => {
+    const slug =
+      gamePreference !== "auto"
+        ? gamePreference
+        : parsed.inferredGame === "unknown"
+          ? "yugioh"
+          : parsed.inferredGame;
+    return gameOptions.find((o) => o.value === slug)?.label ?? "Yu-Gi-Oh!";
+  };
+
   const handleDeckImport = async () => {
     if (!parsedDeck || parsedDeck.entries.length === 0) {
-      toast.error("Nenhuma carta encontrada na lista");
+      toast.error(t("import.noCardsInList"));
       return;
     }
 
@@ -146,16 +171,18 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       DEMO_GAMES.find((g) => g.slug === "yugioh")!;
 
     setImporting(true);
+    setImportStatus(t("import.resolvingCatalog"));
     try {
       const resolved = await resolveDeckEntries(parsedDeck.entries, gameSlug);
       const withResults = resolved.filter((row) => row.result);
       const failed = resolved.length - withResults.length;
 
       if (withResults.length === 0) {
-        toast.error("Nenhuma carta foi reconhecida. Verifique o formato ou o jogo.");
+        toast.error(t("import.noCardsRecognized"));
         return;
       }
 
+      setImportStatus(t("import.savingCollection"));
       const count = await importDeckFromSearch(
         withResults.map((row) => ({
           result: row.result!,
@@ -169,60 +196,80 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
       toast.success(
         failed > 0
-          ? `Importadas ${count} cartas (${failed} não encontradas)`
-          : `Importadas ${count} cartas`
+          ? t("import.importSuccessPartial", { count, failed })
+          : t("import.importSuccess", { count })
       );
       onOpenChange(false);
       resetState();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao importar");
+      if (err instanceof Error && err.message === RESOLVE_FAILED) {
+        toast.error(t("import.resolveFailed"));
+      } else {
+        toast.error(err instanceof Error ? err.message : t("import.failed"));
+      }
     } finally {
       setImporting(false);
+      setImportStatus(null);
     }
   };
 
   const handleCsvImport = async () => {
     if (!mapping) return;
-    const parsed = parseCsvRows(fullData, mapping);
-    const rows = parsed.map((row) => {
-      const game =
-        DEMO_GAMES.find((g) => g.slug === row.game || g.name.toLowerCase().includes(row.game)) ??
-        DEMO_GAMES[0];
-      return {
-        name: row.name,
-        set: row.set,
-        quantity: row.quantity,
-        condition: (CARD_CONDITIONS.includes(row.condition as CardCondition)
-          ? row.condition
-          : "NM") as CardCondition,
-        language: (CARD_LANGUAGES.includes(row.language as CardLanguage)
-          ? row.language
-          : "EN") as CardLanguage,
-        gameId: game.id,
-        gameSlug: game.slug,
-        gameName: game.name,
-        isFoil: row.isFoil,
-        purchasePrice: row.purchasePrice,
-      };
-    });
-    const count = await importRows(rows, mergeDuplicates);
-    toast.success(`Imported ${count} cards`);
-    onOpenChange(false);
-    resetState();
+    setImporting(true);
+    setImportStatus(t("import.importingCsv"));
+    try {
+      const parsed = parseCsvRows(fullData, mapping);
+      const rows = parsed.map((row) => {
+        const game =
+          DEMO_GAMES.find((g) => g.slug === row.game || g.name.toLowerCase().includes(row.game)) ??
+          DEMO_GAMES[0];
+        return {
+          name: row.name,
+          set: row.set,
+          quantity: row.quantity,
+          condition: (CARD_CONDITIONS.includes(row.condition as CardCondition)
+            ? row.condition
+            : "NM") as CardCondition,
+          language: (CARD_LANGUAGES.includes(row.language as CardLanguage)
+            ? row.language
+            : "EN") as CardLanguage,
+          gameId: game.id,
+          gameSlug: game.slug,
+          gameName: game.name,
+          isFoil: row.isFoil,
+          purchasePrice: row.purchasePrice,
+        };
+      });
+      const count = await importRows(rows, mergeDuplicates);
+      toast.success(t("import.csvSuccess", { count }));
+      onOpenChange(false);
+      resetState();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("import.csvFailed"));
+    } finally {
+      setImporting(false);
+      setImportStatus(null);
+    }
   };
 
   return (
     <Modal
       open={open}
       onOpenChange={(next) => {
+        if (!next && importing) return;
         if (!next) resetState();
         onOpenChange(next);
       }}
-      title="Importar coleção"
-      description="Cole uma decklist, YDKE, YDK, DigimonCard.io ou CSV"
+      title={t("import.title")}
+      description={t("import.description")}
       className="max-w-2xl"
     >
-      <div className="space-y-4">
+      <div className="relative space-y-4">
+        <LoadingOverlay
+          active={importing}
+          title={importStatus ?? t("import.importing")}
+          description={t("import.importingHint")}
+        />
         <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5">
           {(["decklist", "csv"] as ImportTab[]).map((value) => (
             <Button
@@ -233,7 +280,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
               className={cn("h-8 px-3 text-xs", tab === value && "bg-background shadow-sm")}
               onClick={() => setTab(value)}
             >
-              {value === "decklist" ? "Deck / Lista" : "CSV"}
+              {value === "decklist" ? t("import.tabDecklist") : t("import.tabCsv")}
             </Button>
           ))}
         </div>
@@ -242,18 +289,18 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Jogo</Label>
+                <Label>{t("import.game")}</Label>
                 <ResponsiveSelect
                   preferNative
                   value={gamePreference}
                   onValueChange={(v) => setGamePreference(v as DecklistGameSlug | "auto")}
-                  options={GAME_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  options={gameOptions.map((o) => ({ value: o.value, label: o.label }))}
                 />
               </div>
               <div className="flex items-end">
                 <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm transition-colors hover:border-primary/50 hover:bg-muted/30">
                   <Upload className="h-4 w-4 text-muted-foreground" />
-                  Arquivo .txt / .ydk
+                  {t("import.uploadFile")}
                   <input
                     type="file"
                     accept=".txt,.ydk,.ydke,text/plain"
@@ -265,11 +312,11 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Decklist</Label>
+              <Label>{t("import.decklist")}</Label>
               <textarea
                 value={deckText}
                 onChange={(e) => setDeckText(e.target.value)}
-                placeholder={`Cole YDKE, YDK ou lista de cartas:\n\n// DigimonCard.io Deck List\n4 Gigimon BT21-001\n1 Cyclonemon BT24-011\n3 Dimetromon P-189\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring`}
+                placeholder={t("import.decklistPlaceholder")}
                 className={cn(
                   "flex min-h-[220px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-base shadow-sm transition-all duration-150 sm:text-xs",
                   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -281,20 +328,13 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
               <div className="rounded-lg border bg-muted/30 p-3 text-sm">
                 <div className="mb-2 flex flex-wrap items-center gap-2 font-medium">
                   <FileText className="h-4 w-4" />
-                  {parsedDeck.entries.reduce((sum, entry) => sum + entry.quantity, 0)} cartas ·{" "}
-                  {parsedDeck.entries.length} prints ·{" "}
-                  {FORMAT_LABELS[parsedDeck.format] ?? parsedDeck.format}
+                  {t("import.previewSummary", {
+                    cards: parsedDeck.entries.reduce((sum, entry) => sum + entry.quantity, 0),
+                    prints: parsedDeck.entries.length,
+                    format: formatLabel(parsedDeck.format),
+                  })}
                   <span className="text-xs font-normal text-muted-foreground">
-                    ·{" "}
-                    {GAME_OPTIONS.find(
-                      (o) =>
-                        o.value ===
-                        (gamePreference !== "auto"
-                          ? gamePreference
-                          : parsedDeck.inferredGame === "unknown"
-                            ? "yugioh"
-                            : parsedDeck.inferredGame)
-                    )?.label ?? "Yu-Gi-Oh!"}
+                    · {resolvedGameLabel(parsedDeck)}
                   </span>
                 </div>
                 {parsedDeck.entries.slice(0, 5).map((entry, index) => (
@@ -305,12 +345,12 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                 ))}
                 {parsedDeck.entries.length > 5 && (
                   <p className="text-xs text-muted-foreground">
-                    … e mais {parsedDeck.entries.length - 5} prints
+                    {t("import.morePrints", { count: parsedDeck.entries.length - 5 })}
                   </p>
                 )}
                 {parsedDeck.unparsedLines > 0 && (
                   <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                    {parsedDeck.unparsedLines} linha(s) não reconhecidas — confira o formato DigimonCard.io
+                    {t("import.unparsedLines", { count: parsedDeck.unparsedLines })}
                   </p>
                 )}
               </div>
@@ -322,19 +362,25 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                 checked={mergeDuplicates}
                 onCheckedChange={(c) => setMergeDuplicates(!!c)}
               />
-              <Label htmlFor="merge-deck">Mesclar duplicatas (somar quantidades)</Label>
+              <Label htmlFor="merge-deck">{t("import.mergeDuplicates")}</Label>
             </div>
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={() => void handleDeckImport()}
                 disabled={importing || !parsedDeck?.entries.length}
               >
-                {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Importar
+                {importing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("import.importingBtn")}
+                  </>
+                ) : (
+                  t("import.import")
+                )}
               </Button>
             </div>
           </>
@@ -343,7 +389,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
             {!mapping ? (
               <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 transition-all duration-150 hover:border-primary/50 hover:bg-muted/30">
                 <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm font-medium">CSV do CardTrader, TCGPlayer, etc.</span>
+                <span className="text-sm font-medium">{t("import.csvUpload")}</span>
                 <input
                   type="file"
                   accept=".csv"
@@ -354,15 +400,15 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label>Preset</Label>
+                  <Label>{t("import.preset")}</Label>
                   <ResponsiveSelect
                     preferNative
                     value={preset}
                     onValueChange={(v) => applyPreset(v as CsvPreset)}
                     options={[
-                      { value: "generic", label: "Generic" },
-                      { value: "cardtrader", label: "CardTrader" },
-                      { value: "tcgplayer", label: "TCGPlayer" },
+                      { value: "generic", label: t("import.presetGeneric") },
+                      { value: "cardtrader", label: t("import.presetCardtrader") },
+                      { value: "tcgplayer", label: t("import.presetTcgplayer") },
                     ]}
                   />
                 </div>
@@ -373,11 +419,13 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                     checked={mergeDuplicates}
                     onCheckedChange={(c) => setMergeDuplicates(!!c)}
                   />
-                  <Label htmlFor="merge-csv">Merge duplicates (sum quantities)</Label>
+                  <Label htmlFor="merge-csv">{t("import.mergeDuplicates")}</Label>
                 </div>
 
                 <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="mb-2 text-sm font-medium">Preview ({preview.length} rows)</p>
+                  <p className="mb-2 text-sm font-medium">
+                    {t("import.previewRows", { count: preview.length })}
+                  </p>
                   {preview.slice(0, 3).map((row, i) => (
                     <p key={i} className="truncate text-xs text-muted-foreground">
                       {row[mapping.name]}
@@ -387,9 +435,21 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setMapping(null)}>
-                    Back
+                    {t("import.back")}
                   </Button>
-                  <Button onClick={() => void handleCsvImport()}>Import CSV</Button>
+                  <Button
+                    onClick={() => void handleCsvImport()}
+                    disabled={importing || fullData.length === 0}
+                  >
+                    {importing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("import.importingBtn")}
+                      </>
+                    ) : (
+                      t("import.importCsv")
+                    )}
+                  </Button>
                 </div>
               </>
             )}

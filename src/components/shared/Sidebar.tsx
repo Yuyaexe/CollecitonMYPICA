@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppProfile } from "@/hooks/useAppProfile";
 import { dashboardNavItems } from "@/lib/navigation";
+import { useT } from "@/lib/i18n/context";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -18,6 +19,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { profile, isSupabaseMode } = useAppProfile();
+  const t = useT();
 
   return (
     <aside
@@ -55,7 +57,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{t(item.labelKey)}</span>}
             </Link>
           );
 
@@ -63,7 +65,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             return (
               <Tooltip key={item.href} delayDuration={0}>
                 <TooltipTrigger asChild>{content}</TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
+                <TooltipContent side="right">{t(item.labelKey)}</TooltipContent>
               </Tooltip>
             );
           }
@@ -83,7 +85,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{profile.displayName}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {isSupabaseMode ? "Supabase · Live" : "Collector"}
+                {isSupabaseMode ? t("sidebar.supabaseLive") : t("sidebar.collector")}
               </p>
             </div>
           )}

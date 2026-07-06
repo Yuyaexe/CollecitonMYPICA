@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { useT } from "@/lib/i18n/context";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ContextMenu,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const ROW_HEIGHT = 56;
 
 export function CollectionTable() {
+  const t = useT();
   const data = useCollectionView();
   const parentRef = useRef<HTMLDivElement>(null);
   const { deleteOwnedCards } = useAppData();
@@ -90,17 +92,17 @@ export function CollectionTable() {
             onCheckedChange={(c) =>
               c ? selectAll(allIds) : useCollectionUIStore.getState().clearSelection()
             }
-            aria-label="Select all cards"
+            aria-label={t("collection.table.selectAll")}
           />
         </div>
         <span className="w-7 shrink-0" aria-hidden />
-        <span className="w-9 shrink-0 text-center">Rarity</span>
-        <span className="flex-[2]">Name</span>
-        <span className="hidden min-w-[9rem] flex-[1.5] md:block">Set</span>
-        <span className="hidden w-12 xl:block">#</span>
-        <span className="w-[104px] shrink-0 text-center">Qty</span>
-        <span className="hidden w-12 text-center md:block">Cond</span>
-        <span className="hidden w-10 text-center sm:block">Lang</span>
+        <span className="w-9 shrink-0 text-center">{t("collection.table.rarity")}</span>
+        <span className="flex-[2]">{t("collection.table.name")}</span>
+        <span className="hidden min-w-[9rem] flex-[1.5] md:block">{t("collection.table.set")}</span>
+        <span className="hidden w-12 xl:block">{t("collection.table.number")}</span>
+        <span className="w-[104px] shrink-0 text-center">{t("collection.table.qty")}</span>
+        <span className="hidden w-12 text-center md:block">{t("collection.table.condition")}</span>
+        <span className="hidden w-10 text-center sm:block">{t("collection.table.language")}</span>
       </div>
 
       <div ref={parentRef} className="flex-1 overflow-auto">
@@ -152,20 +154,20 @@ export function CollectionTable() {
                 </ContextMenuTrigger>
                 <ContextMenuContent>
                   <ContextMenuItem onClick={() => openCardInspect(item.id, "details")}>
-                    View card
+                    {t("collection.table.viewCard")}
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => openCardInspect(item.id, "marketplace")}>
-                    Marketplace
+                    {t("collection.table.marketplace")}
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => openCardTraderLink(item)}>
-                    Open marketplace in new tab
+                    {t("collection.table.openMarketTab")}
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     className="text-destructive"
                     onClick={() => deleteOwnedCards([item.id])}
                   >
-                    Delete
+                    {t("common.delete")}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>

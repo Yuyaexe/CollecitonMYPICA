@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 
 export default function ResetPasswordPage() {
+  const t = useT();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export default function ResetPasswordPage() {
       toast.error(error.message);
       return;
     }
-    toast.success("Password updated!");
+    toast.success(t("auth.reset.success"));
     router.push("/collection");
   };
 
@@ -33,12 +35,12 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm space-y-8">
         <div className="flex flex-col items-center gap-2">
           <Sparkles className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-semibold">New password</h1>
+          <h1 className="text-2xl font-semibold">{t("auth.reset.title")}</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="password">New Password</Label>
+            <Label htmlFor="password">{t("auth.reset.newPassword")}</Label>
             <Input
               id="password"
               type="password"
@@ -49,7 +51,7 @@ export default function ResetPasswordPage() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Updating..." : "Update password"}
+            {loading ? t("auth.reset.updating") : t("auth.reset.submit")}
           </Button>
         </form>
       </div>

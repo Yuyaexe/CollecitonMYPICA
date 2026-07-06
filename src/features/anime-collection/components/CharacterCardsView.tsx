@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/context";
 import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 
@@ -94,6 +95,7 @@ function CharacterCardThumb({
   className?: string;
   onClick?: () => void;
 }) {
+  const t = useT();
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
 
@@ -109,7 +111,12 @@ function CharacterCardThumb({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={classes} aria-label={`Open ${item.card.name}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={classes}
+        aria-label={t("anime.openCard", { name: item.card.name })}
+      >
         {image}
       </button>
     );
@@ -131,6 +138,7 @@ function CharacterGridCard({
   onOpenCard: (item: AnimeCharacterCard) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
 }) {
+  const t = useT();
   const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
@@ -143,7 +151,7 @@ function CharacterGridCard({
     >
       <button
         type="button"
-        aria-label={`Remove ${item.card.name}`}
+        aria-label={t("anime.removeCard", { name: item.card.name })}
         onClick={() => onRemove(item.id)}
         className="absolute right-2 top-2 z-10 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
       >
@@ -181,7 +189,7 @@ function CharacterGridCard({
             variant="outline"
             size="icon"
             className="h-7 w-7"
-            aria-label="Decrease quantity"
+            aria-label={t("qty.decrease")}
             onClick={() => onQuantityChange(item.id, item.quantity - 1)}
           >
             <Minus className="h-3 w-3" />
@@ -194,7 +202,7 @@ function CharacterGridCard({
             variant="outline"
             size="icon"
             className="h-7 w-7"
-            aria-label="Increase quantity"
+            aria-label={t("qty.increase")}
             onClick={() => onQuantityChange(item.id, item.quantity + 1)}
           >
             <Plus className="h-3 w-3" />
@@ -287,6 +295,7 @@ function CharacterBinderView({
   dragHandlers: ReturnType<typeof useDragReorder>;
   onReorderToIndex: (draggedId: string, targetIndex: number) => void;
 }) {
+  const t = useT();
   const [spreadIndex, setSpreadIndex] = useState(0);
   const { cols, rows, label, maxWidth } = BINDER_LAYOUTS[layout];
   const pageSize = cols * rows;
@@ -396,12 +405,12 @@ function CharacterBinderView({
                 className="h-8 w-8"
                 disabled={spreadIndex === 0}
                 onClick={() => setSpreadIndex(spreadIndex - 1)}
-                aria-label="Previous spread"
+                aria-label={t("anime.previousSpread")}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-xs tabular-nums text-muted-foreground">
-                Spread {spreadIndex + 1} / {totalSpreads}
+                {t("anime.spreadOf", { current: spreadIndex + 1, total: totalSpreads })}
               </span>
               <Button
                 type="button"
@@ -410,7 +419,7 @@ function CharacterBinderView({
                 className="h-8 w-8"
                 disabled={spreadIndex >= totalSpreads - 1}
                 onClick={() => setSpreadIndex(spreadIndex + 1)}
-                aria-label="Next spread"
+                aria-label={t("anime.nextSpread")}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -429,16 +438,17 @@ function ViewModeSwitcher({
   mode: CharacterCardsViewMode;
   onChange: (mode: CharacterCardsViewMode) => void;
 }) {
+  const t = useT();
   const modes: { id: CharacterCardsViewMode; label: string; icon: typeof LayoutGrid }[] = [
-    { id: "grid", label: "Grid", icon: LayoutGrid },
-    { id: "binder", label: "Binder", icon: BookOpen },
+    { id: "grid", label: t("anime.viewGrid"), icon: LayoutGrid },
+    { id: "binder", label: t("anime.viewBinder"), icon: BookOpen },
   ];
 
   return (
     <div
       className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5"
       role="group"
-      aria-label="Card view mode"
+      aria-label={t("anime.cardViewMode")}
     >
       {modes.map(({ id, label, icon: Icon }) => (
         <Button
@@ -467,6 +477,7 @@ export function CharacterCardsView({
   onReorder,
   onReorderToIndex,
 }: CharacterCardsViewProps) {
+  const t = useT();
   const [viewMode, setViewMode] = usePersistedViewMode();
   const [binderLayout, setBinderLayout] = usePersistedBinderLayout();
 
@@ -475,7 +486,7 @@ export function CharacterCardsView({
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">Drag cards to reorder</p>
+        <p className="text-xs text-muted-foreground">{t("anime.dragToReorder")}</p>
         <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
       </div>
 

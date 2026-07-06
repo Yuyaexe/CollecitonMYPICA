@@ -7,17 +7,24 @@ import {
   useCollectionUIStore,
   type CollectionViewMode,
 } from "@/features/collection/stores/collection-ui.store";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useT } from "@/lib/i18n/context";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const MODES: { id: CollectionViewMode; label: string; icon: typeof LayoutList }[] = [
-  { id: "table", label: "List", icon: LayoutList },
-  { id: "grid", label: "Grid", icon: LayoutGrid },
-  { id: "compact", label: "Cards", icon: Rows3 },
-  { id: "binder", label: "Binder", icon: BookOpen },
+const MODES: { id: CollectionViewMode; labelKey: MessageKey; icon: typeof LayoutList }[] = [
+  { id: "table", labelKey: "collection.viewList", icon: LayoutList },
+  { id: "grid", labelKey: "collection.viewGrid", icon: LayoutGrid },
+  { id: "compact", labelKey: "collection.viewCards", icon: Rows3 },
+  { id: "binder", labelKey: "collection.viewBinder", icon: BookOpen },
 ];
 
 export function CollectionViewSwitcher({ className }: { className?: string }) {
+  const t = useT();
   const viewMode = useCollectionUIStore((s) => s.viewMode);
   const setViewMode = useCollectionUIStore((s) => s.setViewMode);
+  const isMobile = useMediaQuery("(max-width: 767px)");
+
+  const visibleModes = isMobile ? MODES.filter((m) => m.id !== "binder") : MODES;
 
   return (
     <div
@@ -26,9 +33,9 @@ export function CollectionViewSwitcher({ className }: { className?: string }) {
         className
       )}
       role="group"
-      aria-label="Collection view mode"
+      aria-label={t("collection.viewMode")}
     >
-      {MODES.map(({ id, label, icon: Icon }) => (
+      {visibleModes.map(({ id, labelKey, icon: Icon }) => (
         <Button
           key={id}
           type="button"
@@ -40,10 +47,10 @@ export function CollectionViewSwitcher({ className }: { className?: string }) {
           )}
           onClick={() => setViewMode(id)}
           aria-pressed={viewMode === id}
-          title={label}
+          title={t(labelKey)}
         >
           <Icon className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{label}</span>
+          <span className="hidden sm:inline">{t(labelKey)}</span>
         </Button>
       ))}
     </div>

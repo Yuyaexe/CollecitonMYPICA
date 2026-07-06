@@ -14,6 +14,7 @@ import {
   type DeckExportFormat,
 } from "@/features/import/services/decklist-export";
 import type { DemoOwnedCard } from "@/lib/demo/types";
+import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
 interface ExportDeckModalProps {
@@ -30,9 +31,10 @@ export function ExportDeckModal({
   onOpenChange,
   cards,
   collectionName,
-  title = "Exportar coleção",
-  description = "Escolha o formato de decklist ou CSV",
+  title,
+  description,
 }: ExportDeckModalProps) {
+  const t = useT();
   const gameSlug = cards[0]?.card.gameSlug;
   const formats = useMemo(
     () => getAvailableExportFormats(cards, gameSlug),
@@ -43,24 +45,24 @@ export function ExportDeckModal({
   const handleExport = () => {
     try {
       exportCollectionDecklist(cards, collectionName, format, gameSlug);
-      toast.success("Export concluído");
+      toast.success(t("export.success"));
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao exportar");
+      toast.error(err instanceof Error ? err.message : t("export.failed"));
     }
   };
 
   const handleCopy = async () => {
     if (format === "csv") {
-      toast.error("Use o download para CSV.");
+      toast.error(t("export.copyCsvHint"));
       return;
     }
     try {
       const content = buildCollectionDecklistContent(cards, format, gameSlug);
       await navigator.clipboard.writeText(content);
-      toast.success("Copiado — cole no EDOPro ou CardTrader");
+      toast.success(t("export.copied"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao copiar");
+      toast.error(err instanceof Error ? err.message : t("export.copyFailed"));
     }
   };
 
@@ -73,16 +75,28 @@ export function ExportDeckModal({
     }
   }, [open, format, cards, gameSlug]);
 
+  const formatHint = useMemo(() => {
+    if (format === "decklist") {
+      return gameSlug === "digimon"
+        ? t("export.hintDecklistDigimon")
+        : t("export.hintDecklistDefault");
+    }
+    if (format === "ydke") return t("export.hintYdke");
+    if (format === "ydk") return t("export.hintYdk");
+    if (format === "csv") return t("export.hintCsv");
+    return "";
+  }, [format, gameSlug, t]);
+
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={title}
-      description={description}
+      title={title ?? t("export.title")}
+      description={description ?? t("export.description")}
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Formato</Label>
+          <Label>{t("export.format")}</Label>
           <ResponsiveSelect
             preferNative
             value={format}
@@ -94,16 +108,7 @@ export function ExportDeckModal({
           />
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          {format === "decklist" &&
-            (gameSlug === "digimon"
-              ? "Lista com nome e código — compatível com CardTrader."
-              : "Lista com quantidade e nome — compatível com CardTrader e EDOPro.")}
-          {format === "ydke" &&
-            "Link YDKE — cole no EDOPro (Import) ou YGOPRODeck."}
-          {format === "ydk" && "Arquivo .ydk com passcodes — abra no EDOPro."}
-          {format === "csv" && "Planilha CSV para CardTrader / Excel."}
-        </p>
+        <p className="text-xs text-muted-foreground">{formatHint}</p>
 
         {previewContent && (
           <pre className="max-h-40 overflow-auto rounded-lg border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-foreground">
@@ -113,7 +118,7 @@ export function ExportDeckModal({
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+            {t("common.cancel")}
           </Button>
           {format !== "csv" && (
             <Button
@@ -122,12 +127,12 @@ export function ExportDeckModal({
               disabled={cards.length === 0 || !previewContent}
             >
               <Copy className="mr-2 h-4 w-4" />
-              Copiar
+              {t("export.copy")}
             </Button>
           )}
           <Button onClick={handleExport} disabled={cards.length === 0}>
             <Download className="mr-2 h-4 w-4" />
-            Baixar
+            {t("export.download")}
           </Button>
         </div>
       </div>

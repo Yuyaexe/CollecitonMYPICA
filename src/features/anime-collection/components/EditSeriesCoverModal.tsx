@@ -12,6 +12,7 @@ import {
   readImageFileAsDataUrl,
 } from "@/features/anime-collection/utils/image";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
 interface EditSeriesCoverModalProps {
@@ -31,6 +32,7 @@ export function EditSeriesCoverModal({
   coverColor,
   onSave,
 }: EditSeriesCoverModalProps) {
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageUrl, setImageUrl] = useState(currentCoverUrl ?? "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentCoverUrl);
@@ -56,7 +58,7 @@ export function EditSeriesCoverModal({
       setPreviewUrl(dataUrl);
       setImageUrl(dataUrl);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load image.");
+      toast.error(err instanceof Error ? err.message : t("anime.photoLoadFailed"));
     } finally {
       setLoadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -68,23 +70,23 @@ export function EditSeriesCoverModal({
     if (!trimmed) {
       onSave(null);
       onOpenChange(false);
-      toast.success("Cover removed");
+      toast.success(t("anime.coverRemoved"));
       return;
     }
     if (!isValidImageUrl(trimmed)) {
-      toast.error("Enter a valid image URL or upload a file.");
+      toast.error(t("anime.coverInvalid"));
       return;
     }
     onSave(trimmed);
     onOpenChange(false);
-    toast.success("Cover updated");
+    toast.success(t("anime.coverUpdated"));
   };
 
   return (
     <Modal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Change cover"
+      title={t("anime.changeCover")}
       description={`Custom cover for ${seriesName}.`}
       footer={
         <>
@@ -95,17 +97,17 @@ export function EditSeriesCoverModal({
               onClick={() => {
                 onSave(null);
                 onOpenChange(false);
-                toast.success("Cover removed");
+                toast.success(t("anime.coverRemoved"));
               }}
             >
               Remove cover
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={loadingFile}>
-            Save
+            {t("common.save")}
           </Button>
         </>
       }
@@ -139,11 +141,11 @@ export function EditSeriesCoverModal({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="series-cover-url">Image URL</Label>
+          <Label htmlFor="series-cover-url">{t("anime.imageUrl")}</Label>
           <Input
             id="series-cover-url"
             value={imageUrl.startsWith("data:") ? "" : imageUrl}
-            placeholder="https://..."
+            placeholder={t("common.urlPlaceholder")}
             onChange={(e) => {
               const value = e.target.value;
               setImageUrl(value);
@@ -153,7 +155,7 @@ export function EditSeriesCoverModal({
         </div>
 
         <div className="space-y-2">
-          <Label>Upload from computer</Label>
+          <Label>{t("anime.uploadFromComputer")}</Label>
           <input
             ref={fileInputRef}
             type="file"

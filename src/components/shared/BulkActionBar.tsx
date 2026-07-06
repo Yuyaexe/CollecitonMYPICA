@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/context";
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -21,6 +22,8 @@ export function BulkActionBar({
   children,
   className,
 }: BulkActionBarProps) {
+  const t = useT();
+
   return (
     <AnimatePresence>
       {selectedCount > 0 && (
@@ -36,9 +39,11 @@ export function BulkActionBar({
           )}
         >
           <span className="text-sm font-medium">
-            {selectedCount} selecionada{selectedCount !== 1 ? "s" : ""}
+            {t("bulk.selected", { count: selectedCount })}
             {totalCards !== undefined && totalCards !== selectedCount && (
-              <span className="text-muted-foreground"> · {totalCards} cartas</span>
+              <span className="text-muted-foreground">
+                {t("bulk.cardsInSelection", { count: totalCards })}
+              </span>
             )}
           </span>
           {totalValue && (
@@ -51,7 +56,7 @@ export function BulkActionBar({
             onClick={onClear}
             className="text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground"
           >
-            Limpar
+            {t("common.clear")}
           </button>
         </motion.div>
       )}

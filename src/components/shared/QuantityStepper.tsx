@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 interface QuantityStepperProps {
@@ -22,6 +23,7 @@ export function QuantityStepper({
   max = 99999,
   className,
 }: QuantityStepperProps) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +83,7 @@ export function QuantityStepper({
         type="button"
         disabled={atMin || editing}
         onClick={decrement}
-        aria-label={value <= min ? "Remove from collection" : "Decrease quantity"}
+        aria-label={value <= min ? t("qty.removeFromCollection") : t("qty.decrease")}
         className={cn(
           "flex h-full w-6 shrink-0 items-center justify-center rounded-l-md border-r border-border/60",
           "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
@@ -116,14 +118,14 @@ export function QuantityStepper({
               }
             }}
             className="w-full bg-transparent text-center text-sm font-medium tabular-nums outline-none"
-            aria-label="Edit quantity"
+            aria-label={t("qty.edit")}
           />
         ) : (
           <button
             type="button"
             className="w-full px-0.5 text-center text-sm font-medium tabular-nums"
             onClick={() => setEditing(true)}
-            aria-label={`Quantity ${value}, click to edit`}
+            aria-label={t("qty.clickToEdit", { value })}
           >
             {value}
           </button>
@@ -134,7 +136,7 @@ export function QuantityStepper({
         type="button"
         disabled={atMax || editing}
         onClick={increment}
-        aria-label="Increase quantity"
+        aria-label={t("qty.increase")}
         className={cn(
           "flex h-full w-6 shrink-0 items-center justify-center rounded-r-md border-l border-border/60",
           "text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",

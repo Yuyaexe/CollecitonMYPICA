@@ -1,6 +1,6 @@
 # DeckVault
 
-Manage your **Yu-Gi-Oh**, **Pokémon**, and **Digimon** cards in one place — collection, decks, prices, and exports.
+Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — collection, decks, imports/exports, and marketplace links.
 
 ## Get started (2 minutes)
 
@@ -19,13 +19,25 @@ No account needed. Your data stays in the browser until you set up cloud sync.
 
 ## What you can do
 
-- Add and organize cards (grid, binder, table)
-- Build decks and see which cards you still need
-- Export decks as TXT, CSV, or `.ydk` (EdoPro)
-- Generate shopping lists with missing cards only
-- Check CardTrader prices and marketplace links
+- **Collection views** — grid, binder (drag to reorder; drop on *Anterior* / *Próxima* to move across pages), table, compact
+- **Search & add** — Yu-Gi-Oh! cards from **YGOPRODeck** (names, images, sets, passcodes)
+- **Import** — decklists (text with `Monster` / `Spell` / `Trap` sections, YDKE, YDK), DigimonCard.io format, CSV
+- **Export** — TXT decklist, CSV, `.ydk` (EdoPro)
+- **Decks** — build lists and see missing cards; shopping list export
+- **Mercado** — external links per card (Yu-Gi-Oh!: TCGPlayer, Liga Yu-Gi-Oh!, MyP Cards, CardTrader)
+- **Anime collection** — optional side collection for character/series cards
 
-**Save your data:** Settings → Backup → download a JSON file. Restore anytime from the same screen.
+**Card data sources**
+
+| Game | Catalog & images | Marketplace |
+|------|------------------|-------------|
+| Yu-Gi-Oh! | [YGOPRODeck](https://ygoprodeck.com/) | TCGPlayer, Liga, MyP, CardTrader (links only) |
+| Pokémon | Pokémon TCG API | TCGPlayer, Cardmarket, CardTrader |
+| Digimon | DigimonCard.io API | TCGPlayer, Cardmarket, CardTrader |
+
+CardTrader is **not** used for search or live prices — only product/search URLs in the Mercado section.
+
+**Save your data:** Settings → Backup → download JSON. Restore anytime from the same screen.
 
 ---
 
@@ -93,10 +105,8 @@ npm run db:push      # push Drizzle schema to DATABASE_URL
 npm run tauri:dev    # desktop app in dev mode
 ```
 
-### Stack
-
-Next.js 15 · TypeScript · Tailwind · Supabase · Drizzle · Tauri 2
-
 ### About
 
-DeckVault is a web-based TCG collection manager for organizing cards, building decks, tracking owned vs missing cards, and planning purchases. Export to multiple formats and generate shopping lists — one platform for players and collectors.
+DeckVault is a web-based TCG collection manager for organizing cards, building decks, tracking owned vs missing cards, and opening marketplace links. Export to multiple formats and generate shopping lists — one platform for players and collectors.
+
+**Stack:** Next.js 15 · TypeScript · Tailwind · Supabase · Drizzle · Tauri 2 · YGOPRODeck API

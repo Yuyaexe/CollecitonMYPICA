@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/context";
 
 interface CreateCollectionCardProps {
   onClick: () => void;
@@ -10,6 +11,8 @@ interface CreateCollectionCardProps {
 }
 
 export function CreateCollectionCard({ onClick, index = 0 }: CreateCollectionCardProps) {
+  const t = useT();
+
   return (
     <motion.button
       type="button"
@@ -19,7 +22,7 @@ export function CreateCollectionCard({ onClick, index = 0 }: CreateCollectionCar
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      aria-label="Create new collection"
+      aria-label={t("collections.newCollection")}
       className={cn(
         "group relative aspect-square w-full overflow-hidden rounded-xl border border-dashed",
         "border-border/80 bg-card/30 text-muted-foreground",
@@ -32,7 +35,7 @@ export function CreateCollectionCard({ onClick, index = 0 }: CreateCollectionCar
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-muted/30 transition-all duration-200 group-hover:border-primary/40 group-hover:bg-primary/10">
           <Plus className="h-8 w-8 transition-transform duration-200 group-hover:scale-110" />
         </div>
-        <span className="text-sm font-medium">New Collection</span>
+        <span className="text-sm font-medium">{t("collections.newCollection")}</span>
       </div>
     </motion.button>
   );

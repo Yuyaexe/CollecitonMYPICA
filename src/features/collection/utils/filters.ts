@@ -54,6 +54,14 @@ export function sortOwnedCards(
         av = a.quantity;
         bv = b.quantity;
         break;
+      case "set":
+        av = a.card.setCode ?? a.card.setName ?? "";
+        bv = b.card.setCode ?? b.card.setName ?? "";
+        break;
+      case "rarity":
+        av = a.card.rarity ?? "";
+        bv = b.card.rarity ?? "";
+        break;
       default:
         av = a.card.name;
         bv = b.card.name;

@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { dashboardNavItems } from "@/lib/navigation";
+import { useT } from "@/lib/i18n/context";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-      aria-label="Main navigation"
+      aria-label={t("nav.main")}
     >
       <ul className="flex h-14 items-stretch">
         {dashboardNavItems.map((item) => {
@@ -28,7 +30,7 @@ export function MobileBottomNav() {
                 )}
               >
                 <item.icon className="h-5 w-5 shrink-0" aria-hidden />
-                <span className="truncate">{item.shortLabel}</span>
+                <span className="truncate">{t(item.shortLabelKey)}</span>
               </Link>
             </li>
           );

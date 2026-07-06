@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { CharacterBubbleGrid } from "@/features/anime-collection/components/CharacterBubbleGrid";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
 export interface AnimeCharacterGridPageProps {
@@ -19,6 +20,7 @@ export interface AnimeCharacterGridPageProps {
 }
 
 export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPageProps) {
+  const t = useT();
   const router = useRouter();
   const {
     getSeriesBySlug,
@@ -37,9 +39,9 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
     return (
       <EmptyState
         icon={Users}
-        title="Series not found"
-        description="This series may have been removed."
-        actionLabel="Back to Anime Collection"
+        title={t("anime.seriesNotFoundTitle")}
+        description={t("anime.seriesNotFoundDescription")}
+        actionLabel={t("anime.title")}
         onAction={() => router.push("/anime-collection")}
         className="mt-12"
       />
@@ -57,7 +59,7 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
     setNewName("");
     setNewImageUrl("");
     setCreateOpen(false);
-    toast.success(`Added "${trimmed}"`);
+    toast.success(t("anime.characterAdded", { name: trimmed }));
   };
 
   return (
@@ -67,7 +69,7 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Anime Collection
+        {t("anime.title")}
       </Link>
 
       <PageHeader
@@ -83,9 +85,9 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         {characters.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No characters yet"
-            description="Add characters to this series to organize figures and merch."
-            actionLabel="Add character"
+            title={t("anime.noCharactersTitle")}
+            description={t("anime.noCharactersDescription")}
+            actionLabel={t("anime.addCharacter")}
             onAction={() => setCreateOpen(true)}
           />
         ) : (
@@ -102,37 +104,37 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title="Add character"
+        title={t("anime.addCharacterTitle")}
         description={`Add a character to ${series.name}.`}
         footer={
           <>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={!newName.trim()}>
-              Add character
+              {t("anime.addCharacter")}
             </Button>
           </>
         }
       >
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="char-name">Name</Label>
+            <Label htmlFor="char-name">{t("common.name")}</Label>
             <Input
               id="char-name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Yugi Muto"
+              placeholder={t("anime.characterNamePlaceholder")}
               autoFocus
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="char-photo">Photo URL (optional)</Label>
+            <Label htmlFor="char-photo">{t("anime.photoUrl")}</Label>
             <Input
               id="char-photo"
               value={newImageUrl}
               onChange={(e) => setNewImageUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder={t("common.urlPlaceholder")}
             />
           </div>
         </div>

@@ -2,11 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { Layers } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoading } from "@/components/shared/PageLoading";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useT } from "@/lib/i18n/context";
 
 const CollectionTable = dynamic(
   () =>
@@ -41,30 +43,29 @@ const CollectionBinderView = dynamic(
 );
 
 export function CollectionContent() {
+  const t = useT();
+  const queryClient = useQueryClient();
   const data = useCollectionView();
   const viewMode = useCollectionUIStore((s) => s.viewMode);
   const filters = useCollectionUIStore((s) => s.filters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
-  const effectiveView = isMobile && viewMode === "table" ? "compact" : viewMode;
+  const effectiveView =
+    isMobile && (viewMode === "table" || viewMode === "binder") ? "compact" : viewMode;
 
   if (data.isLoading) {
-    return (
-      <div className="space-y-2 p-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
+    return <PageLoading label={t("collection.loadingCards")} className="h-full" />;
   }
 
   if (data.isError) {
     return (
       <EmptyState
         icon={Layers}
-        title="Could not load collection"
-        description="Sign in to load your cloud collection, or use offline Demo mode."
+        title={t("collection.errorTitle")}
+        description={t("collection.errorDescription")}
+        actionLabel={t("common.retry")}
+        onAction={() => void queryClient.invalidateQueries({ queryKey: ["app-state"] })}
       />
     );
   }
@@ -85,9 +86,9 @@ export function CollectionContent() {
       return (
         <EmptyState
           icon={Layers}
-          title="No cards match your filters"
-          description="Try clearing the search or resetting filters to see all cards in this collection."
-          actionLabel="Reset filters"
+          title={t("collection.emptyFiltersTitle")}
+          description={t("collection.emptyFiltersDescription")}
+          actionLabel={t("collection.resetFilters")}
           onAction={() => useCollectionUIStore.getState().resetFilters()}
         />
       );
@@ -96,9 +97,9 @@ export function CollectionContent() {
     return (
       <EmptyState
         icon={Layers}
-        title="No cards yet"
-        description="Import your collection or use Quick Add to search Yu-Gi-Oh, Pokemon, or Digimon cards."
-        actionLabel="Quick Add"
+        title={t("collection.emptyTitle")}
+        description={t("collection.emptyDescription")}
+        actionLabel={t("collection.quickAdd")}
         onAction={() => setQuickAddOpen(true)}
       />
     );

@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 
 export default function LoginPage() {
+  const t = useT();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +32,7 @@ export default function LoginPage() {
       toast.error(error.message);
       return;
     }
-    toast.success("Welcome back!");
+    toast.success(t("auth.login.welcomeBack"));
     router.push("/collection");
     router.refresh();
   };
@@ -47,38 +49,38 @@ export default function LoginPage() {
             <Sparkles className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-semibold">DeckVault</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your collection</p>
+          <p className="text-sm text-muted-foreground">{t("auth.login.subtitle")}</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("common.email")}</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("common.password")}</Label>
               <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                Forgot password?
+                {t("auth.login.forgotPassword")}
               </Link>
             </div>
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
           </Button>
         </form>
 
         {!isSupabaseConfigured() && (
           <Button variant="outline" className="w-full" onClick={handleDemo}>
-            Continue in Demo Mode
+            {t("auth.login.demoMode")}
           </Button>
         )}
 
         <p className="text-center text-sm text-muted-foreground">
-          No account?{" "}
+          {t("auth.login.noAccount")}{" "}
           <Link href="/signup" className="text-primary hover:underline">
-            Sign up
+            {t("auth.login.signUp")}
           </Link>
         </p>
       </div>

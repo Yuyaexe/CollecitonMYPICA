@@ -4,6 +4,7 @@ import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -23,6 +24,7 @@ export function CollectionGridCardItem({
   onSelect,
   onOpen,
 }: CollectionGridCardItemProps) {
+  const t = useT();
   const ygoPasscode = useYugiohPasscodeFromContext(item.id);
   const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
   const dragOver = dragHandlers.isDragOver(item.id);
@@ -41,7 +43,7 @@ export function CollectionGridCardItem({
           checked={selected}
           onCheckedChange={onSelect}
           className="bg-background/80 backdrop-blur-sm"
-          aria-label={`Select ${item.card.name}`}
+          aria-label={t("collection.selectCard", { name: item.card.name })}
         />
       </div>
 

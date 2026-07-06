@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/context";
 
 export default function ForgotPasswordPage() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -17,7 +19,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSupabaseConfigured()) {
-      toast.error("Supabase not configured");
+      toast.error(t("auth.forgot.notConfigured"));
       return;
     }
     setLoading(true);
@@ -31,7 +33,7 @@ export default function ForgotPasswordPage() {
       return;
     }
     setSent(true);
-    toast.success("Reset link sent to your email");
+    toast.success(t("auth.forgot.sent"));
   };
 
   return (
@@ -39,28 +41,28 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm space-y-8">
         <div className="flex flex-col items-center gap-2">
           <Sparkles className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-semibold">Reset password</h1>
+          <h1 className="text-2xl font-semibold">{t("auth.forgot.title")}</h1>
         </div>
 
         {sent ? (
           <p className="text-center text-sm text-muted-foreground">
-            Check your email for a reset link.
+            {t("auth.forgot.checkEmail")}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("common.email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send reset link"}
+              {loading ? t("auth.forgot.sending") : t("auth.forgot.send")}
             </Button>
           </form>
         )}
 
         <p className="text-center text-sm">
           <Link href="/login" className="text-primary hover:underline">
-            Back to login
+            {t("auth.forgot.backToLogin")}
           </Link>
         </p>
       </div>
