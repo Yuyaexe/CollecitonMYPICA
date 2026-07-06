@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useAppData } from "@/hooks/useAppData";
+import { useAppProfile } from "@/hooks/useAppProfile";
 import { dashboardNavItems } from "@/lib/navigation";
 
 interface SidebarProps {
@@ -17,7 +17,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, isSupabaseMode } = useAppData();
+  const { profile, isSupabaseMode } = useAppProfile();
 
   return (
     <aside

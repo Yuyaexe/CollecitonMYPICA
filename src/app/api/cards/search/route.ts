@@ -4,41 +4,9 @@ import { serializeSearchResultsForResponse } from "@/features/catalog/services/s
 import { rankSearchResults, dedupeSearchResults } from "@/features/catalog/services/search-ranking";
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
-import {
-  isCardTraderConfigured,
-  isCardTraderGameSupported,
-  isCardTraderPrimarySearch,
-  searchCardTraderCatalog,
-  CARDTRADER_PRIMARY_MAX_EXPANSIONS,
-} from "@/lib/cardtrader";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 
 const SEARCH_RESULT_LIMIT = 24;
-const CT_MERGE_MAX_EXPANSIONS = 6;
-
-function mergeSearchResults(
-  primary: CardSearchResult[],
-  supplemental: CardSearchResult[],
-  limit = SEARCH_RESULT_LIMIT
-): CardSearchResult[] {
-  const merged = [...primary];
-  const seen = new Set(
-    primary.map(
-      (r) =>
-        `${r.metadata?.catalogSource ?? "catalog"}:${r.externalId}:${r.setName ?? ""}:${r.name}`
-    )
-  );
-
-  for (const result of supplemental) {
-    const key = `${result.metadata?.catalogSource ?? "catalog"}:${result.externalId}:${result.setName ?? ""}:${result.name}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(result);
-    if (merged.length >= limit) break;
-  }
-
-  return merged;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -53,9 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  const cardTraderReady = isCardTraderConfigured() && isCardTraderGameSupported(game);
-
-  if (!isApiSupported(game) && !cardTraderReady) {
+  if (!isApiSupported(game)) {
     return NextResponse.json({
       results: [],
       message: `Search not available for ${game}. Use CSV import.`,
@@ -63,42 +29,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let results: CardSearchResult[] = [];
-    let source: "catalog" | "cardtrader" = "catalog";
-
-    if (isApiSupported(game)) {
-      const adapter = getCardAdapter(game);
-      if (!adapter) {
-        return NextResponse.json({ error: "Unknown game" }, { status: 400 });
-      }
-
-      results = await adapter.search(query, game === "yugioh" ? { locale } : undefined);
-
-      if (cardTraderReady && locale === "en" && !quickSearch) {
-        try {
-          const ctSearchOpts = {
-            maxExpansions: isCardTraderPrimarySearch(game)
-              ? CARDTRADER_PRIMARY_MAX_EXPANSIONS
-              : CT_MERGE_MAX_EXPANSIONS,
-          };
-          const cardTraderResults = await searchCardTraderCatalog(game, query, ctSearchOpts);
-
-          if (results.length === 0) {
-            results = cardTraderResults;
-            source = "cardtrader";
-          } else if (cardTraderResults.length > 0) {
-            results = mergeSearchResults(results, cardTraderResults);
-          }
-        } catch (error) {
-          if (results.length === 0) throw error;
-        }
-      }
-    } else if (cardTraderReady) {
-      results = await searchCardTraderCatalog(game, query, {
-        maxExpansions: CARDTRADER_PRIMARY_MAX_EXPANSIONS,
-      });
-      source = "cardtrader";
+    const adapter = getCardAdapter(game);
+    if (!adapter) {
+      return NextResponse.json({ error: "Unknown game" }, { status: 400 });
     }
+
+    let results: CardSearchResult[] = await adapter.search(
+      query,
+      game === "yugioh" ? { locale } : undefined
+    );
 
     results = dedupeSearchResults(rankSearchResults(query, results), game).slice(
       0,
@@ -114,10 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      {
-        results: serializeSearchResultsForResponse(results),
-        priceSource: cardTraderReady ? "catalog-first" : source,
-      },
+      { results: serializeSearchResultsForResponse(results) },
       {
         headers: quickSearch
           ? { "Cache-Control": "private, max-age=120, stale-while-revalidate=300" }

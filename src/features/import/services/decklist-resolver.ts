@@ -1,6 +1,6 @@
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
-import { splitDigimonCardId } from "@/features/catalog/services/card-api/digimon.utils";
+import { splitDigimonCardId, normalizeDigimonDeckCardId, digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
 import type { DecklistGameSlug, ParsedDeckEntry, ResolvedDeckEntry } from "@/features/import/types";
 
 const YGO_API = "https://db.ygoprodeck.com/api/v7";
@@ -68,14 +68,54 @@ function pickExactNameMatch(results: CardSearchResult[], name: string): CardSear
   );
 }
 
+function pickDigimonPrintFromGroup(
+  prints: CardSearchResult[],
+  entry: ParsedDeckEntry,
+  lookupId: string
+): CardSearchResult | null {
+  const matching = prints.filter((print) => {
+    const cardId = String(print.metadata?.cardId ?? print.collectorNumber ?? "").toUpperCase();
+    return (
+      cardId === lookupId ||
+      print.collectorNumber?.toUpperCase() === lookupId ||
+      print.externalId?.toUpperCase() === lookupId
+    );
+  });
+
+  if (matching.length === 0) return null;
+  if (matching.length === 1) return matching[0];
+
+  const byName = matching.filter((print) => digimonNamesMatch(print.name, entry.name));
+  const pool = byName.length > 0 ? byName : matching;
+
+  const deckSuffix = entry.setCode
+    ? normalizeDigimonDeckCardId(entry.setCode).deckSuffix
+    : null;
+  if (deckSuffix?.startsWith("_p")) {
+    const nonAlt = pool.find(
+      (print) =>
+        !String(print.metadata?.tcgplayer_name ?? "")
+          .toLowerCase()
+          .includes("alternate")
+    );
+    if (nonAlt) return nonAlt;
+  }
+
+  return pool[0];
+}
+
 function pickDigimonMatch(results: CardSearchResult[], entry: ParsedDeckEntry): CardSearchResult | null {
   if (entry.setCode) {
     const normalizedEntry = entry.setCode.toLowerCase();
+    const { lookupId, deckSuffix } = normalizeDigimonDeckCardId(entry.setCode);
     const { baseId, suffix } = splitDigimonCardId(entry.setCode);
 
     for (const result of results) {
       const prints =
         (result.metadata?.digimonPrints as CardSearchResult[] | undefined) ?? [result];
+
+      const fromGroup = pickDigimonPrintFromGroup(prints, entry, lookupId);
+      if (fromGroup) return fromGroup;
 
       for (const print of prints) {
         const collector = print.collectorNumber?.toLowerCase();
@@ -88,9 +128,19 @@ function pickDigimonMatch(results: CardSearchResult[], entry: ParsedDeckEntry): 
     const byId = results.find(
       (result) =>
         result.externalId?.toLowerCase() === normalizedEntry ||
-        result.collectorNumber?.toLowerCase() === normalizedEntry
+        result.collectorNumber?.toLowerCase() === normalizedEntry ||
+        result.collectorNumber?.toUpperCase() === lookupId
     );
     if (byId) return byId;
+
+    if (deckSuffix === "errata") {
+      for (const result of results) {
+        const prints =
+          (result.metadata?.digimonPrints as CardSearchResult[] | undefined) ?? [result];
+        const errataPrint = pickDigimonPrintFromGroup(prints, entry, lookupId);
+        if (errataPrint) return errataPrint;
+      }
+    }
   }
   return pickExactNameMatch(results, entry.name);
 }
@@ -126,9 +176,10 @@ async function resolveEntry(
     }
 
     const cardId = entry.setCode?.trim().toUpperCase() ?? null;
+    const lookupId = cardId ? normalizeDigimonDeckCardId(cardId).lookupId : null;
 
-    if (cardId && isApiSupported("digimon")) {
-      const byId = await adapter.getById(cardId);
+    if (lookupId && isApiSupported("digimon")) {
+      const byId = await adapter.getById(cardId!);
       if (byId) return { entry, result: byId };
     }
 

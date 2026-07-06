@@ -79,3 +79,17 @@ export function binderSpreadSlots(
   const start = spreadIndex * spreadSize;
   return Array.from({ length: spreadSize }, (_, i) => layout[start + i] ?? null);
 }
+
+/** First empty slot in a spread, or the spread's first slot if full. */
+export function firstAvailableSlotInSpread(
+  layout: (string | null)[],
+  spreadIndex: number,
+  spreadSize: number
+): number {
+  const start = spreadIndex * spreadSize;
+  for (let i = 0; i < spreadSize; i++) {
+    const idx = start + i;
+    if (idx >= layout.length || layout[idx] == null) return idx;
+  }
+  return start;
+}

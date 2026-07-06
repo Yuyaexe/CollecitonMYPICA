@@ -1,23 +1,18 @@
 "use client";
 
+import { memo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { PriceBadge } from "@/components/shared/PriceBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
-import type { Currency } from "@/types/tcg";
-
 interface CollectionCompactCardProps {
   item: DemoOwnedCard;
   selected: boolean;
-  marketPrice: number | null;
-  cardTraderImage?: string | null;
-  currency: Currency;
   dragHandlers: ReturnType<typeof useDragReorder>;
   onSelect: () => void;
   onOpen: () => void;
@@ -25,20 +20,17 @@ interface CollectionCompactCardProps {
   onRemove: () => void;
 }
 
-export function CollectionCompactCard({
+export const CollectionCompactCard = memo(function CollectionCompactCard({
   item,
   selected,
-  marketPrice,
-  cardTraderImage,
-  currency,
   dragHandlers,
   onSelect,
   onOpen,
   onQuantityChange,
   onRemove,
 }: CollectionCompactCardProps) {
-  const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
+  const ygoPasscode = useYugiohPasscodeFromContext(item.id);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
   const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
@@ -76,20 +68,17 @@ export function CollectionCompactCard({
           </div>
         </button>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <QuantityStepper
-            value={item.quantity}
-            onChange={(quantity) => {
-              if (quantity < 1) {
-                onRemove();
-                return;
-              }
-              onQuantityChange(quantity);
-            }}
-          />
-          <PriceBadge price={marketPrice} currency={currency} />
-        </div>
+        <QuantityStepper
+          value={item.quantity}
+          onChange={(quantity) => {
+            if (quantity < 1) {
+              onRemove();
+              return;
+            }
+            onQuantityChange(quantity);
+          }}
+        />
       </div>
     </div>
   );
-}
+});

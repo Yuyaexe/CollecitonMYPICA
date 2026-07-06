@@ -21,19 +21,75 @@ const YGO_SECTIONS = new Set([
   "main deck",
 ]);
 
-const DIGIMON_LINE =
-  /^(\d+)[x×]?\s+(.+?)\s+([A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*)\s*$/;
+/** Digimon card id token: BT24-070, P-232, BT20-090_P1, BT20-077-Errata */
+const DIGIMON_DECK_CARD_ID = /[A-Za-z][A-Za-z0-9]*-\d+(?:[-_][A-Za-z0-9]+)*/;
 
-/** DigimonCard.io, DigimonCard.io Deck List, legacy // DeckList headers */
-const DIGIMONCARD_IO_HEADER =
-  /^\/\/\s*(?:DigimonCard\.io|Digimon Card\.io|DeckList)/i;
+export const DIGIMON_CARD_ID_PATTERN = new RegExp(
+  `^${DIGIMON_DECK_CARD_ID.source}$`,
+  "i"
+);
 
-export const DIGIMON_CARD_ID_PATTERN =
-  /^[A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*$/i;
+const DIGIMON_ID_TAIL = new RegExp(
+  `(?:\\(|\\[)?\\s*(${DIGIMON_DECK_CARD_ID.source})\\s*(?:\\)|\\])?\\s*$`,
+  "i"
+);
+
+function normalizeDigimonDeckLine(line: string): string {
+  return line
+    .trim()
+    .replace(/\uFEFF/g, "")
+    .replace(/\u2013|\u2014/g, "-")
+    .replace(/\uff08/g, "(")
+    .replace(/\uff09/g, ")")
+    .replace(/\u00a0/g, " ");
+}
+
+/** Parse one DigimonCard.io line — supports `4 Name BT24-011`, `2 Name (BT24-011)`, `[BT24-011]`, tabs. */
+export function parseDigimonDeckLine(line: string): ParsedDeckEntry | null {
+  let trimmed = normalizeDigimonDeckLine(line);
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("//")) {
+    const uncommented = trimmed.replace(/^\/\/\s*/, "").trim();
+    if (/^\d/.test(uncommented)) trimmed = uncommented;
+    else return null;
+  }
+
+  if (/^(main|egg|side|tamer|option|digimon|digi-?egg)s?(\s+deck)?$/i.test(trimmed)) {
+    return null;
+  }
+
+  const qtyMatch = trimmed.match(/^(\d+)\s*[x×]?\s+/i);
+  if (!qtyMatch) return null;
+
+  const quantity = parseInt(qtyMatch[1], 10);
+  if (!Number.isFinite(quantity) || quantity < 1) return null;
+
+  const rest = trimmed.slice(qtyMatch[0].length);
+  const idMatch = rest.match(DIGIMON_ID_TAIL);
+  if (!idMatch || idMatch.index == null) return null;
+
+  const setCode = idMatch[1].trim().toUpperCase();
+  let name = rest.slice(0, idMatch.index).trim();
+  name = name.replace(/\s*[-–—]\s*$/, "").trim();
+  if (!name) return null;
+
+  return {
+    quantity,
+    name,
+    setCode,
+    passcode: null,
+    section: null,
+  };
+}
 
 export function isDigimonCardId(value: string | null | undefined): boolean {
   return Boolean(value?.trim() && DIGIMON_CARD_ID_PATTERN.test(value.trim()));
 }
+
+/** DigimonCard.io, DigimonCard.io Deck List, legacy // DeckList headers */
+const DIGIMONCARD_IO_HEADER =
+  /^\/\/\s*(?:DigimonCard\.io|Digimon Card\.io|DeckList)/i;
 
 const QUANTITY_NAME_LINE = /^(\d+)[x×]?\s+(.+?)\s*$/;
 
@@ -106,26 +162,23 @@ function parseYdk(content: string): ParsedDeckEntry[] {
   return entries;
 }
 
+export function isDigimonDeckLine(line: string): boolean {
+  return parseDigimonDeckLine(line) != null;
+}
+
 function parseDigimonText(content: string): ParsedDeckEntry[] {
   const entries: ParsedDeckEntry[] = [];
 
   for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("//")) continue;
-
-    const match = line.match(DIGIMON_LINE);
-    if (!match) continue;
-
-    entries.push({
-      quantity: parseInt(match[1], 10),
-      name: match[2].trim(),
-      setCode: match[3].trim().toUpperCase(),
-      passcode: null,
-      section: null,
-    });
+    const parsed = parseDigimonDeckLine(rawLine);
+    if (parsed) entries.push(parsed);
   }
 
   return entries;
+}
+
+function countDigimonDeckSignals(lines: string[]): number {
+  return lines.filter((line) => isDigimonDeckLine(line)).length;
 }
 
 function parseYugiohText(content: string): ParsedDeckEntry[] {
@@ -163,15 +216,9 @@ function parseOnePieceText(content: string): ParsedDeckEntry[] {
     const line = rawLine.trim();
     if (!line || line.startsWith("//")) continue;
 
-    const digimonMatch = line.match(DIGIMON_LINE);
-    if (digimonMatch) {
-      entries.push({
-        quantity: parseInt(digimonMatch[1], 10),
-        name: digimonMatch[2].trim(),
-        setCode: digimonMatch[3].trim().toUpperCase(),
-        passcode: null,
-        section: null,
-      });
+    const parsed = parseDigimonDeckLine(rawLine);
+    if (parsed) {
+      entries.push(parsed);
       continue;
     }
 
@@ -207,11 +254,7 @@ function detectGameSlug(content: string, format: DecklistFormat): DecklistGameSl
   }
 
   const lower = content.toLowerCase();
-  if (
-    format === "digimon-text" ||
-    lower.includes("digimon") ||
-    /\b[A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*/.test(content)
-  ) {
+  if (format === "digimon-text" || lower.includes("digimon")) {
     return "digimon";
   }
 
@@ -244,14 +287,19 @@ export function detectDecklistFormat(content: string): DecklistFormat {
   if (lines.some((line) => DIGIMONCARD_IO_HEADER.test(line))) return "digimon-text";
   if (lines[0]?.startsWith("// DeckList")) return "digimon-text";
 
-  const digimonMatches = lines.filter((line) => DIGIMON_LINE.test(line)).length;
-  if (digimonMatches >= 2) return "digimon-text";
-
   const ygoSectionCount = lines.filter((line) => isSectionHeader(line)).length;
-  if (ygoSectionCount >= 2) return "yugioh-text";
+  if (ygoSectionCount >= 1) {
+    return "yugioh-text";
+  }
+
+  const digimonSignals = countDigimonDeckSignals(lines);
+  const digimonMatches = lines.filter((line) => isDigimonDeckLine(line)).length;
+  if (digimonSignals >= 2 || digimonMatches >= 2) return "digimon-text";
 
   const qtyLines = lines.filter((line) => QUANTITY_NAME_LINE.test(line)).length;
-  if (qtyLines >= 2) return "yugioh-text";
+  if (qtyLines >= 2) {
+    return digimonSignals > 0 ? "digimon-text" : "yugioh-text";
+  }
 
   return "unknown";
 }
@@ -260,7 +308,13 @@ export function parseDecklist(
   content: string,
   preferredGame?: DecklistGameSlug
 ): ParsedDecklist {
-  const format = detectDecklistFormat(content);
+  const detectedFormat = detectDecklistFormat(content);
+  const format =
+    preferredGame === "yugioh" && detectedFormat !== "ydke" && detectedFormat !== "ydk"
+      ? "yugioh-text"
+      : preferredGame === "digimon" && detectedFormat !== "ydke" && detectedFormat !== "ydk"
+        ? "digimon-text"
+        : detectedFormat;
   let entries: ParsedDeckEntry[] = [];
 
   switch (format) {
@@ -273,9 +327,12 @@ export function parseDecklist(
     case "digimon-text":
       entries = parseDigimonText(content);
       break;
-    case "yugioh-text":
-      entries = parseYugiohText(content);
+    case "yugioh-text": {
+      const digimonEntries = parseDigimonText(content);
+      entries =
+        digimonEntries.length >= 2 ? digimonEntries : parseYugiohText(content);
       break;
+    }
     default:
       entries = parseDigimonText(content);
       if (entries.length === 0) {

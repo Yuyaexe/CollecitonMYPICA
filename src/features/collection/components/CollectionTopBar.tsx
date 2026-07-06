@@ -1,35 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, UserPlus, RefreshCw, X } from "lucide-react";
+import { Plus, Upload, Download, LayoutGrid, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CollaboratorPresence } from "@/components/shared/CollaboratorPresence";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
-import { ShareCollectionModal } from "@/features/collection/components/ShareCollectionModal";
 import { CollectionViewSwitcher } from "@/features/collection/components/CollectionViewSwitcher";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
+import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeCollectionOrder, sortCollectionsByOrder } from "@/lib/collections/order";
-import { formatCurrency, formatNumber, cn } from "@/lib/utils";
-import { ExportDeckModal } from "@/features/import/components/ExportDeckModal";
-import { filterOwnedCards } from "@/features/collection/utils/filters";
-import {
-  mergeCardTraderQuoteMaps,
-  resolveDisplayPrice,
-  useCardTraderPrices,
-} from "@/features/market/hooks/useCardTraderPrices";
-import { useCardTraderBulkStore } from "@/features/collection/stores/cardtrader-bulk.store";
-import { CollectionCardTraderSyncModal } from "@/features/collection/components/CollectionCardTraderSyncModal";
+import { formatNumber } from "@/lib/utils";
+
+const ShareCollectionModal = dynamic(
+  () =>
+    import("@/features/collection/components/ShareCollectionModal").then(
+      (m) => m.ShareCollectionModal
+    ),
+  { ssr: false }
+);
+
+const ExportDeckModal = dynamic(
+  () => import("@/features/import/components/ExportDeckModal").then((m) => m.ExportDeckModal),
+  { ssr: false }
+);
 
 export function CollectionTopBar() {
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [syncOpen, setSyncOpen] = useState(false);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -38,59 +42,32 @@ export function CollectionTopBar() {
   const { peers } = usePresenceContext();
 
   const {
-    ownedCards,
     collections,
     activeCollectionId,
     setActiveCollection,
-    profile,
     isSupabaseMode,
   } = useAppData();
-
-  const activeCollection = collections.find((c) => c.id === activeCollectionId);
+  const { collectionCards, filtered } = useCollectionView();
   const sortedCollections = useMemo(
     () => sortCollectionsByOrder(collections, mergeCollectionOrder(collections, collectionOrder)),
     [collections, collectionOrder]
   );
+  const activeCollection = collections.find((c) => c.id === activeCollectionId);
   const collectionSelectValue = useMemo(() => {
     const ids = new Set(sortedCollections.map((c) => c.id));
     const candidate = activeCollectionId ?? sortedCollections[0]?.id;
     if (candidate && ids.has(candidate)) return candidate;
     return sortedCollections[0]?.id;
   }, [activeCollectionId, sortedCollections]);
-  const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
-
-  const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
-    collectionCards,
-    profile.currency,
-    !!activeCollectionId
-  );
-
-  const bulkQuotes = useCardTraderBulkStore((s) => s.quotesByKey);
-
-  const cardTraderPrices = useMemo(
-    () => mergeCardTraderQuoteMaps(bulkQuotes, liveCardTraderPrices),
-    [bulkQuotes, liveCardTraderPrices]
-  );
 
   const stats = useMemo(() => {
     const totalCards = collectionCards.reduce((sum, oc) => sum + oc.quantity, 0);
-    const totalValue = collectionCards.reduce((sum, oc) => {
-      const price = resolveDisplayPrice(oc, cardTraderPrices, profile.currency) ?? 0;
-      return sum + price * oc.quantity;
-    }, 0);
     const uniqueSets = new Set(collectionCards.map((oc) => oc.card.setName).filter(Boolean)).size;
-    return { totalCards, totalValue, uniqueSets };
-  }, [collectionCards, cardTraderPrices, profile.currency]);
+    return { totalCards, uniqueSets };
+  }, [collectionCards]);
 
   const hasActiveSearch = filters.search.trim().length > 0;
-  const visibleCount = useMemo(() => {
-    if (!activeCollectionId) return 0;
-    return filterOwnedCards(ownedCards, filters, activeCollectionId).length;
-  }, [ownedCards, filters, activeCollectionId]);
-
-  const handleExport = () => {
-    setExportOpen(true);
-  };
+  const visibleCount = filtered.length;
 
   return (
     <>
@@ -134,16 +111,10 @@ export function CollectionTopBar() {
 
             {isSupabaseMode && <CollaboratorPresence peers={peers} />}
 
-            <div className="grid grid-cols-3 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
+            <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
               <div>
                 <p className="text-xs text-muted-foreground">Total Cards</p>
                 <p className="font-semibold tabular-nums">{formatNumber(stats.totalCards)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Value</p>
-                <p className="font-semibold tabular-nums">
-                  {formatCurrency(stats.totalValue, profile.currency)}
-                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Sets</p>
@@ -160,17 +131,6 @@ export function CollectionTopBar() {
               onChange={(v) => setFilters({ search: v })}
               className="col-span-2 w-full min-w-0 sm:col-span-1 sm:w-48 md:w-64"
             />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSyncOpen(true)}
-              disabled={pricesFetching}
-              title="Sincronizar preços e links CardTrader"
-              aria-label="CardTrader sync"
-            >
-              <RefreshCw className={cn("h-4 w-4", pricesFetching && "animate-spin")} />
-              <span className="hidden md:inline">CardTrader</span>
-            </Button>
             <Button size="sm" onClick={() => setQuickAddOpen(true)}>
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Quick Add</span>
@@ -179,7 +139,7 @@ export function CollectionTopBar() {
               <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">Import</span>
             </Button>
-            <Button size="sm" variant="outline" onClick={handleExport}>
+            <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">Export</span>
             </Button>
@@ -220,12 +180,6 @@ export function CollectionTopBar() {
         onOpenChange={setExportOpen}
         cards={collectionCards}
         collectionName={activeCollection?.name ?? "collection"}
-      />
-
-      <CollectionCardTraderSyncModal
-        open={syncOpen}
-        onOpenChange={setSyncOpen}
-        collectionCards={collectionCards}
       />
     </>
   );

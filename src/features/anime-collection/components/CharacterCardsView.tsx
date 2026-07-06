@@ -4,14 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, LayoutGrid, Minus, Plus, Trash2 } from "lucide-react";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { PriceBadge } from "@/components/shared/PriceBadge";
 import { Button } from "@/components/ui/button";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/useDragReorder";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
-import type { Currency } from "@/types/tcg";
 
 export type CharacterCardsViewMode = "grid" | "binder";
 type BinderLayout = "4x3" | "3x3";
@@ -80,29 +78,24 @@ function pageSlots(
 
 interface CharacterCardsViewProps {
   cards: AnimeCharacterCard[];
-  currency: Currency;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
   onReorder: (draggedId: string, targetId: string | null) => void;
   onReorderToIndex: (draggedId: string, targetIndex: number) => void;
-  resolvePrice: (item: AnimeCharacterCard) => number | null;
-  resolveImage?: (item: AnimeCharacterCard) => string | null;
 }
 
 function CharacterCardThumb({
   item,
   className,
   onClick,
-  cardTraderImage,
 }: {
   item: AnimeCharacterCard;
   className?: string;
   onClick?: () => void;
-  cardTraderImage?: string | null;
 }) {
   const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
 
   const image = (
     <CardImage src={thumbSrc} alt={item.card.name} fill sizes="140px" className="object-contain p-1" />
@@ -127,18 +120,12 @@ function CharacterCardThumb({
 
 function CharacterGridCard({
   item,
-  currency,
-  marketPrice,
-  cardTraderImage,
   onRemove,
   onQuantityChange,
   onOpenCard,
   dragHandlers,
 }: {
   item: AnimeCharacterCard;
-  currency: Currency;
-  marketPrice: number | null;
-  cardTraderImage?: string | null;
   onRemove: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
@@ -166,7 +153,6 @@ function CharacterGridCard({
       <CharacterCardThumb
         item={item}
         className="mx-auto w-full max-w-[140px]"
-        cardTraderImage={cardTraderImage}
         onClick={() => onOpenCard(item)}
       />
 
@@ -189,9 +175,6 @@ function CharacterGridCard({
             {item.card.setName ?? "—"}
           </p>
         </button>
-        <div className="flex justify-center pt-0.5">
-          <PriceBadge price={marketPrice} currency={currency} />
-        </div>
         <div className="flex items-center justify-center gap-1 pt-1">
           <Button
             type="button"
@@ -224,18 +207,12 @@ function CharacterGridCard({
 
 function CharacterBinderSlot({
   item,
-  currency,
-  marketPrice,
-  cardTraderImage,
   onOpenCard,
   dragHandlers,
   slotKey,
   onDropAtIndex,
 }: {
   item: AnimeCharacterCard | null;
-  currency: Currency;
-  marketPrice: number | null;
-  cardTraderImage?: string | null;
   onOpenCard: (item: AnimeCharacterCard) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   slotKey: string;
@@ -271,7 +248,6 @@ function CharacterBinderSlot({
       <CharacterCardThumb
         item={item}
         className="w-full rounded-md ring-stone-900/10 dark:ring-stone-100/10"
-        cardTraderImage={cardTraderImage}
         onClick={() => onOpenCard(item)}
       />
       {item.quantity > 1 && (
@@ -286,9 +262,6 @@ function CharacterBinderSlot({
       >
         <div className="flex items-center justify-between gap-1">
           <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} size="sm" />
-          <span className="min-w-0 truncate text-[10px] font-semibold tabular-nums text-white">
-            {marketPrice != null ? formatCurrency(marketPrice, currency) : "—"}
-          </span>
         </div>
         <p className="truncate text-[9px] font-medium text-white/75 group-hover:text-white">
           {item.card.name}
@@ -301,24 +274,18 @@ function CharacterBinderSlot({
 
 function CharacterBinderView({
   cards,
-  currency,
   layout,
   onLayoutChange,
   onOpenCard,
   dragHandlers,
   onReorderToIndex,
-  resolvePrice,
-  resolveImage,
 }: {
   cards: AnimeCharacterCard[];
-  currency: Currency;
   layout: BinderLayout;
   onLayoutChange: (layout: BinderLayout) => void;
   onOpenCard: (item: AnimeCharacterCard) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   onReorderToIndex: (draggedId: string, targetIndex: number) => void;
-  resolvePrice: (item: AnimeCharacterCard) => number | null;
-  resolveImage?: (item: AnimeCharacterCard) => string | null;
 }) {
   const [spreadIndex, setSpreadIndex] = useState(0);
   const { cols, rows, label, maxWidth } = BINDER_LAYOUTS[layout];
@@ -372,9 +339,6 @@ function CharacterBinderView({
             <CharacterBinderSlot
               key={slotKey}
               item={item}
-              currency={currency}
-              marketPrice={item ? resolvePrice(item) : null}
-              cardTraderImage={item && resolveImage ? resolveImage(item) : null}
               onOpenCard={onOpenCard}
               dragHandlers={dragHandlers}
               slotKey={slotKey}
@@ -497,14 +461,11 @@ function ViewModeSwitcher({
 
 export function CharacterCardsView({
   cards,
-  currency,
   onRemove,
   onQuantityChange,
   onOpenCard,
   onReorder,
   onReorderToIndex,
-  resolvePrice,
-  resolveImage,
 }: CharacterCardsViewProps) {
   const [viewMode, setViewMode] = usePersistedViewMode();
   const [binderLayout, setBinderLayout] = usePersistedBinderLayout();
@@ -524,9 +485,6 @@ export function CharacterCardsView({
             <CharacterGridCard
               key={item.id}
               item={item}
-              currency={currency}
-              marketPrice={resolvePrice(item)}
-              cardTraderImage={resolveImage?.(item)}
               onRemove={onRemove}
               onQuantityChange={onQuantityChange}
               onOpenCard={onOpenCard}
@@ -537,14 +495,11 @@ export function CharacterCardsView({
       ) : (
         <CharacterBinderView
           cards={cards}
-          currency={currency}
           layout={binderLayout}
           onLayoutChange={setBinderLayout}
           onOpenCard={onOpenCard}
           dragHandlers={dragHandlers}
           onReorderToIndex={onReorderToIndex}
-          resolvePrice={resolvePrice}
-          resolveImage={resolveImage}
         />
       )}
     </>

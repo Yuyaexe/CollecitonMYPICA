@@ -7,10 +7,15 @@ import { isCardTraderHostedImage, isCardTraderPlaceholderImage } from "@/lib/car
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { DemoCard } from "@/lib/demo/types";
 
+/** Survives collection page unmount — avoids re-repairing the same card every visit. */
+const repairedKeysGlobal = new Set<string>();
+
 type RepairCardFields = Pick<
   DemoCard,
   "gameSlug" | "externalId" | "imageUrl" | "rarity" | "cardTraderBlueprintId"
 >;
+
+export type YugiohImageRepair = { id: string; updates: Partial<RepairCardFields> };
 
 function needsRepair(card: RepairCardFields, passcode: string): boolean {
   if (card.gameSlug !== "yugioh") return false;
@@ -33,12 +38,15 @@ export function useYugiohImageRepairBatch(
   items: Array<{ id: string; card: RepairCardFields }>,
   passcodes: Map<string, string | null> | undefined,
   isReady: boolean,
-  updateCard: (id: string, cardUpdates: Partial<RepairCardFields>) => void
+  applyRepairs: (repairs: YugiohImageRepair[]) => void
 ): void {
-  const repairedKeys = useRef(new Set<string>());
+  const applyRepairsRef = useRef(applyRepairs);
+  applyRepairsRef.current = applyRepairs;
 
   useEffect(() => {
     if (!isReady || !passcodes?.size) return;
+
+    const repairs: YugiohImageRepair[] = [];
 
     for (const item of items) {
       if (item.card.gameSlug !== "yugioh") continue;
@@ -46,21 +54,27 @@ export function useYugiohImageRepairBatch(
       const passcode = passcodes.get(item.id);
       if (!passcode) continue;
 
-      const repairKey = `${item.id}:${passcode}:${item.card.imageUrl ?? ""}`;
-      if (repairedKeys.current.has(repairKey)) continue;
-      if (!needsRepair(item.card, passcode)) continue;
+      const repairKey = `${item.id}:${passcode}`;
+      if (repairedKeysGlobal.has(repairKey)) continue;
+      if (!needsRepair(item.card, passcode)) {
+        repairedKeysGlobal.add(repairKey);
+        continue;
+      }
 
       const imageUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(item.card.rarity));
       if (!imageUrl) continue;
 
-      repairedKeys.current.add(repairKey);
+      repairedKeysGlobal.add(repairKey);
 
       const cardUpdates: Partial<RepairCardFields> = { imageUrl };
       if (item.card.externalId !== passcode) {
         cardUpdates.externalId = passcode;
       }
 
-      updateCard(item.id, cardUpdates);
+      repairs.push({ id: item.id, updates: cardUpdates });
     }
-  }, [items, passcodes, isReady, updateCard]);
+
+    if (repairs.length === 0) return;
+    applyRepairsRef.current(repairs);
+  }, [items, passcodes, isReady]);
 }

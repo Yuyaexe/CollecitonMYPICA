@@ -2,18 +2,14 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { Layers, Upload, TrendingUp, BarChart3 } from "lucide-react";
+import { Layers, Upload, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppData } from "@/hooks/useAppData";
 import { computeCollectionStats } from "@/features/collection/utils/filters";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
-import {
-  resolveDisplayPrice,
-  useCardTraderPrices,
-} from "@/features/market/hooks/useCardTraderPrices";
 
 function StatCard({
   label,
@@ -36,23 +32,14 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const { ownedCards, activeCollectionId, profile, isLoading } = useAppData();
+  const { ownedCards, activeCollectionId, isLoading } = useAppData();
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
 
   const collectionCards = ownedCards.filter((oc) => oc.collectionId === activeCollectionId);
 
-  const { data: liveCardTraderPrices, isFetching: pricesFetching } = useCardTraderPrices(
-    collectionCards,
-    profile.currency,
-    !!activeCollectionId && collectionCards.length > 0
-  );
-
   const stats = useMemo(
-    () =>
-      computeCollectionStats(collectionCards, (oc) =>
-        resolveDisplayPrice(oc, liveCardTraderPrices, profile.currency) ?? 0
-      ),
-    [collectionCards, liveCardTraderPrices, profile.currency]
+    () => computeCollectionStats(collectionCards),
+    [collectionCards]
   );
 
   return (
@@ -66,23 +53,13 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Total Cards"
           value={isLoading ? "…" : formatNumber(stats.totalCards)}
           icon={Layers}
         />
-        <StatCard
-          label="Collection Value"
-          value={
-            isLoading || pricesFetching
-              ? "…"
-              : formatCurrency(stats.totalValue, profile.currency)
-          }
-          icon={TrendingUp}
-        />
         <StatCard label="Unique Sets" value={formatNumber(stats.uniqueSets)} icon={BarChart3} />
-        <StatCard label="Daily Change" value="—" icon={TrendingUp} />
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">

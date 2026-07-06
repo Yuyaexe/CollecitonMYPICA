@@ -11,7 +11,6 @@ interface CollectionUIState {
   sortDir: "asc" | "desc";
   viewMode: CollectionViewMode;
   binderGridLayout: BinderGridLayout;
-  priceRefreshKey: number;
   detailCardId: string | null;
   inspectTab: "details" | "marketplace";
   quickAddOpen: boolean;
@@ -33,7 +32,6 @@ interface CollectionUIState {
   setSort: (field: string, dir?: "asc" | "desc") => void;
   setViewMode: (mode: CollectionViewMode) => void;
   setBinderGridLayout: (layout: BinderGridLayout) => void;
-  refreshPrices: () => void;
   openCardInspect: (id: string, tab?: "details" | "marketplace") => void;
   closeCardInspect: () => void;
   setQuickAddOpen: (open: boolean) => void;
@@ -48,7 +46,6 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   sortDir: "asc",
   viewMode: "table",
   binderGridLayout: "4x3",
-  priceRefreshKey: 0,
   detailCardId: null,
   inspectTab: "details",
   quickAddOpen: false,
@@ -122,7 +119,6 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
     })),
   setViewMode: (mode) => set({ viewMode: mode }),
   setBinderGridLayout: (layout) => set({ binderGridLayout: layout }),
-  refreshPrices: () => set((s) => ({ priceRefreshKey: s.priceRefreshKey + 1 })),
   openCardInspect: (id, tab = "details") => set({ detailCardId: id, inspectTab: tab }),
   closeCardInspect: () => set({ detailCardId: null }),
   setQuickAddOpen: (open) => set({ quickAddOpen: open }),

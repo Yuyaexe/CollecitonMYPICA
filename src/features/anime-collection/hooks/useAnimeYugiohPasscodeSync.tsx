@@ -21,14 +21,16 @@ export function useAnimeYugiohPasscodeSync(
     [cards]
   );
 
-  const updateCard = useCallback(
-    (id: string, cardUpdates: Partial<AnimeCharacterCard["card"]>) => {
-      onUpdate(id, { card: cardUpdates });
+  const applyRepairs = useCallback(
+    (repairs: Array<{ id: string; updates: Partial<AnimeCharacterCard["card"]> }>) => {
+      for (const repair of repairs) {
+        onUpdate(repair.id, { card: repair.updates });
+      }
     },
     [onUpdate]
   );
 
-  useYugiohImageRepairBatch(items, ctx?.map, ctx?.isReady ?? false, updateCard);
+  useYugiohImageRepairBatch(items, ctx?.map, ctx?.isReady ?? false, applyRepairs);
 }
 
 export function AnimeYugiohPasscodeSync({

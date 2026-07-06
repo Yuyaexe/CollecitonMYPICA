@@ -99,10 +99,40 @@ export function emptySlotDragProps(
     },
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       if (handlers.draggedId && onDropAtIndex) {
         onDropAtIndex(handlers.draggedId);
       } else {
         handlers.onDrop(null);
+      }
+      handlers.onDragEnd();
+    },
+  };
+}
+
+export function pageNavDropProps(
+  handlers: DragReorderHandlers,
+  navKey: string,
+  onDropNavigate: (draggedId: string) => void,
+  dropDisabled = false
+) {
+  if (dropDisabled) return {};
+  return {
+    onDragEnter: (e: React.DragEvent) => {
+      e.preventDefault();
+      handlers.onDragOver(navKey);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      handlers.onDragOver(navKey);
+    },
+    onDragLeave: handlers.onDragLeave,
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (handlers.draggedId) {
+        onDropNavigate(handlers.draggedId);
       }
       handlers.onDragEnd();
     },
@@ -120,6 +150,10 @@ export function binderCardDragProps(
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
       e.dataTransfer.effectAllowed = "move";
+      const img = (e.currentTarget as HTMLElement).querySelector("img");
+      if (img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0) {
+        e.dataTransfer.setDragImage(img, img.clientWidth / 2, img.clientHeight / 2);
+      }
       handlers.onDragStart(cardId);
     },
     onDragOver: (e: React.DragEvent) => {
@@ -130,6 +164,7 @@ export function binderCardDragProps(
     onDragLeave: handlers.onDragLeave,
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       if (handlers.draggedId && handlers.draggedId !== cardId) {
         moveToSlot(handlers.draggedId, targetIndex);
       }

@@ -11,14 +11,16 @@ export function useCollectionYugiohImageRepair(
   passcodes: Map<string, string | null> | undefined,
   isReady: boolean
 ): void {
-  const { updateOwnedCard } = useAppData();
+  const { batchRepairOwnedCards } = useAppData();
 
-  const updateCard = useCallback(
-    (id: string, cardUpdates: Partial<DemoOwnedCard["card"]>) => {
-      void updateOwnedCard(id, { card: cardUpdates });
+  const applyRepairs = useCallback(
+    (repairs: Array<{ id: string; updates: Partial<DemoOwnedCard["card"]> }>) => {
+      void batchRepairOwnedCards(
+        repairs.map((repair) => ({ id: repair.id, card: repair.updates }))
+      );
     },
-    [updateOwnedCard]
+    [batchRepairOwnedCards]
   );
 
-  useYugiohImageRepairBatch(cards, passcodes, isReady, updateCard);
+  useYugiohImageRepairBatch(cards, passcodes, isReady, applyRepairs);
 }

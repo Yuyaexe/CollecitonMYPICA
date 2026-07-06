@@ -46,9 +46,33 @@ function buildCardTraderRarityHint(variantLabel: string): string {
 }
 
 export function splitDigimonCardId(id: string): { baseId: string; suffix: string } {
-  const match = id.match(/^([A-Za-z][A-Za-z0-9]*-\d+)([a-z]+)?$/i);
-  if (!match) return { baseId: id, suffix: "" };
-  return { baseId: match[1], suffix: match[2]?.toLowerCase() ?? "" };
+  const { lookupId, deckSuffix } = normalizeDigimonDeckCardId(id);
+  const match = lookupId.match(/^([A-Za-z][A-Za-z0-9]*-\d+)([a-z]+)?$/i);
+  const letterSuffix = match?.[2]?.toLowerCase() ?? "";
+  const promoSuffix = deckSuffix?.replace(/^_/, "").toLowerCase() ?? "";
+  return {
+    baseId: match?.[1] ?? lookupId,
+    suffix: promoSuffix || letterSuffix,
+  };
+}
+
+/**
+ * DigimonCard.io deck suffixes (_P1, -Errata) are not digimoncard.io API ids.
+ * Returns the base card id used for catalog lookup.
+ */
+export function normalizeDigimonDeckCardId(cardId: string): {
+  lookupId: string;
+  deckSuffix: string | null;
+} {
+  const upper = cardId.trim().toUpperCase();
+
+  const errata = upper.match(/^([A-Z][A-Z0-9]*-\d+)-ERRATA$/);
+  if (errata) return { lookupId: errata[1], deckSuffix: "errata" };
+
+  const promo = upper.match(/^([A-Z][A-Z0-9]*-\d+)(_[A-Z0-9]+)$/);
+  if (promo) return { lookupId: promo[1], deckSuffix: promo[2].toLowerCase() };
+
+  return { lookupId: upper, deckSuffix: null };
 }
 
 export function buildDigimonCollectorNumber(cardId: string, suffix: string): string {

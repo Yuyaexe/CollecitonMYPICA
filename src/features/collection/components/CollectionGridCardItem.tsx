@@ -1,22 +1,16 @@
 "use client";
-
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { PriceBadge } from "@/components/shared/PriceBadge";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
-import type { Currency } from "@/types/tcg";
 
 interface CollectionGridCardItemProps {
   item: DemoOwnedCard;
   selected: boolean;
-  marketPrice: number | null;
-  cardTraderImage?: string | null;
-  currency: Currency;
   dragHandlers: ReturnType<typeof useDragReorder>;
   onSelect: () => void;
   onOpen: () => void;
@@ -25,15 +19,12 @@ interface CollectionGridCardItemProps {
 export function CollectionGridCardItem({
   item,
   selected,
-  marketPrice,
-  cardTraderImage,
-  currency,
   dragHandlers,
   onSelect,
   onOpen,
 }: CollectionGridCardItemProps) {
-  const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
+  const ygoPasscode = useYugiohPasscodeFromContext(item.id);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
   const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
@@ -81,9 +72,6 @@ export function CollectionGridCardItem({
           <p className="line-clamp-2 text-xs font-semibold leading-tight">{item.card.name}</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.card.setName ?? "—"}</p>
         </button>
-        <div className="flex justify-center pt-0.5">
-          <PriceBadge price={marketPrice} currency={currency} />
-        </div>
       </div>
     </div>
   );

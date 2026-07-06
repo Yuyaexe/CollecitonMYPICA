@@ -1,25 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { resolveCollectionThumbUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
-import { cn, formatCurrency } from "@/lib/utils";
-import { useDragReorder, emptySlotDragProps, binderCardDragProps } from "@/hooks/useDragReorder";
+import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { cn } from "@/lib/utils";
+import { useDragReorder, emptySlotDragProps, binderCardDragProps, pageNavDropProps } from "@/hooks/useDragReorder";
 import {
   binderSpreadCount,
   binderSpreadSlots,
+  firstAvailableSlotInSpread,
 } from "@/lib/collections/binder-layout";
 import {
   useCollectionUIStore,
   type BinderGridLayout,
 } from "@/features/collection/stores/collection-ui.store";
-import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
+import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import type { DemoOwnedCard } from "@/lib/demo/types";
-import type { Currency } from "@/types/tcg";
 
 const LAYOUT_CONFIG: Record<
   BinderGridLayout,
@@ -28,10 +28,6 @@ const LAYOUT_CONFIG: Record<
   "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-6xl" },
   "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-4xl" },
 };
-
-interface CollectionBinderViewProps {
-  data: CollectionViewData;
-}
 
 function resolvePageCards(
   slotIds: (string | null)[],
@@ -56,9 +52,6 @@ function BinderCardName({ name }: { name: string }) {
 interface BinderSlotProps {
   card: DemoOwnedCard | null;
   selected: boolean;
-  marketPrice: number | null;
-  cardTraderImage?: string | null;
-  currency: Currency;
   onOpen: () => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   slotKey: string;
@@ -69,26 +62,13 @@ interface BinderSlotProps {
 function BinderSlot({
   card,
   selected,
-  marketPrice,
-  cardTraderImage,
-  currency,
   onOpen,
   dragHandlers,
   slotKey,
   globalIndex,
   moveToSlot,
 }: BinderSlotProps) {
-  const ygoPasscode = useYugiohPasscodeForDisplay(
-    card?.card ?? {
-      name: "",
-      gameSlug: "yugioh",
-      externalId: null,
-      imageUrl: null,
-      setCode: null,
-      collectorNumber: null,
-    },
-    card?.id
-  );
+  const ygoPasscode = useYugiohPasscodeFromContext(card?.id);
 
   if (!card) {
     return (
@@ -108,7 +88,7 @@ function BinderSlot({
     );
   }
 
-  const thumbSrc = resolveCollectionThumbUrl(card.card, ygoPasscode, cardTraderImage);
+  const thumbSrc = resolveCollectionThumbUrl(card.card, ygoPasscode);
   const imageFallback =
     card.card.gameSlug === "yugioh" ? getYugiohPasscodeFallbackUrl(card.card, ygoPasscode) : null;
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
@@ -159,9 +139,6 @@ function BinderSlot({
       >
         <div className="flex items-center justify-between gap-1">
           <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} size="sm" />
-          <span className="min-w-0 truncate text-[10px] font-semibold tabular-nums text-white">
-            {marketPrice != null ? formatCurrency(marketPrice, currency) : "—"}
-          </span>
           <span className="shrink-0 text-[10px] font-bold tabular-nums text-white/90">
             ×{card.quantity}
           </span>
@@ -182,9 +159,6 @@ interface BinderPageProps {
   spreadIndex: number;
   spreadSize: number;
   selectedIds: Set<string>;
-  currency: Currency;
-  resolvePrice: (item: DemoOwnedCard) => number | null;
-  resolveCardTraderImage: (item: DemoOwnedCard) => string | null;
   onOpen: (id: string) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   moveToSlot: (draggedId: string, targetIndex: number) => void;
@@ -199,9 +173,6 @@ function BinderPage({
   spreadIndex,
   spreadSize,
   selectedIds,
-  currency,
-  resolvePrice,
-  resolveCardTraderImage,
   onOpen,
   dragHandlers,
   moveToSlot,
@@ -240,9 +211,6 @@ function BinderPage({
               key={slotKey}
               card={card}
               selected={card ? selectedIds.has(card.id) : false}
-              marketPrice={card ? resolvePrice(card) : null}
-              cardTraderImage={card ? resolveCardTraderImage(card) : null}
-              currency={currency}
               onOpen={() => card && onOpen(card.id)}
               dragHandlers={dragHandlers}
               slotKey={slotKey}
@@ -289,7 +257,93 @@ function BinderLayoutToggle({
   );
 }
 
-export function CollectionBinderView({ data }: CollectionBinderViewProps) {
+interface BinderSpreadNavProps {
+  spreadIndex: number;
+  totalSpreads: number;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  onPrevious: () => void;
+  onNext: () => void;
+  onDropToSpread: (draggedId: string, targetSpread: number) => void;
+}
+
+function BinderSpreadNav({
+  spreadIndex,
+  totalSpreads,
+  dragHandlers,
+  onPrevious,
+  onNext,
+  onDropToSpread,
+}: BinderSpreadNavProps) {
+  const dragging = dragHandlers.draggedId != null;
+  const prevDropDisabled = spreadIndex <= 0;
+  const canDropNext = spreadIndex < totalSpreads - 1 || dragging;
+  const overPrev = dragHandlers.isDragOver("binder-nav-prev");
+  const overNext = dragHandlers.isDragOver("binder-nav-next");
+  const showNavHint = dragging && (overPrev || overNext);
+
+  return (
+    <div className="flex shrink-0 items-center justify-center gap-4 border-t border-border/60 bg-card/40 px-4 py-3 backdrop-blur-sm">
+      <div
+        className={cn(
+          "rounded-lg transition-colors",
+          overPrev && "bg-primary/10 ring-2 ring-primary/50"
+        )}
+        {...pageNavDropProps(
+          dragHandlers,
+          "binder-nav-prev",
+          (draggedId) => onDropToSpread(draggedId, spreadIndex - 1),
+          prevDropDisabled
+        )}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={prevDropDisabled}
+          onClick={onPrevious}
+          aria-label="Previous spread"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Anterior</span>
+        </Button>
+      </div>
+
+      <span className="min-w-[7rem] text-center text-sm tabular-nums text-muted-foreground">
+        {showNavHint ? (
+          <span className="text-xs text-primary">Solte para mudar de página</span>
+        ) : (
+          <>Página {spreadIndex + 1} / {totalSpreads}</>
+        )}
+      </span>
+
+      <div
+        className={cn(
+          "rounded-lg transition-colors",
+          overNext && "bg-primary/10 ring-2 ring-primary/50"
+        )}
+        {...pageNavDropProps(
+          dragHandlers,
+          "binder-nav-next",
+          (draggedId) => onDropToSpread(draggedId, spreadIndex + 1),
+          !canDropNext
+        )}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={spreadIndex >= totalSpreads - 1}
+          onClick={onNext}
+          aria-label="Next spread"
+        >
+          <span className="hidden sm:inline">Próxima</span>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function CollectionBinderView() {
+  const data = useCollectionView();
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
   const binderGridLayout = useCollectionUIStore((s) => s.binderGridLayout);
@@ -311,14 +365,18 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
     [data.binderLayout, spreadSize]
   );
 
-  const filterKey = useMemo(
-    () => `${binderGridLayout}:${data.binderLayout.join(",")}`,
-    [binderGridLayout, data.binderLayout]
+  const pageResetKey = useMemo(
+    () =>
+      `${binderGridLayout}:${data.filtered
+        .map((card) => card.id)
+        .sort()
+        .join(",")}`,
+    [binderGridLayout, data.filtered]
   );
 
   useEffect(() => {
     setSpreadIndex(0);
-  }, [filterKey]);
+  }, [pageResetKey]);
 
   useEffect(() => {
     if (spreadIndex >= totalSpreads) {
@@ -342,6 +400,20 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
   );
 
   const cardsOnSpread = currentSpreadSlots.filter(Boolean).length;
+
+  const handleDropToSpread = useCallback(
+    (draggedId: string, targetSpread: number) => {
+      if (targetSpread < 0) return;
+      const targetIndex = firstAvailableSlotInSpread(
+        data.binderLayout,
+        targetSpread,
+        spreadSize
+      );
+      data.moveCardToBinderSlot(draggedId, targetIndex);
+      setSpreadIndex(targetSpread);
+    },
+    [data.binderLayout, data.moveCardToBinderSlot, spreadSize]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background">
@@ -367,9 +439,6 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               spreadIndex={spreadIndex}
               spreadSize={spreadSize}
               selectedIds={selectedIds}
-              currency={data.profileCurrency}
-              resolvePrice={data.resolvePrice}
-              resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
               dragHandlers={dragHandlers}
               moveToSlot={data.moveCardToBinderSlot}
@@ -391,9 +460,6 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
               spreadIndex={spreadIndex}
               spreadSize={spreadSize}
               selectedIds={selectedIds}
-              currency={data.profileCurrency}
-              resolvePrice={data.resolvePrice}
-              resolveCardTraderImage={data.resolveCardTraderImage}
               onOpen={(id) => openCardInspect(id, "details")}
               dragHandlers={dragHandlers}
               moveToSlot={data.moveCardToBinderSlot}
@@ -402,31 +468,14 @@ export function CollectionBinderView({ data }: CollectionBinderViewProps) {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-center gap-4 border-t border-border/60 bg-card/40 px-4 py-3 backdrop-blur-sm">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={spreadIndex <= 0}
-          onClick={() => setSpreadIndex((i) => Math.max(0, i - 1))}
-          aria-label="Previous spread"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Anterior</span>
-        </Button>
-        <span className="min-w-[7rem] text-center text-sm tabular-nums text-muted-foreground">
-          Página {spreadIndex + 1} / {totalSpreads}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={spreadIndex >= totalSpreads - 1}
-          onClick={() => setSpreadIndex((i) => Math.min(totalSpreads - 1, i + 1))}
-          aria-label="Next spread"
-        >
-          <span className="hidden sm:inline">Próxima</span>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <BinderSpreadNav
+        spreadIndex={spreadIndex}
+        totalSpreads={totalSpreads}
+        dragHandlers={dragHandlers}
+        onPrevious={() => setSpreadIndex((i) => Math.max(0, i - 1))}
+        onNext={() => setSpreadIndex((i) => Math.min(totalSpreads - 1, i + 1))}
+        onDropToSpread={handleDropToSpread}
+      />
     </div>
   );
 }

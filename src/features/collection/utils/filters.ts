@@ -1,41 +1,40 @@
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import type { CollectionFilters } from "@/types/tcg";
 
-export function filterOwnedCards(
-  cards: DemoOwnedCard[],
-  filters: CollectionFilters,
-  collectionId: string | null
-): DemoOwnedCard[] {
-  if (!collectionId) return [];
-  return cards.filter((oc) => {
-    if (oc.collectionId !== collectionId) return false;
+function matchesCollectionFilters(
+  oc: DemoOwnedCard,
+  filters: CollectionFilters
+): boolean {
+  const { card } = oc;
+  const search = filters.search.toLowerCase();
 
-    const { card } = oc;
-    const search = filters.search.toLowerCase();
+  if (search) {
+    const haystack = [card.name, card.setName, card.setCode, card.collectorNumber]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
 
-    if (search) {
-      const haystack = [card.name, card.setName, card.setCode, card.collectorNumber]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
+  if (filters.gameId && card.gameId !== filters.gameId) return false;
+  if (filters.setCode && card.setCode !== filters.setCode) return false;
+  if (filters.rarity && card.rarity !== filters.rarity) return false;
+  if (filters.language && oc.language !== filters.language) return false;
+  if (filters.condition && oc.condition !== filters.condition) return false;
+  if (filters.isFoil !== null && oc.isFoil !== filters.isFoil) return false;
+  if (filters.minQuantity !== null && oc.quantity < filters.minQuantity) return false;
 
-    if (filters.gameId && card.gameId !== filters.gameId) return false;
-    if (filters.setCode && card.setCode !== filters.setCode) return false;
-    if (filters.rarity && card.rarity !== filters.rarity) return false;
-    if (filters.language && oc.language !== filters.language) return false;
-    if (filters.condition && oc.condition !== filters.condition) return false;
-    if (filters.isFoil !== null && oc.isFoil !== filters.isFoil) return false;
-    if (filters.minQuantity !== null && oc.quantity < filters.minQuantity) return false;
-
-    const price = card.marketPrice;
-    if (filters.priceMin !== null && (price === null || price < filters.priceMin)) return false;
-    if (filters.priceMax !== null && (price === null || price > filters.priceMax)) return false;
-
-    return true;
-  });
+  return true;
 }
+
+/** Filter cards already scoped to one collection — avoids scanning every collection. */
+export function applyCollectionFilters(
+  cards: DemoOwnedCard[],
+  filters: CollectionFilters
+): DemoOwnedCard[] {
+  return cards.filter((oc) => matchesCollectionFilters(oc, filters));
+}
+
 
 export function sortOwnedCards(
   cards: DemoOwnedCard[],
@@ -50,10 +49,6 @@ export function sortOwnedCards(
       case "name":
         av = a.card.name;
         bv = b.card.name;
-        break;
-      case "marketPrice":
-        av = a.card.marketPrice ?? 0;
-        bv = b.card.marketPrice ?? 0;
         break;
       case "quantity":
         av = a.quantity;
@@ -73,16 +68,9 @@ export function sortOwnedCards(
   return dir === "desc" ? sorted.reverse() : sorted;
 }
 
-export function computeCollectionStats(
-  cards: DemoOwnedCard[],
-  getUnitPrice: (card: DemoOwnedCard) => number = (oc) => oc.card.marketPrice ?? 0
-) {
+export function computeCollectionStats(cards: DemoOwnedCard[]) {
   const totalCards = cards.reduce((sum, oc) => sum + oc.quantity, 0);
-  const totalValue = cards.reduce(
-    (sum, oc) => sum + getUnitPrice(oc) * oc.quantity,
-    0
-  );
   const uniqueSets = new Set(cards.map((oc) => oc.card.setName).filter(Boolean)).size;
 
-  return { totalCards, totalValue, uniqueSets };
+  return { totalCards, uniqueSets };
 }

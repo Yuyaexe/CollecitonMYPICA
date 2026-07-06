@@ -54,6 +54,7 @@ export function YugiohPasscodeProvider({
     queryFn: () => fetchPasscodeBatch(cards),
     enabled: yugiohIds.length > 0,
     staleTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
   });
 
   const map = useMemo(

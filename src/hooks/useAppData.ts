@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useDemoStore } from "@/lib/demo/store";
@@ -60,11 +60,26 @@ export function useAppData() {
     queryKey: ["app-state"],
     queryFn: fetchAppState,
     enabled: isSupabaseMode,
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
+  const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["app-state"] });
+    if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
+    invalidateTimerRef.current = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["app-state"] });
+    }, 400);
   }, [queryClient]);
+
+  useEffect(
+    () => () => {
+      if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
+    },
+    []
+  );
 
   const refreshAppState = useCallback(async () => {
     await queryClient.refetchQueries({ queryKey: ["app-state"] });
@@ -294,23 +309,36 @@ export function useAppData() {
     mutationFn: async ({
       id,
       updates,
+      silent,
     }: {
       id: string;
       updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> };
+      silent?: boolean;
     }) => {
       if (!isSupabaseMode) {
         useDemoStore.getState().updateOwnedCard(id, updates);
         return;
       }
-      const res = await fetch("/api/app/owned-cards", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, updates }),
-      });
-      if (!res.ok) throw new Error("Failed to update card");
+      try {
+        const res = await fetch("/api/app/owned-cards", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, updates }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(body?.error ?? "Failed to update card");
+        }
+      } catch (error) {
+        if (silent) {
+          console.warn("[updateOwnedCard] silent update failed", id, error);
+          return;
+        }
+        throw error;
+      }
     },
-    onMutate: async ({ id, updates }) => {
-      if (!isSupabaseMode) return;
+    onMutate: async ({ id, updates, silent }) => {
+      if (!isSupabaseMode) return { previous: undefined, silent };
       await queryClient.cancelQueries({ queryKey: ["app-state"] });
       const previous = queryClient.getQueryData<AppState>(["app-state"]);
       if (previous) {
@@ -327,16 +355,69 @@ export function useAppData() {
           }),
         });
       }
+      return { previous, silent };
+    },
+    onError: (_err, variables, context) => {
+      if (variables.silent) return;
+      if (context?.previous) {
+        queryClient.setQueryData(["app-state"], context.previous);
+      }
+    },
+    onSettled: (_data, _error, variables) => {
+      if (isSupabaseMode && !variables.silent) {
+        queryClient.invalidateQueries({ queryKey: ["app-state"] });
+      }
+    },
+  });
+
+  const batchRepairCardsMutation = useMutation({
+    mutationFn: async (
+      repairs: Array<{ id: string; card: Partial<DemoOwnedCard["card"]> }>
+    ) => {
+      if (repairs.length === 0) return;
+      if (!isSupabaseMode) {
+        useDemoStore.setState((state) => ({
+          ownedCards: state.ownedCards.map((oc) => {
+            const repair = repairs.find((entry) => entry.id === oc.id);
+            if (!repair) return oc;
+            return { ...oc, card: { ...oc.card, ...repair.card } };
+          }),
+        }));
+        return;
+      }
+      await Promise.allSettled(
+        repairs.map(async ({ id, card }) => {
+          const res = await fetch("/api/app/owned-cards", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, updates: { card } }),
+          });
+          if (!res.ok) {
+            console.warn("[batchRepairOwnedCards] repair failed", id);
+          }
+        })
+      );
+    },
+    onMutate: async (repairs) => {
+      if (!isSupabaseMode || repairs.length === 0) return { previous: undefined };
+      await queryClient.cancelQueries({ queryKey: ["app-state"] });
+      const previous = queryClient.getQueryData<AppState>(["app-state"]);
+      if (previous) {
+        const repairById = new Map(repairs.map((entry) => [entry.id, entry.card]));
+        queryClient.setQueryData<AppState>(["app-state"], {
+          ...previous,
+          ownedCards: previous.ownedCards.map((oc) => {
+            const cardUpdates = repairById.get(oc.id);
+            if (!cardUpdates) return oc;
+            return { ...oc, card: { ...oc.card, ...cardUpdates } };
+          }),
+        });
+      }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["app-state"], context.previous);
-      }
-    },
-    onSettled: () => {
-      if (isSupabaseMode) {
-        queryClient.invalidateQueries({ queryKey: ["app-state"] });
       }
     },
   });
@@ -462,8 +543,19 @@ export function useAppData() {
     ) => addCardMutation.mutateAsync({ result, gameId, gameSlug, gameName }),
     updateOwnedCard: (
       id: string,
-      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> }
-    ) => updateCardMutation.mutateAsync({ id, updates }),
+      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> },
+      options?: { silent?: boolean }
+    ) => {
+      const silent = options?.silent ?? false;
+      if (silent) {
+        void updateCardMutation.mutateAsync({ id, updates, silent: true });
+        return Promise.resolve();
+      }
+      return updateCardMutation.mutateAsync({ id, updates, silent: false });
+    },
+    batchRepairOwnedCards: (
+      repairs: Array<{ id: string; card: Partial<DemoOwnedCard["card"]> }>
+    ) => batchRepairCardsMutation.mutateAsync(repairs),
     deleteOwnedCards: (ids: string[]) => deleteCardsMutation.mutateAsync(ids),
     importRows: (
       rows: Array<{

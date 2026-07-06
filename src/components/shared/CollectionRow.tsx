@@ -5,22 +5,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
 import { CardHoverPreview } from "@/components/shared/CardHoverPreview";
-import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardHoverPreviewUrl, resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
-import type { Currency } from "@/types/tcg";
 
 interface CollectionRowProps {
   item: DemoOwnedCard;
   selected: boolean;
   focused: boolean;
-  marketPrice?: number | null;
-  cardTraderImage?: string | null;
   onClick: (
     item: DemoOwnedCard,
     modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }
@@ -30,7 +26,6 @@ interface CollectionRowProps {
   onCheckboxChange: (id: string, shiftKey: boolean) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onRemove?: (id: string) => void;
-  currency: Currency;
   peerPresence?: { color: string; name: string };
   className?: string;
   style?: React.CSSProperties;
@@ -40,23 +35,19 @@ export const CollectionRow = memo(function CollectionRow({
   item,
   selected,
   focused,
-  marketPrice: marketPriceProp,
-  cardTraderImage,
   onClick,
   onNameClick,
   onMiddleClick,
   onCheckboxChange,
   onQuantityChange,
   onRemove,
-  currency,
   peerPresence,
   className,
   style,
 }: CollectionRowProps) {
-  const marketPrice = marketPriceProp ?? item.card.marketPrice;
-  const ygoPasscode = useYugiohPasscodeForDisplay(item.card, item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode, cardTraderImage);
-  const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode, cardTraderImage);
+  const ygoPasscode = useYugiohPasscodeFromContext(item.id);
+  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
+  const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode);
 
   const shiftKeyRef = useRef(false);
 
@@ -177,10 +168,6 @@ export const CollectionRow = memo(function CollectionRow({
 
       <div className="hidden w-10 text-center text-xs text-muted-foreground sm:block">
         {item.language}
-      </div>
-
-      <div className="hidden w-24 shrink-0 text-right lg:block">
-        <PriceBadge price={marketPrice} currency={currency} className="justify-end" />
       </div>
 
       {item.isFoil && (

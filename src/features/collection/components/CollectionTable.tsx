@@ -15,16 +15,13 @@ import { useCollectionUIStore } from "@/features/collection/stores/collection-ui
 import { useDragReorder, dragHandleProps } from "@/hooks/useDragReorder";
 import { useAppData } from "@/hooks/useAppData";
 import { usePresenceContext } from "@/features/collection/context/presence-context";
+import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { cn } from "@/lib/utils";
-import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
 
 const ROW_HEIGHT = 56;
 
-interface CollectionTableProps {
-  data: CollectionViewData;
-}
-
-export function CollectionTable({ data }: CollectionTableProps) {
+export function CollectionTable() {
+  const data = useCollectionView();
   const parentRef = useRef<HTMLDivElement>(null);
   const { deleteOwnedCards } = useAppData();
 
@@ -36,7 +33,7 @@ export function CollectionTable({ data }: CollectionTableProps) {
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
 
-  const { filtered, allIds, profileCurrency, resolvePrice, resolveCardTraderImage, openCardTraderLink, handleQuantityChange, handleRemove, reorderCard } =
+  const { filtered, allIds, openCardTraderLink, handleQuantityChange, handleRemove, reorderCard } =
     data;
 
   const dragHandlers = useDragReorder(reorderCard);
@@ -104,7 +101,6 @@ export function CollectionTable({ data }: CollectionTableProps) {
         <span className="w-[104px] shrink-0 text-center">Qty</span>
         <span className="hidden w-12 text-center md:block">Cond</span>
         <span className="hidden w-10 text-center sm:block">Lang</span>
-        <span className="hidden w-24 text-right lg:block">Market</span>
       </div>
 
       <div ref={parentRef} className="flex-1 overflow-auto">
@@ -133,8 +129,6 @@ export function CollectionTable({ data }: CollectionTableProps) {
                       item={item}
                       selected={selectedIds.has(item.id)}
                       focused={focusedRowIndex === virtualRow.index}
-                      marketPrice={resolvePrice(item)}
-                      cardTraderImage={resolveCardTraderImage(item)}
                       onClick={(row, modifiers) =>
                         selectRow(row.id, modifiers, allIds, virtualRow.index)
                       }
@@ -145,7 +139,6 @@ export function CollectionTable({ data }: CollectionTableProps) {
                       }
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemove}
-                      currency={profileCurrency}
                       peerPresence={
                         peerByCardId.has(item.id)
                           ? {

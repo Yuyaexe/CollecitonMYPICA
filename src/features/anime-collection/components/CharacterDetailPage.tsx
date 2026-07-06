@@ -21,17 +21,11 @@ import {
   animeCharacterCardToOwned,
   ownedUpdatesToAnimeCharacter,
 } from "@/features/anime-collection/utils/character-card-inspect";
-import { useAnimeCardTraderCatalogSync } from "@/features/anime-collection/hooks/useAnimeCardTraderCatalogSync";
 import { AnimeYugiohPasscodeSync } from "@/features/anime-collection/hooks/useAnimeYugiohPasscodeSync";
 import { YugiohPasscodeProvider } from "@/features/collection/context/yugioh-passcode-context";
-import {
-  useCardTraderPrices,
-  resolveDisplayPrice,
-  resolveCardTraderImage,
-} from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
 import { useDemoStore } from "@/lib/demo/store";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export interface CharacterDetailPageProps {
@@ -72,27 +66,9 @@ export function CharacterDetailPage({
     [character, animeCharacterCards]
   );
 
-  const ownedForPrices = useMemo(
+  const ownedForPasscodes = useMemo(
     () => characterCards.map(animeCharacterCardToOwned),
     [characterCards]
-  );
-
-  const { data: cardTraderPrices } = useCardTraderPrices(
-    ownedForPrices,
-    profile.currency,
-    characterCards.length > 0
-  );
-
-  const resolvePrice = useCallback(
-    (item: (typeof characterCards)[number]) =>
-      resolveDisplayPrice(animeCharacterCardToOwned(item), cardTraderPrices, profile.currency),
-    [cardTraderPrices, profile.currency]
-  );
-
-  const resolveImage = useCallback(
-    (item: (typeof characterCards)[number]) =>
-      resolveCardTraderImage(animeCharacterCardToOwned(item), cardTraderPrices),
-    [cardTraderPrices]
   );
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -111,8 +87,6 @@ export function CharacterDetailPage({
     () => characterCards.find((c) => c.id === inspectCardId) ?? null,
     [characterCards, inspectCardId]
   );
-
-  useAnimeCardTraderCatalogSync(characterCards, cardTraderPrices, updateAnimeCharacterCard);
 
   if (!series || !character || character.seriesId !== series.id) {
     return (
@@ -152,7 +126,7 @@ export function CharacterDetailPage({
   };
 
   return (
-    <YugiohPasscodeProvider cards={ownedForPrices}>
+    <YugiohPasscodeProvider cards={ownedForPasscodes}>
       <AnimeYugiohPasscodeSync cards={characterCards} onUpdate={updateAnimeCharacterCard}>
     <>
       <Link
@@ -241,7 +215,6 @@ export function CharacterDetailPage({
         ) : (
           <CharacterCardsView
             cards={characterCards}
-            currency={profile.currency}
             onRemove={handleRemoveCard}
             onQuantityChange={updateAnimeCharacterCardQuantity}
             onOpenCard={(item) => setInspectCardId(item.id)}
@@ -251,8 +224,6 @@ export function CharacterDetailPage({
             onReorderToIndex={(draggedId, targetIndex) =>
               reorderAnimeCharacterCardToIndex(character.id, draggedId, targetIndex)
             }
-            resolvePrice={resolvePrice}
-            resolveImage={resolveImage}
           />
         )}
       </div>

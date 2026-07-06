@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { getCardTraderPriceForProfile, isCardTraderConfigured } from "@/lib/cardtrader";
-import { digimonCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
 import { toDemoCard, toDemoCollection, toDemoOwnedCard, toDemoProfile, marketPriceMetadata } from "@/lib/data/mappers";
 import type { DemoCollection, DemoOwnedCard, DemoProfile } from "@/lib/demo/types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -347,44 +345,14 @@ export async function inviteToCollection(
 }
 
 async function resolveStoredMarketPrice(
-  gameSlug: string,
+  _gameSlug: string,
   result: CardSearchResult,
-  currency: Currency
+  _currency: Currency
 ) {
-  if (!isCardTraderConfigured()) {
-    return {
-      price: result.price ?? null,
-      metadata: marketPriceMetadata(result.price),
-    };
-  }
-
-  try {
-    const cardTrader = await getCardTraderPriceForProfile(
-      {
-        gameSlug,
-        name: result.name,
-        setName: result.setName,
-        setCode: result.setCode,
-        collectorNumber: result.collectorNumber,
-        rarity: result.rarity,
-        ...(gameSlug === "digimon" ? digimonCardPriceFields(result) : {}),
-      },
-      currency
-    );
-
-    const price = cardTrader?.price ?? result.price ?? null;
-    return {
-      price,
-      metadata: marketPriceMetadata(price, {
-        priceSource: cardTrader ? "cardtrader" : undefined,
-      }),
-    };
-  } catch {
-    return {
-      price: result.price ?? null,
-      metadata: marketPriceMetadata(result.price),
-    };
-  }
+  return {
+    price: result.price ?? null,
+    metadata: marketPriceMetadata(result.price),
+  };
 }
 
 async function findOrCreateSupabaseCard(
@@ -511,30 +479,37 @@ export async function updateSupabaseOwnedCard(
     };
   }
 ) {
-  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (updates.quantity !== undefined) payload.quantity = updates.quantity;
-  if (updates.condition !== undefined) payload.condition = updates.condition;
-  if (updates.language !== undefined) payload.language = updates.language;
-  if (updates.isFoil !== undefined) payload.is_foil = updates.isFoil;
-  if (updates.purchasePrice !== undefined) payload.purchase_price = updates.purchasePrice;
-  if (updates.notes !== undefined) payload.notes = updates.notes;
-
-  const { data: row, error } = await supabase
+  const { data: ownedRow, error: ownedFetchError } = await supabase
     .from("owned_cards")
-    .update(payload)
+    .select("id, card_id")
     .eq("id", id)
-    .select("card_id")
-    .single();
-  if (error) throw error;
+    .maybeSingle();
+  if (ownedFetchError) throw ownedFetchError;
+  if (!ownedRow) throw new Error("Owned card not found");
 
-  if (updates.card?.marketPrice !== undefined && row?.card_id) {
-    await supabase
+  const ownedPayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.quantity !== undefined) ownedPayload.quantity = updates.quantity;
+  if (updates.condition !== undefined) ownedPayload.condition = updates.condition;
+  if (updates.language !== undefined) ownedPayload.language = updates.language;
+  if (updates.isFoil !== undefined) ownedPayload.is_foil = updates.isFoil;
+  if (updates.purchasePrice !== undefined) ownedPayload.purchase_price = updates.purchasePrice;
+  if (updates.notes !== undefined) ownedPayload.notes = updates.notes;
+
+  const hasOwnedFieldUpdates = Object.keys(ownedPayload).length > 1;
+  if (hasOwnedFieldUpdates || updates.card) {
+    const { error } = await supabase.from("owned_cards").update(ownedPayload).eq("id", id);
+    if (error) throw error;
+  }
+
+  if (updates.card?.marketPrice !== undefined) {
+    const { error } = await supabase
       .from("cards")
       .update({
         metadata: marketPriceMetadata(updates.card.marketPrice),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", row.card_id);
+      .eq("id", ownedRow.card_id);
+    if (error) throw error;
   }
 
   const cardPayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -545,10 +520,46 @@ export async function updateSupabaseOwnedCard(
     cardPayload.collector_number = updates.card.collectorNumber;
   }
   if (updates.card?.imageUrl !== undefined) cardPayload.image_url = updates.card.imageUrl;
-  if (updates.card?.externalId !== undefined) cardPayload.external_id = updates.card.externalId;
-  if (Object.keys(cardPayload).length > 1 && row?.card_id) {
-    await supabase.from("cards").update(cardPayload).eq("id", row.card_id);
+
+  if (!updates.card || Object.keys(cardPayload).length <= 1) return;
+
+  let targetCardId = ownedRow.card_id;
+
+  if (updates.card.externalId !== undefined) {
+    const { data: currentCard, error: currentCardError } = await supabase
+      .from("cards")
+      .select("game_id")
+      .eq("id", targetCardId)
+      .maybeSingle();
+    if (currentCardError) throw currentCardError;
+
+    if (currentCard) {
+      const { data: existingCard, error: existingError } = await supabase
+        .from("cards")
+        .select("id")
+        .eq("game_id", currentCard.game_id)
+        .eq("external_id", updates.card.externalId)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      if (existingCard && existingCard.id !== targetCardId) {
+        targetCardId = existingCard.id;
+        const { error: relinkError } = await supabase
+          .from("owned_cards")
+          .update({ card_id: existingCard.id, updated_at: new Date().toISOString() })
+          .eq("id", id);
+        if (relinkError) throw relinkError;
+      } else {
+        cardPayload.external_id = updates.card.externalId;
+      }
+    }
   }
+
+  const { error: cardUpdateError } = await supabase
+    .from("cards")
+    .update(cardPayload)
+    .eq("id", targetCardId);
+  if (cardUpdateError) throw cardUpdateError;
 }
 
 export async function deleteSupabaseOwnedCards(supabase: SupabaseClient, ids: string[]) {

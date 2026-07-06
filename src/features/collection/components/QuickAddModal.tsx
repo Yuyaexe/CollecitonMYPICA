@@ -13,15 +13,15 @@ import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_FULL } from "@/lib/ui/mobile-dialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAppData } from "@/hooks/useAppData";
-import { isQuickAddSupported, isApiSupported } from "@/features/catalog/services/card-api";
+import { isQuickAddSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
-import { resolveStoredBlueprintId } from "@/lib/cardtrader";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
 import { resolveYugiohPasscode } from "@/lib/yugioh/passcode";
 import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 import {
   applyVariant,
   getSearchResultVariants,
+  mergeYugiohSearchResults,
   type CardPrintVariant,
 } from "@/features/catalog/services/card-api/variants";
 import { digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
@@ -31,9 +31,8 @@ import {
   SEARCH_LOCALE_OPTIONS,
   writeSearchLocale,
 } from "@/features/catalog/utils/search-locale";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useCardTraderVariantPrices } from "@/features/market/hooks/useCardTraderPrices";
 import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
 import {
   EMPTY_YGO_ADVANCED_FILTERS,
@@ -53,7 +52,6 @@ interface QuickAddModalProps {
   closeOnAdd?: boolean;
 }
 
-const MAX_VARIANT_PRICE_FETCH = 16;
 const SEARCH_DEBOUNCE_MS = 120;
 
 const GAME_SELECT_OPTIONS = QUICK_ADD_GAMES.map((g) => ({
@@ -220,36 +218,29 @@ export function QuickAddModal({
     searchLoading && hasSearchQuery && searchResults.length === 0;
   const showRefetchIndicator = searchFetching && !showInitialLoader && hasSearchQuery;
 
-  const variants = useMemo(
-    () => (pendingCard ? getSearchResultVariants(pendingCard, game.slug) : []),
-    [pendingCard, game.slug]
-  );
+  const { data: ygoEnrich } = useQuery({
+    queryKey: ["ygo-enrich", pendingCard?.name],
+    queryFn: () => fetchYugiohCardByName(pendingCard!.name),
+    enabled: open && !!pendingCard && game.slug === "yugioh",
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const variantInputs = useMemo(
-    () =>
-      variants.slice(0, MAX_VARIANT_PRICE_FETCH).map((v) => ({
-        key: v.key,
-        setName: v.setName,
-        setCode: v.setCode,
-        collectorNumber: v.collectorNumber,
-        rarity: v.rarity,
-        variantLabel: v.variantLabel,
-        tcgPlayerId: v.tcgPlayerId,
-        cardTraderRarityHint: v.cardTraderRarityHint,
-        blueprintId: resolveStoredBlueprintId(
-          v.externalId,
-          v.imageUrl,
-          undefined,
-          game.slug
-        ),
-      })),
-    [variants, game.slug]
-  );
-
-  const rarityOptions = useMemo(
-    () => [...new Set(variants.map((v) => v.rarity).filter(Boolean))] as string[],
-    [variants]
-  );
+  const variants = useMemo(() => {
+    if (!pendingCard) return [];
+    const siblings =
+      searchResults.filter(
+        (r) =>
+          r.externalId !== pendingCard.externalId &&
+          r.name === pendingCard.name
+      ) ?? [];
+    const merged =
+      game.slug === "yugioh" && siblings.length > 0
+        ? mergeYugiohSearchResults(pendingCard, siblings)
+        : pendingCard;
+    const related =
+      game.slug === "yugioh" ? siblings : ygoEnrich ? [ygoEnrich] : [];
+    return getSearchResultVariants(merged, game.slug, related);
+  }, [pendingCard, game.slug, ygoEnrich, searchResults]);
 
   const filteredVariants = useMemo(
     () =>
@@ -268,17 +259,9 @@ export function QuickAddModal({
     setPreviewKey(first?.key ?? null);
   }, [pendingCard, filteredVariants, variants]);
 
-  const usesCatalogImages = isApiSupported(game.slug);
-
-  const {
-    data: variantPrices,
-    isFetching: variantPricesFetching,
-  } = useCardTraderVariantPrices(
-    pendingCard?.name ?? "",
-    game.slug,
-    variantInputs,
-    profile.currency,
-    open && !!pendingCard
+  const rarityOptions = useMemo(
+    () => [...new Set(variants.map((v) => v.rarity).filter(Boolean))] as string[],
+    [variants]
   );
 
   const previewVariant = useMemo(() => {
@@ -288,15 +271,8 @@ export function QuickAddModal({
 
   const previewImage = useMemo(() => {
     if (!pendingCard || !previewVariant) return pendingCard?.imageUrl ?? null;
-    if (usesCatalogImages) {
-      return previewVariant.imageUrl ?? pendingCard.imageUrl;
-    }
-    return (
-      variantPrices?.get(previewVariant.key)?.imageUrl ??
-      previewVariant.imageUrl ??
-      pendingCard.imageUrl
-    );
-  }, [pendingCard, previewVariant, variantPrices, usesCatalogImages]);
+    return previewVariant.imageUrl ?? pendingCard.imageUrl;
+  }, [pendingCard, previewVariant]);
 
   const handleAdd = async (result: CardSearchResult) => {
     let toAdd = result;
@@ -364,20 +340,20 @@ export function QuickAddModal({
             (game.slug === "digimon" && digimonNamesMatch(r.name, result.name)))
       ) ?? [];
 
-    const cardForVariants =
-      siblings.length > 0
-        ? {
-            ...result,
-            metadata: {
-              ...result.metadata,
-              ...(game.slug === "digimon"
-                ? { digimonPrints: [result, ...siblings] }
-                : { cardtraderPrints: [result, ...siblings] }),
-            },
-          }
-        : result;
+    let cardForVariants = result;
+    let relatedPrints: CardSearchResult[] = [];
 
-    const prints = getSearchResultVariants(cardForVariants, game.slug);
+    if (game.slug === "digimon" && siblings.length > 0) {
+      cardForVariants = {
+        ...result,
+        metadata: { ...result.metadata, digimonPrints: [result, ...siblings] },
+      };
+    } else if (game.slug === "yugioh" && siblings.length > 0) {
+      cardForVariants = mergeYugiohSearchResults(result, siblings);
+      relatedPrints = siblings;
+    }
+
+    const prints = getSearchResultVariants(cardForVariants, game.slug, relatedPrints);
     if (prints.length <= 1) {
       void handleAdd(applyVariant(cardForVariants, prints[0]));
       return;
@@ -388,37 +364,11 @@ export function QuickAddModal({
 
   const handleVariantPick = (variant: CardPrintVariant) => {
     if (!pendingCard) return;
-    const cardTraderPrice = variantPrices?.get(variant.key)?.price;
     const result = applyVariant(pendingCard, variant);
     void handleAdd({
       ...result,
-      price: cardTraderPrice ?? result.price ?? null,
-      imageUrl: usesCatalogImages
-        ? result.imageUrl
-        : variantPrices?.get(variant.key)?.imageUrl ?? result.imageUrl,
+      imageUrl: result.imageUrl,
     });
-  };
-
-  const renderVariantPrice = (variantKey: string) => {
-    const quote = variantPrices?.get(variantKey);
-    if (quote?.price != null) {
-      return (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {formatCurrency(quote.price, profile.currency)}
-        </span>
-      );
-    }
-    if (variantPricesFetching && !variantPrices?.has(variantKey)) {
-      return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
-    }
-    if (variantPrices && variantPrices.has(variantKey)) {
-      return (
-        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          NIL
-        </span>
-      );
-    }
-    return null;
   };
 
   return (
@@ -551,7 +501,6 @@ export function QuickAddModal({
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          {renderVariantPrice(variant.key)}
                           <Plus className="h-4 w-4 text-primary" />
                         </div>
                       </button>

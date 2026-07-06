@@ -85,7 +85,12 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     const parsed = parseDecklist(deckText, preferred);
     const entries = aggregateDeckEntries(parsed.entries);
     const inferredGame = inferDecklistGame(entries, { ...parsed, entries });
-    return { ...parsed, entries, inferredGame };
+    const nonCommentLines = deckText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("//")).length;
+    const unparsedLines = Math.max(0, nonCommentLines - entries.length);
+    return { ...parsed, entries, inferredGame, unparsedLines };
   }, [deckText, gamePreference]);
 
   const resetState = useCallback(() => {
@@ -276,7 +281,9 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
               <div className="rounded-lg border bg-muted/30 p-3 text-sm">
                 <div className="mb-2 flex flex-wrap items-center gap-2 font-medium">
                   <FileText className="h-4 w-4" />
-                  {parsedDeck.entries.length} cartas · {FORMAT_LABELS[parsedDeck.format] ?? parsedDeck.format}
+                  {parsedDeck.entries.reduce((sum, entry) => sum + entry.quantity, 0)} cartas ·{" "}
+                  {parsedDeck.entries.length} prints ·{" "}
+                  {FORMAT_LABELS[parsedDeck.format] ?? parsedDeck.format}
                   <span className="text-xs font-normal text-muted-foreground">
                     ·{" "}
                     {GAME_OPTIONS.find(
@@ -296,6 +303,16 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
                     {entry.setCode ? ` · ${entry.setCode}` : ""}
                   </p>
                 ))}
+                {parsedDeck.entries.length > 5 && (
+                  <p className="text-xs text-muted-foreground">
+                    … e mais {parsedDeck.entries.length - 5} prints
+                  </p>
+                )}
+                {parsedDeck.unparsedLines > 0 && (
+                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                    {parsedDeck.unparsedLines} linha(s) não reconhecidas — confira o formato DigimonCard.io
+                  </p>
+                )}
               </div>
             )}
 

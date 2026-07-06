@@ -3,6 +3,7 @@ import { stripNestedPrintMetadata } from "@/features/catalog/services/serialize-
 import {
   buildDigimonCollectorNumber,
   digimonVariantKey,
+  normalizeDigimonDeckCardId,
   parseDigimonVariant,
   resolveDigimonCardTraderRarity,
   splitDigimonCardId,
@@ -10,7 +11,7 @@ import {
 
 const API = "https://digimoncard.io/api-public";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
-const DIGIMON_CARD_ID = /^[A-Za-z][A-Za-z0-9]*-\d+\w*$/i;
+const DIGIMON_CARD_ID = /^[A-Za-z][A-Za-z0-9]*-\d+(?:[-_][A-Za-z0-9]+)*$/i;
 
 interface DigimonCard {
   name: string;
@@ -145,9 +146,12 @@ function pickDigimonPrint(
     if (byTcg) return byTcg;
   }
 
+  const { lookupId } = normalizeDigimonDeckCardId(externalId);
   const normalized = externalId.toLowerCase();
   const byCollector = prints.find(
-    (print) => print.collectorNumber?.toLowerCase() === normalized
+    (print) =>
+      print.collectorNumber?.toLowerCase() === normalized ||
+      print.collectorNumber?.toUpperCase() === lookupId
   );
   if (byCollector) return byCollector;
 
@@ -190,7 +194,8 @@ export const digimonAdapter: CardApiAdapter = {
     };
 
     if (DIGIMON_CARD_ID.test(trimmed)) {
-      const { baseId } = splitDigimonCardId(trimmed);
+      const { lookupId } = normalizeDigimonDeckCardId(trimmed);
+      const { baseId } = splitDigimonCardId(lookupId);
       addCards(await fetchDigimonCards(`/search?card=${encodeURIComponent(baseId)}`));
       return groupDigimonSearchResults(collected).slice(0, DIGIMON_RESULT_CAP);
     }
@@ -204,11 +209,12 @@ export const digimonAdapter: CardApiAdapter = {
   },
 
   async getById(externalId: string): Promise<CardDetail | null> {
-    const lookupId = DIGIMON_CARD_ID.test(externalId)
-      ? splitDigimonCardId(externalId).baseId
-      : externalId;
+    const { lookupId } = normalizeDigimonDeckCardId(externalId);
+    const lookupCard = DIGIMON_CARD_ID.test(lookupId)
+      ? splitDigimonCardId(lookupId).baseId
+      : lookupId;
 
-    const cards = await fetchDigimonCards(`/search?card=${encodeURIComponent(lookupId)}`);
+    const cards = await fetchDigimonCards(`/search?card=${encodeURIComponent(lookupCard)}`);
     const valid = cards.filter(isDigimonGameCard);
     if (valid.length === 0) return null;
 

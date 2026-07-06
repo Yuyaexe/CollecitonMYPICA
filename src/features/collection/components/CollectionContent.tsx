@@ -1,18 +1,47 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Layers } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CollectionTable } from "@/features/collection/components/CollectionTable";
-import { CollectionGridView } from "@/features/collection/components/CollectionGridView";
-import { CollectionCompactView } from "@/features/collection/components/CollectionCompactView";
-import { CollectionBinderView } from "@/features/collection/components/CollectionBinderView";
-import { useCollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
+import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
+const CollectionTable = dynamic(
+  () =>
+    import("@/features/collection/components/CollectionTable").then(
+      (m) => m.CollectionTable
+    ),
+  { ssr: false }
+);
+
+const CollectionGridView = dynamic(
+  () =>
+    import("@/features/collection/components/CollectionGridView").then(
+      (m) => m.CollectionGridView
+    ),
+  { ssr: false }
+);
+
+const CollectionCompactView = dynamic(
+  () =>
+    import("@/features/collection/components/CollectionCompactView").then(
+      (m) => m.CollectionCompactView
+    ),
+  { ssr: false }
+);
+
+const CollectionBinderView = dynamic(
+  () =>
+    import("@/features/collection/components/CollectionBinderView").then(
+      (m) => m.CollectionBinderView
+    ),
+  { ssr: false }
+);
+
 export function CollectionContent() {
-  const data = useCollectionViewData();
+  const data = useCollectionView();
   const viewMode = useCollectionUIStore((s) => s.viewMode);
   const filters = useCollectionUIStore((s) => s.filters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -50,9 +79,7 @@ export function CollectionContent() {
         filters.language ||
         filters.condition ||
         filters.isFoil !== null ||
-        filters.minQuantity !== null ||
-        filters.priceMin !== null ||
-        filters.priceMax !== null);
+        filters.minQuantity !== null);
 
     if (hasActiveFilters) {
       return (
@@ -79,12 +106,12 @@ export function CollectionContent() {
 
   switch (effectiveView) {
     case "grid":
-      return <CollectionGridView data={data} />;
+      return <CollectionGridView />;
     case "compact":
-      return <CollectionCompactView data={data} />;
+      return <CollectionCompactView />;
     case "binder":
-      return <CollectionBinderView data={data} />;
+      return <CollectionBinderView />;
     default:
-      return <CollectionTable data={data} />;
+      return <CollectionTable />;
   }
 }

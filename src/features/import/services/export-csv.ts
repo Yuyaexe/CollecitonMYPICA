@@ -10,7 +10,6 @@ export function exportCollectionCsv(cards: DemoOwnedCard[], collectionName: stri
     "Condition",
     "Language",
     "Foil",
-    "Market Price",
     "Purchase Price",
     "Notes",
   ];
@@ -24,7 +23,6 @@ export function exportCollectionCsv(cards: DemoOwnedCard[], collectionName: stri
     oc.condition,
     oc.language,
     oc.isFoil ? "Yes" : "No",
-    oc.card.marketPrice?.toFixed(2) ?? "",
     oc.purchasePrice?.toFixed(2) ?? "",
     oc.notes ?? "",
   ]);

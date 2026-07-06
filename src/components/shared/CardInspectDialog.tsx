@@ -12,33 +12,22 @@ import { Label } from "@/components/ui/label";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_SHEET } from "@/lib/ui/mobile-dialog";
 import { CardImage } from "@/components/shared/CardImage";
-import { PriceBadge } from "@/components/shared/PriceBadge";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
-import { useCardTraderVariantPrices, useCardTraderOwnedQuote } from "@/features/market/hooks/useCardTraderPrices";
 import { isApiSupported } from "@/features/catalog/services/card-api";
-import {
-  findVariantForSelection,
-  getSearchResultVariants,
-  variantMatchesOwnedCard,
-  buildVariantPriceBlueprintFields,
-  type CardPrintVariant,
-} from "@/features/catalog/services/card-api/variants";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { CARD_CONDITIONS, CARD_LANGUAGES, CONDITION_LABELS } from "@/types/tcg";
 import type { Currency } from "@/types/tcg";
 import type { DemoOwnedCard } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
-import { formatCurrency, cn } from "@/lib/utils";
-import { resolveCardDisplayImage, isCardTraderHostedImage } from "@/lib/cards/preview-image";
+import { cn } from "@/lib/utils";
+import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
-import { resolveStoredBlueprintId, resolveCardTraderProductUrl } from "@/lib/cardtrader";
-import { normalizeCatalogPrice } from "@/features/market/utils/display-price";
+import { buildYgoImageUrl } from "@/lib/yugioh/urls";
+import { resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { fetchYugiohOwnedCardDetail } from "@/lib/yugioh/lookup";
-import { isCardTraderBlueprintExternalId } from "@/lib/yugioh/passcode";
-import { buildYgoImageUrl, pickYgoImageSizeForRarity } from "@/lib/yugioh/urls";
 
 export type CardInspectTab = "details" | "marketplace";
 
@@ -99,7 +88,7 @@ export function CardInspectDialog({
   open,
   tab = "details",
   onOpenChange,
-  currency,
+  currency: _currency,
   onUpdate,
   onDelete,
 }: CardInspectDialogProps) {
@@ -116,6 +105,21 @@ export function CardInspectDialog({
   });
 
   const cardDetail = cardDetailData?.result ?? null;
+
+  const cardTraderProductUrl = useMemo(() => {
+    if (!card) return null;
+    return resolveCardTraderProductUrl({
+      name: card.card.name,
+      gameSlug: card.card.gameSlug,
+      externalId: card.card.externalId,
+      cardTraderBlueprintId: card.card.cardTraderBlueprintId,
+      setName: card.card.setName,
+      setCode: card.card.setCode,
+      rarity: card.card.rarity,
+      imageUrl: card.card.imageUrl,
+    });
+  }, [card]);
+
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? {
       name: "",
@@ -134,108 +138,6 @@ export function CardInspectDialog({
     ygoPasscode ?? null
   );
 
-  const { data: ownedCardQuote, isFetching: ownedQuoteFetching } = useCardTraderOwnedQuote(
-    card,
-    currency,
-    open && !!card
-  );
-
-  const printVariants = useMemo(() => {
-    if (!cardDetail || !card) return [];
-    const relatedPrints = cardDetailData?.relatedPrints ?? [];
-    return getSearchResultVariants(cardDetail, card.card.gameSlug, relatedPrints);
-  }, [cardDetail, card, cardDetailData?.relatedPrints]);
-
-  const variantInputs = useMemo(
-    () =>
-      printVariants.map((v) => {
-        const blueprintFields = buildVariantPriceBlueprintFields(
-          v,
-          card!.card.gameSlug
-        );
-        return {
-          key: v.key,
-          setName: v.setName,
-          setCode: v.setCode,
-          collectorNumber: v.collectorNumber,
-          rarity: v.rarity,
-          variantLabel: v.variantLabel,
-          tcgPlayerId: v.tcgPlayerId,
-          cardTraderRarityHint: v.cardTraderRarityHint ?? v.rarity,
-          imageUrl: v.imageUrl,
-          ...blueprintFields,
-        };
-      }),
-    [printVariants, card]
-  );
-
-  const { data: variantPrices, isFetching: pricesFetching } = useCardTraderVariantPrices(
-    card?.card.name ?? "",
-    card?.card.gameSlug ?? "yugioh",
-    variantInputs,
-    currency,
-    open && printVariants.length > 0
-  );
-
-  const activeVariant = useMemo(() => {
-    if (!card || printVariants.length === 0) return undefined;
-    return findVariantForSelection(
-      printVariants,
-      card.card.rarity ?? "",
-      card.card.setCode,
-      card.card.setName,
-      card.card.collectorNumber,
-      card.card.gameSlug
-    );
-  }, [printVariants, card]);
-
-  const activeQuote = activeVariant ? variantPrices?.get(activeVariant.key) : undefined;
-  const resolvedQuote = activeQuote ?? ownedCardQuote ?? null;
-
-  const cardTraderProductUrl = useMemo(() => {
-    if (resolvedQuote?.url) return resolvedQuote.url;
-    if (!card) return null;
-    const variant = activeVariant;
-    return resolveCardTraderProductUrl({
-      name: card.card.name,
-      gameSlug: card.card.gameSlug,
-      externalId: variant?.externalId ?? card.card.externalId,
-      cardTraderBlueprintId: card.card.cardTraderBlueprintId,
-      setName: variant?.setName ?? card.card.setName,
-      setCode: variant?.setCode ?? card.card.setCode,
-      rarity: variant?.rarity ?? card.card.rarity,
-      imageUrl: variant?.imageUrl ?? card.card.imageUrl,
-    });
-  }, [card, activeVariant, resolvedQuote?.url]);
-
-  useEffect(() => {
-    if (!card || !open || !resolvedQuote?.blueprintId || !activeVariant) return;
-    if (!variantMatchesOwnedCard(activeVariant, card.card, card.card.gameSlug)) return;
-
-    const updates: Partial<DemoOwnedCard["card"]> = {};
-    if (resolvedQuote.blueprintId !== card.card.cardTraderBlueprintId) {
-      updates.cardTraderBlueprintId = resolvedQuote.blueprintId;
-    }
-    if (
-      resolvedQuote.imageUrl &&
-      resolvedQuote.imageUrl !== card.card.imageUrl &&
-      card.card.gameSlug !== "yugioh"
-    ) {
-      updates.imageUrl = resolvedQuote.imageUrl;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      updateOwnedCard(card.id, { card: updates });
-    }
-  }, [
-    card,
-    open,
-    activeVariant,
-    resolvedQuote?.blueprintId,
-    resolvedQuote?.imageUrl,
-    updateOwnedCard,
-  ]);
-
   useEffect(() => {
     if (open && tab === "marketplace") {
       marketplaceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -243,11 +145,6 @@ export function CardInspectDialog({
   }, [open, tab]);
 
   if (!card) return null;
-
-  const displayPrice =
-    resolvedQuote?.price ??
-    normalizeCatalogPrice(card.card.marketPrice, currency);
-  const ygoSecondaryPrice = activeVariant?.price ?? null;
 
   let displayImage: string | null = null;
   if (card.card.gameSlug === "yugioh") {
@@ -268,88 +165,14 @@ export function CardInspectDialog({
     }
   } else {
     displayImage = resolveCardDisplayImage(card.card, {
-      quoteImage: resolvedQuote?.imageUrl,
-      variantImage: activeVariant?.imageUrl,
       detailImage: cardDetail?.imageUrl,
       detailPasscode: ygoPasscode ?? null,
     });
   }
 
   const listings = buildMarketplaceListings(card.card, {
-    cardTraderPrice: displayPrice,
-    cardTraderCurrency: currency,
     cardTraderUrl: cardTraderProductUrl,
-    ygoProDeckPrice: ygoSecondaryPrice,
-    ygoProDeckUrl: activeVariant?.ygoProDeckUrl,
   });
-
-  const handleVariantSelect = (variant: CardPrintVariant) => {
-    const quote = variantPrices?.get(variant.key);
-    const passcode = ygoPasscode ?? null;
-    const keepBlueprintId = isCardTraderBlueprintExternalId(
-      variant.externalId ?? card.card.externalId,
-      variant.imageUrl ?? card.card.imageUrl,
-      card.card.cardTraderBlueprintId
-    );
-    const imageUrl =
-      (quote?.imageUrl && isCardTraderHostedImage(quote.imageUrl)
-        ? quote.imageUrl
-        : null) ??
-      (variant.imageUrl && isCardTraderHostedImage(variant.imageUrl)
-        ? variant.imageUrl
-        : null) ??
-      resolveCardDisplayImage(card.card, {
-        quoteImage: quote?.imageUrl,
-        variantImage: variant.imageUrl,
-        detailPasscode: passcode,
-      }) ??
-      (passcode
-        ? buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(variant.rarity))
-        : null) ??
-      variant.imageUrl ??
-      card.card.imageUrl;
-
-    const blueprintFromVariant = resolveStoredBlueprintId(
-      variant.externalId,
-      variant.imageUrl,
-      card.card.cardTraderBlueprintId,
-      card.card.gameSlug
-    );
-
-    updateOwnedCard(card.id, {
-      card: {
-        rarity: variant.rarity,
-        setName: variant.setName,
-        setCode: variant.setCode,
-        collectorNumber: variant.setCode ?? card.card.collectorNumber,
-        externalId: keepBlueprintId
-          ? (variant.externalId ?? card.card.externalId)
-          : (passcode ?? variant.externalId ?? card.card.externalId),
-        cardTraderBlueprintId: quote?.blueprintId
-          ? String(quote.blueprintId)
-          : blueprintFromVariant
-            ? String(blueprintFromVariant)
-            : card.card.cardTraderBlueprintId,
-        imageUrl,
-        marketPrice: quote?.price ?? variant.price ?? card.card.marketPrice,
-      },
-    });
-  };
-
-  const renderVariantPrice = (variantKey: string) => {
-    const quote = variantPrices?.get(variantKey);
-    if (quote?.price != null) {
-      return (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {formatCurrency(quote.price, currency)}
-        </span>
-      );
-    }
-    if (pricesFetching) {
-      return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
-    }
-    return <span className="text-xs text-muted-foreground">—</span>;
-  };
 
   const ygoImageLoading = card.card.gameSlug === "yugioh" && ygoPasscode === undefined;
   const ygoImageFallback =
@@ -394,7 +217,7 @@ export function CardInspectDialog({
                 {card.card.rarity && (
                   <div className="mt-2 flex justify-center md:justify-start">
                     <RarityBadge
-                      rarity={activeVariant?.rarity ?? card.card.rarity}
+                      rarity={card.card.rarity}
                       gameSlug={card.card.gameSlug}
                       size="sm"
                     />
@@ -404,35 +227,15 @@ export function CardInspectDialog({
                   <div className="rounded-md bg-background/70 px-3 py-2 text-left">
                     <dt className="text-xs text-muted-foreground">Conjunto</dt>
                     <dd className="mt-0.5 font-medium leading-snug break-words">
-                      {activeVariant?.setName ?? card.card.setName ?? "—"}
+                      {card.card.setName ?? "—"}
                     </dd>
                   </div>
                   <div className="rounded-md bg-background/70 px-3 py-2 text-left">
                     <dt className="text-xs text-muted-foreground">Número</dt>
                     <dd className="mt-0.5 font-medium leading-snug break-all">
-                      {activeVariant?.setCode ?? card.card.collectorNumber ?? "—"}
+                      {card.card.collectorNumber ?? card.card.setCode ?? "—"}
                     </dd>
                   </div>
-                  <div className="rounded-md bg-background/70 px-3 py-2">
-                    <dt className="text-xs text-muted-foreground">CardTrader</dt>
-                    <dd className="mt-1">
-                      {(pricesFetching || ownedQuoteFetching) && resolvedQuote?.price == null ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <PriceBadge price={displayPrice} currency={currency} />
-                      )}
-                    </dd>
-                  </div>
-                  {ygoSecondaryPrice != null &&
-                    ygoSecondaryPrice > 0 &&
-                    (resolvedQuote?.price == null || displayPrice == null) && (
-                      <div className="rounded-md bg-background/70 px-3 py-2">
-                        <dt className="text-xs text-muted-foreground">YGOPRODeck</dt>
-                        <dd className="mt-1">
-                          <PriceBadge price={ygoSecondaryPrice} currency="USD" />
-                        </dd>
-                      </div>
-                    )}
                 </dl>
               </div>
             </div>
@@ -459,13 +262,7 @@ export function CardInspectDialog({
                       )}
                     </span>
                     <div className="flex w-full items-center justify-between gap-2 md:w-auto md:shrink-0 md:justify-end">
-                      {listing.price !== null ? (
-                        <span className="text-sm tabular-nums text-muted-foreground">
-                          {formatCurrency(listing.price, listing.currency as Currency)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Abrir</span>
-                      )}
+                      <span className="text-xs text-muted-foreground">Abrir</span>
                       <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
                   </a>
@@ -474,52 +271,6 @@ export function CardInspectDialog({
             </div>
 
             <div className="min-w-0 w-full max-w-full space-y-4 border-t border-border/60 pt-4">
-              {printVariants.length > 1 && (
-                <div className="space-y-2">
-                  <Label>Edição</Label>
-                  <div className="max-h-[min(40dvh,240px)] w-full max-w-full space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border border-border/60 p-1">
-                    {printVariants.map((variant) => {
-                      const isActive =
-                        activeVariant?.key === variant.key ||
-                        (!activeVariant &&
-                          variantMatchesOwnedCard(variant, card.card, card.card.gameSlug));
-                      return (
-                        <button
-                          key={variant.key}
-                          type="button"
-                          onClick={() => handleVariantSelect(variant)}
-                          className={cn(
-                            "flex w-full max-w-full flex-col gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
-                            isActive && "bg-primary/10 ring-1 ring-primary/30"
-                          )}
-                        >
-                          <div className="flex min-w-0 w-full items-start gap-2">
-                            <RarityBadge
-                              rarity={variant.rarity}
-                              gameSlug={card.card.gameSlug}
-                              size="md"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium leading-snug break-words">
-                                {variant.setName ?? "Edição desconhecida"}
-                              </p>
-                              {variant.setCode && (
-                                <p className="text-xs text-muted-foreground break-all">
-                                  {variant.setCode}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="w-full pl-8 text-left tabular-nums md:pl-0 md:text-right">
-                            {renderVariantPrice(variant.key)}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
                 <Label>Quantidade</Label>
                 <QuantityStepper

@@ -1,4 +1,3 @@
-import type { CardSearchResult } from "./types";
 import { resolveRarityStyle } from "@/lib/rarity/resolve-rarity";
 import {
   parseCardTraderBlueprintId,
@@ -9,6 +8,7 @@ import {
   buildYgoProDeckUrl,
   pickYgoImageSizeForRarity,
 } from "@/lib/yugioh/urls";
+import type { CardSearchResult } from "./types";
 
 export interface CardPrintVariant {
   key: string;
@@ -19,7 +19,6 @@ export interface CardPrintVariant {
   variantLabel?: string | null;
   tcgPlayerId?: string | null;
   cardTraderRarityHint?: string | null;
-  /** YGOPRODeck secondary reference price (TCGPlayer from API) */
   price: number | null;
   externalId: string | null;
   imageUrl: string | null;
@@ -47,30 +46,6 @@ function findPrintForSet(
     const sets = ygoSetsFromResult(print);
     return sets.some((s) => s.set_code === setCode && s.set_rarity === setRarity);
   });
-}
-
-type CardTraderPrint = CardSearchResult;
-
-function cardtraderPrintsFromResult(result: CardSearchResult): CardTraderPrint[] {
-  const prints = result.metadata?.cardtraderPrints as CardSearchResult[] | undefined;
-  if (prints?.length) return prints;
-  if (result.metadata?.catalogSource === "cardtrader") return [result];
-  return [];
-}
-
-function cardtraderPrintToVariant(print: CardSearchResult): CardPrintVariant {
-  return {
-    key: `${print.setCode ?? "set"}-${print.externalId}`,
-    setCode: print.setCode,
-    setName: print.setName,
-    collectorNumber: print.collectorNumber,
-    rarity: print.rarity,
-    cardTraderRarityHint: print.rarity,
-    price: print.price,
-    externalId: print.externalId,
-    imageUrl: print.imageUrl,
-    ygoProDeckUrl: "#",
-  };
 }
 
 function digimonPrintsFromResult(result: CardSearchResult): CardSearchResult[] {
@@ -104,11 +79,6 @@ export function getSearchResultVariants(
   gameSlug: string,
   relatedPrints: CardSearchResult[] = []
 ): CardPrintVariant[] {
-  const cardtraderPrints = cardtraderPrintsFromResult(result);
-  if (cardtraderPrints.length > 0) {
-    return cardtraderPrints.map(cardtraderPrintToVariant);
-  }
-
   if (gameSlug === "digimon") {
     const prints = digimonPrintsFromResult(result);
     if (prints.length > 1) {
@@ -284,7 +254,7 @@ export function applyVariant(
   };
 }
 
-/** Resolve CardTrader blueprint per print — never reuse another variant's stored blueprint. */
+/** Resolve CardTrader blueprint per print — for marketplace links only. */
 export function buildVariantPriceBlueprintFields(
   variant: CardPrintVariant,
   gameSlug: string
@@ -305,5 +275,35 @@ export function buildVariantPriceBlueprintFields(
       gameSlug
     ),
     cardTraderBlueprintId: null,
+  };
+}
+
+/** Merge YGOPRODeck set entries from search hits sharing the same card name. */
+export function mergeYugiohSearchResults(
+  primary: CardSearchResult,
+  siblings: CardSearchResult[]
+): CardSearchResult {
+  if (siblings.length === 0) return primary;
+
+  const seen = new Set<string>();
+  const sets: YgoSet[] = [];
+
+  for (const card of [primary, ...siblings]) {
+    for (const set of ygoSetsFromResult(card)) {
+      const key = `${set.set_code}|${set.set_rarity}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sets.push(set);
+    }
+  }
+
+  if (sets.length === 0) return primary;
+
+  return {
+    ...primary,
+    metadata: {
+      ...primary.metadata,
+      sets,
+    },
   };
 }

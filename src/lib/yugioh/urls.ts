@@ -33,3 +33,11 @@ export function pickYgoImageSizeForRarity(_rarity: string | null | undefined): "
 export function isYgoCroppedImageUrl(url: string | null | undefined): boolean {
   return Boolean(url?.includes("/cards_cropped/"));
 }
+
+export function buildLigaYugiohSearchUrl(name: string): string {
+  return `https://www.ligayugioh.com.br/?view=cards/search&card=${encodeURIComponent(name.trim())}`;
+}
+
+export function buildMyPCardsSearchUrl(name: string): string {
+  return `https://mypcards.com/yugioh?busca=${encodeURIComponent(name.trim())}`;
+}

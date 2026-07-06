@@ -1,40 +1,79 @@
 "use client";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useRef, useEffect, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { CollectionCompactCard } from "@/features/collection/components/CollectionCompactCard";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useDragReorder } from "@/hooks/useDragReorder";
-import type { CollectionViewData } from "@/features/collection/hooks/useCollectionViewData";
+import { useCollectionView } from "@/features/collection/context/collection-view-context";
 
-interface CollectionCompactViewProps {
-  data: CollectionViewData;
-}
+const COMPACT_ROW_HEIGHT = 108;
 
-export function CollectionCompactView({ data }: CollectionCompactViewProps) {
+export function CollectionCompactView() {
+  const data = useCollectionView();
+  const parentRef = useRef<HTMLDivElement>(null);
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
   const dragHandlers = useDragReorder(data.reorderCard);
 
+  const virtualizer = useVirtualizer({
+    count: data.filtered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => COMPACT_ROW_HEIGHT,
+    overscan: 6,
+  });
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [data.filtered.length, virtualizer]);
+
+  const handleQuantityChange = useCallback(
+    (id: string, quantity: number) => data.handleQuantityChange(id, quantity),
+    [data.handleQuantityChange]
+  );
+
+  const handleRemove = useCallback(
+    (id: string) => data.handleRemove(id),
+    [data.handleRemove]
+  );
+
+  const rows = virtualizer.getVirtualItems();
+
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-2 p-3 md:p-4">
-        {data.filtered.map((item, index) => (
-          <CollectionCompactCard
-            key={item.id}
-            item={item}
-            selected={selectedIds.has(item.id)}
-            marketPrice={data.resolvePrice(item)}
-            cardTraderImage={data.resolveCardTraderImage(item)}
-            currency={data.profileCurrency}
-            dragHandlers={dragHandlers}
-            onSelect={() => toggleSelect(item.id, false, data.allIds, index)}
-            onOpen={() => openCardInspect(item.id, "details")}
-            onQuantityChange={(qty) => data.handleQuantityChange(item.id, qty)}
-            onRemove={() => data.handleRemove(item.id)}
-          />
-        ))}
+    <div ref={parentRef} className="h-full overflow-auto">
+      <div
+        className="relative w-full p-3 md:p-4"
+        style={{ height: `${virtualizer.getTotalSize()}px` }}
+      >
+        {rows.map((virtualRow) => {
+          const item = data.filtered[virtualRow.index];
+          if (!item) return null;
+
+          return (
+            <div
+              key={virtualRow.key}
+              className="absolute left-0 top-0 w-full px-3 md:px-4"
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <CollectionCompactCard
+                item={item}
+                selected={selectedIds.has(item.id)}
+                dragHandlers={dragHandlers}
+                onSelect={() =>
+                  toggleSelect(item.id, false, data.allIds, virtualRow.index)
+                }
+                onOpen={() => openCardInspect(item.id, "details")}
+                onQuantityChange={(qty) => handleQuantityChange(item.id, qty)}
+                onRemove={() => handleRemove(item.id)}
+              />
+            </div>
+          );
+        })}
       </div>
-    </ScrollArea>
+    </div>
   );
 }

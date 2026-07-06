@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useAppData } from "@/hooks/useAppData";
 import type { DemoProfile } from "@/lib/demo/types";
-import { CURRENCIES, type Currency } from "@/types/tcg";
 import {
   buildBackupPayload,
   downloadBackup,
@@ -24,7 +23,6 @@ import {
 } from "@/features/import/services/backup-import";
 import { useDemoStore } from "@/lib/demo/store";
 import { useDataUiStore } from "@/lib/data/ui-store";
-import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -48,19 +46,8 @@ export default function SettingsPage() {
   }, [profile]);
 
   const handleSave = async () => {
-    const currencyChanged = draft.currency !== profile.currency;
-    const nextCurrency = CURRENCIES.includes(draft.currency as Currency)
-      ? draft.currency
-      : profile.currency;
-
     try {
-      await updateProfile({ ...draft, currency: nextCurrency });
-      if (currencyChanged) {
-        useCollectionUIStore.getState().refreshPrices();
-        await queryClient.invalidateQueries({ queryKey: ["cardtrader-prices"] });
-        await queryClient.invalidateQueries({ queryKey: ["cardtrader-owned-quote"] });
-        await queryClient.invalidateQueries({ queryKey: ["cardtrader-variant-prices"] });
-      }
+      await updateProfile(draft);
       toast.success("Settings saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
@@ -152,18 +139,6 @@ export default function SettingsPage() {
 
         <section className="space-y-4">
           <h2 className="text-base font-semibold sm:text-lg">Preferences</h2>
-
-          <div className="space-y-2">
-            <Label>Currency</Label>
-            <ResponsiveSelect
-              value={draft.currency}
-              onValueChange={(v) => {
-                if (!CURRENCIES.includes(v as Currency)) return;
-                setDraft({ ...draft, currency: v as Currency });
-              }}
-              options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-            />
-          </div>
 
           <div className="space-y-2">
             <Label>Theme</Label>

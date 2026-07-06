@@ -52,6 +52,6 @@ export function useYugiohCardImageRepair(
     ) {
       cardUpdates.externalId = passcode;
     }
-    updateOwnedCard(ownedCardId, { card: cardUpdates });
+    updateOwnedCard(ownedCardId, { card: cardUpdates }, { silent: true });
   }, [ownedCardId, card, passcode, updateOwnedCard]);
 }

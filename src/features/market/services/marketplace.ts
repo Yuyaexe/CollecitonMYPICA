@@ -1,5 +1,9 @@
 import type { DemoOwnedCard } from "@/lib/demo/types";
-import { buildYgoProDeckUrl } from "@/lib/yugioh/urls";
+import {
+  buildLigaYugiohSearchUrl,
+  buildMyPCardsSearchUrl,
+  buildYgoProDeckUrl,
+} from "@/lib/yugioh/urls";
 import { resolveCardTraderProductUrl } from "@/lib/cardtrader/catalog";
 
 export interface MarketplaceListing {
@@ -12,11 +16,20 @@ export interface MarketplaceListing {
 }
 
 export interface MarketplaceOptions {
-  cardTraderPrice?: number | null;
-  cardTraderCurrency?: string;
   cardTraderUrl?: string | null;
-  ygoProDeckPrice?: number | null;
   ygoProDeckUrl?: string | null;
+}
+
+function tcgPlayerSearchUrl(card: DemoOwnedCard["card"]): string {
+  const setPart = card.setName ? ` ${card.setName}` : "";
+  const searchQuery = encodeURIComponent(`${card.name}${setPart}`.trim());
+  const paths: Record<string, string> = {
+    yugioh: "yugioh",
+    pokemon: "pokemon",
+    digimon: "digimon-card-game",
+  };
+  const segment = paths[card.gameSlug] ?? "all";
+  return `https://www.tcgplayer.com/search/${segment}/product?q=${searchQuery}`;
 }
 
 export function buildMarketplaceListings(
@@ -24,12 +37,7 @@ export function buildMarketplaceListings(
   options?: MarketplaceOptions
 ): MarketplaceListing[] {
   const listings: MarketplaceListing[] = [];
-  const encodedName = encodeURIComponent(card.name);
-  const setPart = card.setName ? ` ${card.setName}` : "";
-  const searchQuery = encodeURIComponent(`${card.name}${setPart}`.trim());
 
-  const cardTraderPrice = options?.cardTraderPrice ?? null;
-  const cardTraderCurrency = options?.cardTraderCurrency ?? "USD";
   const cardTraderUrl =
     options?.cardTraderUrl ??
     resolveCardTraderProductUrl({
@@ -42,41 +50,40 @@ export function buildMarketplaceListings(
       imageUrl: card.imageUrl,
     });
 
-  const ygoUrl =
-    options?.ygoProDeckUrl ?? buildYgoProDeckUrl(card.name, card.externalId);
-  const ygoPrice = options?.ygoProDeckPrice ?? null;
+  const setPart = card.setName ? ` ${card.setName}` : "";
+  const searchQuery = encodeURIComponent(`${card.name}${setPart}`.trim());
 
   switch (card.gameSlug) {
     case "yugioh":
       listings.push(
         {
-          source: "CardTrader",
-          name: "CardTrader",
-          price: cardTraderPrice,
-          currency: cardTraderCurrency,
-          url: cardTraderUrl,
-          primary: true,
-        },
-        {
-          source: "YGOPRODeck",
-          name: "YGOPRODeck",
-          price: ygoPrice,
-          currency: "USD",
-          url: ygoUrl,
-        },
-        {
-          source: "Cardmarket",
-          name: "Cardmarket",
-          price: null,
-          currency: "EUR",
-          url: `https://www.cardmarket.com/en/YuGiOh/Products/Search?searchString=${searchQuery}`,
-        },
-        {
           source: "TCGPlayer",
           name: "TCGPlayer",
           price: null,
           currency: "USD",
-          url: `https://www.tcgplayer.com/search/yugioh/product?q=${searchQuery}`,
+          url: tcgPlayerSearchUrl(card),
+          primary: true,
+        },
+        {
+          source: "LigaYugioh",
+          name: "Liga Yu-Gi-Oh!",
+          price: null,
+          currency: "BRL",
+          url: buildLigaYugiohSearchUrl(card.name),
+        },
+        {
+          source: "MyPCards",
+          name: "MyP Cards",
+          price: null,
+          currency: "BRL",
+          url: buildMyPCardsSearchUrl(card.name),
+        },
+        {
+          source: "CardTrader",
+          name: "CardTrader",
+          price: null,
+          currency: "USD",
+          url: cardTraderUrl,
         }
       );
       break;
@@ -86,17 +93,17 @@ export function buildMarketplaceListings(
         {
           source: "CardTrader",
           name: "CardTrader",
-          price: cardTraderPrice,
-          currency: cardTraderCurrency,
+          price: null,
+          currency: "USD",
           url: cardTraderUrl,
           primary: true,
         },
         {
           source: "TCGPlayer",
           name: "TCGPlayer",
-          price: card.marketPrice,
+          price: null,
           currency: "USD",
-          url: `https://www.tcgplayer.com/search/pokemon/product?q=${searchQuery}`,
+          url: tcgPlayerSearchUrl(card),
         },
         {
           source: "Cardmarket",
@@ -113,17 +120,17 @@ export function buildMarketplaceListings(
         {
           source: "CardTrader",
           name: "CardTrader",
-          price: cardTraderPrice,
-          currency: cardTraderCurrency,
+          price: null,
+          currency: "USD",
           url: cardTraderUrl,
           primary: true,
         },
         {
           source: "TCGPlayer",
           name: "TCGPlayer",
-          price: card.marketPrice,
+          price: null,
           currency: "USD",
-          url: `https://www.tcgplayer.com/search/digimon-card-game/product?q=${searchQuery}`,
+          url: tcgPlayerSearchUrl(card),
         },
         {
           source: "Cardmarket",
@@ -140,17 +147,17 @@ export function buildMarketplaceListings(
         {
           source: "CardTrader",
           name: "CardTrader",
-          price: cardTraderPrice,
-          currency: cardTraderCurrency,
+          price: null,
+          currency: "USD",
           url: cardTraderUrl,
           primary: true,
         },
         {
           source: "TCGPlayer",
           name: "TCGPlayer",
-          price: card.marketPrice,
+          price: null,
           currency: "USD",
-          url: `https://www.tcgplayer.com/search/all/product?q=${searchQuery}`,
+          url: tcgPlayerSearchUrl(card),
         }
       );
   }

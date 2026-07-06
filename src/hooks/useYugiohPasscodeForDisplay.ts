@@ -17,9 +17,15 @@ type CardPasscodeFields = Pick<
   "name" | "gameSlug" | "externalId" | "imageUrl" | "setCode" | "collectorNumber"
 >;
 
+/** Context-only passcode lookup — no per-card API calls (use inside YugiohPasscodeProvider). */
+export function useYugiohPasscodeFromContext(ownedCardId: string | undefined): string | null | undefined {
+  const batchContext = useYugiohPasscodeContext();
+  return resolvePasscodeFromContext(ownedCardId, batchContext);
+}
+
 /**
  * Returns Konami passcode for Yu-Gi-Oh art.
- * - `undefined` while resolving (do not use stored passcode yet)
+ * - `undefined` while resolving
  * - `string` when resolved
  * - `null` when resolution failed
  */
@@ -42,6 +48,7 @@ export function useYugiohPasscodeForDisplay(
     enabled:
       useIndividualLookup && card.gameSlug === "yugioh" && Boolean(card.name.trim()),
     staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
   });
 
   if (fromBatch !== undefined) return fromBatch;
