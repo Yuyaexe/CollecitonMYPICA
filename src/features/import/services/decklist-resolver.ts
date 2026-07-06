@@ -125,16 +125,18 @@ async function resolveEntry(
       return { entry, result: null, error: "Digimon catalog unavailable" };
     }
 
-    if (entry.setCode && isApiSupported("digimon")) {
-      const byId = await adapter.getById(entry.setCode);
+    const cardId = entry.setCode?.trim().toUpperCase() ?? null;
+
+    if (cardId && isApiSupported("digimon")) {
+      const byId = await adapter.getById(cardId);
       if (byId) return { entry, result: byId };
     }
 
     const results = await adapter.search(entry.name);
-    const result = pickDigimonMatch(results, entry);
+    const result = pickDigimonMatch(results, { ...entry, setCode: cardId });
     return result
       ? { entry, result }
-      : { entry, result: null, error: `"${entry.name}" not found` };
+      : { entry, result: null, error: `"${entry.name}"${cardId ? ` (${cardId})` : ""} not found` };
   }
 
   return {

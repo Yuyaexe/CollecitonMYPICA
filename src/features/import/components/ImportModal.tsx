@@ -18,6 +18,7 @@ import {
 } from "@/features/import/services/csv-parser";
 import {
   aggregateDeckEntries,
+  inferDecklistGame,
   parseDecklist,
 } from "@/features/import/services/decklist-parser";
 import type { DecklistGameSlug, ResolvedDeckEntry } from "@/features/import/types";
@@ -45,7 +46,7 @@ const FORMAT_LABELS: Record<string, string> = {
   ydke: "YDKE",
   ydk: "YDK",
   "yugioh-text": "Yu-Gi-Oh! (texto)",
-  "digimon-text": "Digimon (texto)",
+  "digimon-text": "DigimonCard.io",
   unknown: "Texto",
 };
 
@@ -82,7 +83,9 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     if (!deckText.trim()) return null;
     const preferred = gamePreference === "auto" ? undefined : gamePreference;
     const parsed = parseDecklist(deckText, preferred);
-    return { ...parsed, entries: aggregateDeckEntries(parsed.entries) };
+    const entries = aggregateDeckEntries(parsed.entries);
+    const inferredGame = inferDecklistGame(entries, { ...parsed, entries });
+    return { ...parsed, entries, inferredGame };
   }, [deckText, gamePreference]);
 
   const resetState = useCallback(() => {
@@ -127,7 +130,12 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       return;
     }
 
-    const gameSlug = parsedDeck.gameSlug === "unknown" ? "yugioh" : parsedDeck.gameSlug;
+    const gameSlug =
+      gamePreference !== "auto"
+        ? gamePreference
+        : parsedDeck.inferredGame === "unknown"
+          ? "yugioh"
+          : parsedDeck.inferredGame;
     const game =
       DEMO_GAMES.find((g) => g.slug === gameSlug) ??
       DEMO_GAMES.find((g) => g.slug === "yugioh")!;
@@ -206,7 +214,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
         onOpenChange(next);
       }}
       title="Importar coleção"
-      description="Cole uma decklist, YDKE, YDK ou CSV"
+      description="Cole uma decklist, YDKE, YDK, DigimonCard.io ou CSV"
       className="max-w-2xl"
     >
       <div className="space-y-4">
@@ -256,7 +264,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
               <textarea
                 value={deckText}
                 onChange={(e) => setDeckText(e.target.value)}
-                placeholder={`Cole YDKE, YDK ou lista de cartas:\n\n// Digimon\n4 Pagumon   BT25-005\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring`}
+                placeholder={`Cole YDKE, YDK ou lista de cartas:\n\n// DigimonCard.io Deck List\n4 Gigimon BT21-001\n1 Cyclonemon BT24-011\n3 Dimetromon P-189\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring`}
                 className={cn(
                   "flex min-h-[220px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-base shadow-sm transition-all duration-150 sm:text-xs",
                   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -266,9 +274,21 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
 
             {parsedDeck && parsedDeck.entries.length > 0 && (
               <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                <div className="mb-2 flex items-center gap-2 font-medium">
+                <div className="mb-2 flex flex-wrap items-center gap-2 font-medium">
                   <FileText className="h-4 w-4" />
                   {parsedDeck.entries.length} cartas · {FORMAT_LABELS[parsedDeck.format] ?? parsedDeck.format}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ·{" "}
+                    {GAME_OPTIONS.find(
+                      (o) =>
+                        o.value ===
+                        (gamePreference !== "auto"
+                          ? gamePreference
+                          : parsedDeck.inferredGame === "unknown"
+                            ? "yugioh"
+                            : parsedDeck.inferredGame)
+                    )?.label ?? "Yu-Gi-Oh!"}
+                  </span>
                 </div>
                 {parsedDeck.entries.slice(0, 5).map((entry, index) => (
                   <p key={index} className="truncate text-xs text-muted-foreground">

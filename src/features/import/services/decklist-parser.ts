@@ -22,7 +22,18 @@ const YGO_SECTIONS = new Set([
 ]);
 
 const DIGIMON_LINE =
-  /^(\d+)[x×]?\s+(.+)\s+([A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*)\s*$/;
+  /^(\d+)[x×]?\s+(.+?)\s+([A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*)\s*$/;
+
+/** DigimonCard.io, DigimonCard.io Deck List, legacy // DeckList headers */
+const DIGIMONCARD_IO_HEADER =
+  /^\/\/\s*(?:DigimonCard\.io|Digimon Card\.io|DeckList)/i;
+
+export const DIGIMON_CARD_ID_PATTERN =
+  /^[A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*$/i;
+
+export function isDigimonCardId(value: string | null | undefined): boolean {
+  return Boolean(value?.trim() && DIGIMON_CARD_ID_PATTERN.test(value.trim()));
+}
 
 const QUANTITY_NAME_LINE = /^(\d+)[x×]?\s+(.+?)\s*$/;
 
@@ -108,7 +119,7 @@ function parseDigimonText(content: string): ParsedDeckEntry[] {
     entries.push({
       quantity: parseInt(match[1], 10),
       name: match[2].trim(),
-      setCode: match[3].trim(),
+      setCode: match[3].trim().toUpperCase(),
       passcode: null,
       section: null,
     });
@@ -157,7 +168,7 @@ function parseOnePieceText(content: string): ParsedDeckEntry[] {
       entries.push({
         quantity: parseInt(digimonMatch[1], 10),
         name: digimonMatch[2].trim(),
-        setCode: digimonMatch[3].trim(),
+        setCode: digimonMatch[3].trim().toUpperCase(),
         passcode: null,
         section: null,
       });
@@ -199,8 +210,24 @@ function detectGameSlug(content: string, format: DecklistFormat): DecklistGameSl
   if (
     format === "digimon-text" ||
     lower.includes("digimon") ||
-    /\b(BT|EX|ST|LM|P)-\d+/i.test(content)
+    /\b[A-Za-z][A-Za-z0-9]*-\d+[A-Za-z0-9_]*/.test(content)
   ) {
+    return "digimon";
+  }
+
+  return "unknown";
+}
+
+/** Prefer parsed game; fall back to card-id lines (BT24-011, P-189, EX11-008). */
+export function inferDecklistGame(
+  entries: ParsedDeckEntry[],
+  parsed: ParsedDecklist
+): DecklistGameSlug {
+  if (parsed.gameSlug !== "unknown") return parsed.gameSlug;
+  if (parsed.format === "digimon-text") return "digimon";
+
+  const digimonLines = entries.filter((entry) => isDigimonCardId(entry.setCode)).length;
+  if (digimonLines >= 2 || (digimonLines > 0 && digimonLines === entries.length)) {
     return "digimon";
   }
 
@@ -214,6 +241,7 @@ export function detectDecklistFormat(content: string): DecklistFormat {
   if (/#main|!main/i.test(trimmed)) return "ydk";
 
   const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.some((line) => DIGIMONCARD_IO_HEADER.test(line))) return "digimon-text";
   if (lines[0]?.startsWith("// DeckList")) return "digimon-text";
 
   const digimonMatches = lines.filter((line) => DIGIMON_LINE.test(line)).length;

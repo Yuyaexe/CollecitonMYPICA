@@ -585,11 +585,24 @@ async function resolveBlueprintByCollectorNumber(
     }
   } else {
     const normSet = normalizeDigimonSetCode(setCode);
-    if (normSet) {
+    const collectorSet =
+      gameSlug === "digimon" && collectorNumber.includes("-")
+        ? normalizeDigimonSetCode(collectorNumber.split("-")[0])
+        : null;
+
+    const setsToTry = [
+      normSet,
+      collectorSet && collectorSet !== normSet ? collectorSet : null,
+    ].filter((value): value is string => Boolean(value));
+
+    for (const tryNorm of setsToTry) {
       const filtered = expansions.filter(
-        (expansion) => normalizeDigimonSetCode(expansion.code) === normSet
+        (expansion) => normalizeDigimonSetCode(expansion.code) === tryNorm
       );
-      if (filtered.length > 0) candidates = filtered;
+      if (filtered.length > 0) {
+        candidates = filtered;
+        break;
+      }
     }
   }
 
@@ -613,6 +626,22 @@ async function resolveBlueprintByCollectorNumber(
     if (match) {
       cacheBlueprintImage(match.id, match.image_url);
       return match.id;
+    }
+  }
+
+  if (gameSlug === "digimon") {
+    for (const expansion of expansions) {
+      const blueprints = await getBlueprints(expansion.id);
+      const match = blueprints.find((blueprint) => {
+        if (blueprint.game_id !== gameId) return false;
+        const cn = blueprintCollectorNumber(blueprint);
+        if (!cn) return false;
+        return normalizeCollectorNumber(cn) === normalizeCollectorNumber(collectorNumber);
+      });
+      if (match) {
+        cacheBlueprintImage(match.id, match.image_url);
+        return match.id;
+      }
     }
   }
 

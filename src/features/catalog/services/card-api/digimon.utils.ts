@@ -134,6 +134,31 @@ export function digimonCardPriceFields(result: {
 }
 
 /** Infer CardTrader pricing fields for owned Digimon cards (no catalog metadata). */
+/** CardTrader expansion hint: prefer set prefix from collector (BT3) over unrelated codes (AD-01 reprints). */
+export function digimonEffectiveSetCodeForPricing(card: {
+  setCode?: string | null;
+  collectorNumber?: string | null;
+}): string | null {
+  const collector = card.collectorNumber?.trim();
+  const collectorPrefix =
+    collector && /^[A-Za-z]+\d+-\d/i.test(collector)
+      ? collector.match(/^([A-Za-z]+\d+)/i)?.[1]?.toUpperCase() ?? null
+      : null;
+
+  const stored = card.setCode?.trim() ?? null;
+  if (!collectorPrefix) return stored;
+
+  if (!stored) return collectorPrefix;
+
+  const normStored = normalizeDigimonSetCode(stored);
+  const normCollector = normalizeDigimonSetCode(collectorPrefix);
+  if (normStored && normCollector && normStored !== normCollector) {
+    return collectorPrefix;
+  }
+
+  return stored;
+}
+
 export function digimonOwnedCardPriceFields(card: {
   externalId?: string | null;
   collectorNumber?: string | null;

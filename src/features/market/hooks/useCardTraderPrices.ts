@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CardPriceInput } from "@/lib/cardtrader";
 import { resolveStoredBlueprintId, resolveCardTraderProductUrl, cardTraderBlueprintMatchesCard } from "@/lib/cardtrader";
-import { digimonOwnedCardPriceFields } from "@/features/catalog/services/card-api/digimon.utils";
+import { digimonOwnedCardPriceFields, digimonEffectiveSetCodeForPricing } from "@/features/catalog/services/card-api/digimon.utils";
 import {
   fetchCardTraderPriceMap,
   fetchCardTraderQuote,
@@ -61,11 +61,18 @@ export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
     item.card.gameSlug
   );
 
+  const digimonFields =
+    item.card.gameSlug === "digimon" ? digimonOwnedCardPriceFields(item.card) : null;
+  const setCode =
+    item.card.gameSlug === "digimon"
+      ? digimonEffectiveSetCodeForPricing(item.card)
+      : item.card.setCode;
+
   return {
     gameSlug: item.card.gameSlug,
     name: item.card.name,
     setName: item.card.setName,
-    setCode: item.card.setCode,
+    setCode,
     collectorNumber: item.card.collectorNumber ?? item.card.setCode,
     rarity: item.card.rarity,
     condition: item.condition,
@@ -74,7 +81,7 @@ export function ownedCardToPriceInput(item: DemoOwnedCard): CardPriceInput {
     imageUrl: item.card.imageUrl,
     cardTraderBlueprintId: item.card.cardTraderBlueprintId,
     blueprintId,
-    ...(item.card.gameSlug === "digimon" ? digimonOwnedCardPriceFields(item.card) : {}),
+    ...(digimonFields ?? {}),
   };
 }
 
@@ -267,6 +274,8 @@ export function resolveDisplayPrice(
 ): number | null {
   const live = livePrices?.get(cardPriceKey(item));
   if (live?.price != null) return live.price;
+  // Catalog marketPrice is USD (TCGPlayer/YGOPRODeck) — do not inflate to BRL when CardTrader is unavailable.
+  if (profileCurrency !== "USD") return null;
   return normalizeCatalogPrice(item.card.marketPrice, profileCurrency);
 }
 
