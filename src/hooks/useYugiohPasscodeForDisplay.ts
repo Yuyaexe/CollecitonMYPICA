@@ -10,6 +10,7 @@ import {
   useYugiohPasscodeContext,
 } from "@/features/collection/context/yugioh-passcode-context";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
+import { readCachedPasscode, writeCachedPasscode } from "@/lib/cache/passcode";
 import type { DemoCard } from "@/lib/demo/types";
 
 type CardPasscodeFields = Pick<
@@ -18,9 +19,12 @@ type CardPasscodeFields = Pick<
 >;
 
 /** Context-only passcode lookup — no per-card API calls (use inside YugiohPasscodeProvider). */
-export function useYugiohPasscodeFromContext(ownedCardId: string | undefined): string | null | undefined {
+export function useYugiohPasscodeFromContext(
+  ownedCardId: string | undefined,
+  card?: CardPasscodeFields
+): string | null | undefined {
   const batchContext = useYugiohPasscodeContext();
-  return resolvePasscodeFromContext(ownedCardId, batchContext);
+  return resolvePasscodeFromContext(ownedCardId, batchContext, card);
 }
 
 /**
@@ -39,12 +43,29 @@ export function useYugiohPasscodeForDisplay(
 
   const { data: resolvedPasscode, isFetched } = useQuery({
     queryKey: ["ygo-passcode", card.name, card.setCode, card.collectorNumber],
-    queryFn: () =>
-      fetchYugiohPasscodeForCard({
+    queryFn: async () => {
+      const cached = await readCachedPasscode({
         name: card.name,
         setCode: card.setCode,
         collectorNumber: card.collectorNumber,
-      }),
+      });
+      if (cached !== undefined) return cached;
+
+      const result = await fetchYugiohPasscodeForCard({
+        name: card.name,
+        setCode: card.setCode,
+        collectorNumber: card.collectorNumber,
+      });
+      void writeCachedPasscode(
+        {
+          name: card.name,
+          setCode: card.setCode,
+          collectorNumber: card.collectorNumber,
+        },
+        result
+      );
+      return result;
+    },
     enabled:
       useIndividualLookup && card.gameSlug === "yugioh" && Boolean(card.name.trim()),
     staleTime: 24 * 60 * 60 * 1000,

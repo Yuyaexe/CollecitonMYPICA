@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Layers,
   LayoutGrid,
+  Printer,
   Settings,
   Sparkles,
   type LucideIcon,
@@ -39,6 +40,12 @@ export const dashboardNavItems: DashboardNavItem[] = [
     labelKey: "nav.animeCollection",
     shortLabelKey: "nav.animeCollectionShort",
     icon: Sparkles,
+  },
+  {
+    href: "/proxy-print",
+    labelKey: "nav.proxyPrint",
+    shortLabelKey: "nav.proxyPrintShort",
+    icon: Printer,
   },
   {
     href: "/settings",

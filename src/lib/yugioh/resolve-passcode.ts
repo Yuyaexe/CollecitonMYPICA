@@ -3,17 +3,17 @@ import {
   yugiohCardNamesMatch,
   yugiohSetNumberRef,
 } from "@/lib/yugioh/lookup";
+import { yugiohPasscodeCacheKey } from "@/lib/yugioh/passcode-key";
 
-export interface YugiohPasscodeInput {
-  name: string;
-  setCode?: string | null;
-  collectorNumber?: string | null;
-}
+export type { YugiohPasscodeKeyInput as YugiohPasscodeInput } from "@/lib/yugioh/passcode-key";
+export { yugiohPasscodeCacheKey };
 
 const passcodeCache = new Map<string, string | null>();
 
+import type { YugiohPasscodeKeyInput } from "@/lib/yugioh/passcode-key";
+
 async function resolveYugiohPasscodeUncached(
-  card: YugiohPasscodeInput
+  card: YugiohPasscodeKeyInput
 ): Promise<string | null> {
   const setRef = yugiohSetNumberRef(card.setCode, card.collectorNumber);
   if (setRef) {
@@ -35,7 +35,7 @@ async function resolveYugiohPasscodeUncached(
 
 /** Server-side Yu-Gi-Oh passcode resolution (set number first, then exact name). */
 export async function resolveYugiohPasscodeForCard(
-  card: YugiohPasscodeInput
+  card: YugiohPasscodeKeyInput
 ): Promise<string | null> {
   const key = yugiohPasscodeCacheKey(card);
   if (passcodeCache.has(key)) {
@@ -47,16 +47,8 @@ export async function resolveYugiohPasscodeForCard(
   return result;
 }
 
-export function yugiohPasscodeCacheKey(card: YugiohPasscodeInput): string {
-  return [
-    card.name.trim().toLowerCase(),
-    (card.collectorNumber ?? card.setCode ?? "").trim().toUpperCase(),
-  ].join("|");
-}
-
-/** Resolve many unique cards with bounded concurrency. */
 export async function resolveYugiohPasscodesConcurrent(
-  cards: YugiohPasscodeInput[],
+  cards: YugiohPasscodeKeyInput[],
   concurrency = 8
 ): Promise<Map<string, string | null>> {
   const resolved = new Map<string, string | null>();

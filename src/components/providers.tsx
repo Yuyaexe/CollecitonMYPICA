@@ -8,14 +8,18 @@ import { useState } from "react";
 
 import { LocaleSync } from "@/lib/i18n/context";
 
+import { QUERY_GC_MS, QUERY_STALE_MS } from "@/lib/cache/constants";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 60 * 1000,
+            staleTime: QUERY_STALE_MS,
+            gcTime: QUERY_GC_MS,
             refetchOnWindowFocus: false,
+            retry: 1,
           },
         },
       })

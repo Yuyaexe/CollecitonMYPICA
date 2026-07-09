@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useCachedCardImage } from "@/hooks/useCachedCardImage";
 import { cn } from "@/lib/utils";
 
 interface CardImageProps {
@@ -14,6 +15,10 @@ interface CardImageProps {
   sizes?: string;
   /** Used when the primary URL fails to load (e.g. CardTrader placeholder). */
   fallbackSrc?: string | null;
+  /** Show pulse skeleton while passcode/image is resolving. */
+  loading?: boolean;
+  /** Read thumbnails from local IndexedDB when available. */
+  useLocalCache?: boolean;
 }
 
 export function CardImage({
@@ -25,9 +30,13 @@ export function CardImage({
   fill,
   sizes,
   fallbackSrc,
+  loading = false,
+  useLocalCache = true,
 }: CardImageProps) {
   const [error, setError] = useState(false);
   const [activeSrc, setActiveSrc] = useState(src);
+  const cachedSrc = useCachedCardImage(useLocalCache ? activeSrc : null);
+  const displaySrc = cachedSrc ?? activeSrc;
 
   useEffect(() => {
     setError(false);
@@ -46,7 +55,17 @@ export function CardImage({
     }
   }, [error, fallbackSrc, activeSrc, src]);
 
-  if (!activeSrc || error) {
+  if (loading && !displaySrc) {
+    return (
+      <div
+        className={cn("animate-pulse bg-muted/70", className)}
+        style={!fill ? { width, height } : undefined}
+        aria-hidden
+      />
+    );
+  }
+
+  if (!displaySrc || error) {
     return (
       <div
         className={cn(
@@ -60,11 +79,11 @@ export function CardImage({
     );
   }
 
-  if (activeSrc.startsWith("data:")) {
+  if (displaySrc.startsWith("data:") || displaySrc.startsWith("blob:")) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={activeSrc}
+        src={displaySrc}
         alt={alt}
         className={cn(fill && "absolute inset-0 h-full w-full", "object-contain", className)}
         onError={() => setError(true)}
@@ -74,7 +93,7 @@ export function CardImage({
 
   return (
     <Image
-      src={activeSrc}
+      src={displaySrc}
       alt={alt}
       width={fill ? undefined : width}
       height={fill ? undefined : height}

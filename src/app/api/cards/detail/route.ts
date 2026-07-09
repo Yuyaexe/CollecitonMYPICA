@@ -54,10 +54,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      result: cloneSearchResultForJson(result),
-      relatedPrints: relatedPrints.map(cloneSearchResultForJson),
-    });
+    return NextResponse.json(
+      {
+        result: cloneSearchResultForJson(result),
+        relatedPrints: relatedPrints.map(cloneSearchResultForJson),
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=600, stale-while-revalidate=3600",
+        },
+      }
+    );
   } catch {
     return NextResponse.json({ error: "Failed to load card" }, { status: 500 });
   }

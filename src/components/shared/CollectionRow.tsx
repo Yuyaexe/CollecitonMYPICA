@@ -8,8 +8,8 @@ import { CardHoverPreview } from "@/components/shared/CardHoverPreview";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
-import { getCardHoverPreviewUrl, resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { getCardHoverPreviewUrl } from "@/lib/cards/preview-image";
+import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import type { DemoOwnedCard } from "@/lib/demo/types";
@@ -47,8 +47,7 @@ export const CollectionRow = memo(function CollectionRow({
   style,
 }: CollectionRowProps) {
   const t = useT();
-  const ygoPasscode = useYugiohPasscodeFromContext(item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
+  const { thumbSrc, fallbackSrc, loading, ygoPasscode } = useCollectionCardImage(item);
   const hoverSrc = getCardHoverPreviewUrl(item.card, ygoPasscode);
 
   const shiftKeyRef = useRef(false);
@@ -110,6 +109,8 @@ export const CollectionRow = memo(function CollectionRow({
         <div className="relative h-11 w-[1.875rem] shrink-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-border/30 transition-shadow group-hover:ring-primary/40">
           <CardImage
             src={thumbSrc}
+            fallbackSrc={fallbackSrc}
+            loading={loading}
             alt={item.card.name}
             fill
             sizes="44px"

@@ -5,8 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
-import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
@@ -31,8 +30,7 @@ export const CollectionCompactCard = memo(function CollectionCompactCard({
   onRemove,
 }: CollectionCompactCardProps) {
   const t = useT();
-  const ygoPasscode = useYugiohPasscodeFromContext(item.id);
-  const thumbSrc = resolveCollectionThumbUrl(item.card, ygoPasscode);
+  const { thumbSrc, fallbackSrc, loading } = useCollectionCardImage(item);
   const dragOver = dragHandlers.isDragOver(item.id);
 
   return (
@@ -57,7 +55,15 @@ export const CollectionCompactCard = memo(function CollectionCompactCard({
         onClick={onOpen}
         className="relative h-[4.5rem] w-[3.2rem] shrink-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-border/30"
       >
-        <CardImage src={thumbSrc} alt={item.card.name} fill sizes="52px" className="object-contain p-px" />
+        <CardImage
+          src={thumbSrc}
+          fallbackSrc={fallbackSrc}
+          loading={loading}
+          alt={item.card.name}
+          fill
+          sizes="52px"
+          className="object-contain p-px"
+        />
       </button>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">

@@ -5,8 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { resolveCollectionThumbUrl, getYugiohPasscodeFallbackUrl } from "@/lib/cards/preview-image";
-import { useYugiohPasscodeFromContext } from "@/hooks/useYugiohPasscodeForDisplay";
+import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { cn } from "@/lib/utils";
 import { useDragReorder, emptySlotDragProps, binderCardDragProps, pageNavDropProps } from "@/hooks/useDragReorder";
 import {
@@ -69,8 +68,6 @@ function BinderSlot({
   globalIndex,
   moveToSlot,
 }: BinderSlotProps) {
-  const ygoPasscode = useYugiohPasscodeFromContext(card?.id);
-
   if (!card) {
     return (
       <div
@@ -89,9 +86,34 @@ function BinderSlot({
     );
   }
 
-  const thumbSrc = resolveCollectionThumbUrl(card.card, ygoPasscode);
-  const imageFallback =
-    card.card.gameSlug === "yugioh" ? getYugiohPasscodeFallbackUrl(card.card, ygoPasscode) : null;
+  return (
+    <BinderSlotFilled
+      card={card}
+      selected={selected}
+      onOpen={onOpen}
+      dragHandlers={dragHandlers}
+      globalIndex={globalIndex}
+      moveToSlot={moveToSlot}
+    />
+  );
+}
+
+function BinderSlotFilled({
+  card,
+  selected,
+  onOpen,
+  dragHandlers,
+  globalIndex,
+  moveToSlot,
+}: {
+  card: DemoOwnedCard;
+  selected: boolean;
+  onOpen: () => void;
+  dragHandlers: ReturnType<typeof useDragReorder>;
+  globalIndex: number;
+  moveToSlot: (draggedId: string, targetIndex: number) => void;
+}) {
+  const { thumbSrc, fallbackSrc, loading } = useCollectionCardImage(card);
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
   const dragOver = dragHandlers.isDragOver(card.id);
 
@@ -115,7 +137,8 @@ function BinderSlot({
       >
         <CardImage
           src={thumbSrc}
-          fallbackSrc={imageFallback}
+          fallbackSrc={fallbackSrc}
+          loading={loading}
           alt={card.card.name}
           fill
           sizes="(max-width: 768px) 20vw, 100px"
