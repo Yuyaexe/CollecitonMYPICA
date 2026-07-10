@@ -8,6 +8,9 @@ export interface DigimonVariantInfo {
 
 const VARIANT_PATTERNS: Array<{ pattern: RegExp; label: string; suffix: string }> = [
   { pattern: /\(alternate art\)/i, label: "Alternate Art", suffix: "a" },
+  { pattern: /\(foil\)/i, label: "Foil", suffix: "f" },
+  { pattern: /\(textured\)/i, label: "Textured", suffix: "t" },
+  { pattern: /\(sp\)/i, label: "SP", suffix: "sp" },
   { pattern: /\(rare pull\)/i, label: "Rare Pull", suffix: "p" },
   { pattern: /\(ultimate cup/i, label: "Ultimate Cup", suffix: "u" },
   { pattern: /\(promo\)/i, label: "Promo", suffix: "pr" },

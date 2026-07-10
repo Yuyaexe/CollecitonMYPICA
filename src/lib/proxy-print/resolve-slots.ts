@@ -1,19 +1,19 @@
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { mapPool } from "@/lib/proxy-print/map-pool";
+import { pickDigimonVariant, resolveDigimonEntriesBulk } from "@/lib/proxy-print/digimon-resolve";
+import { deckEntryResolveKey, uniqueEntriesPreserveOrder } from "@/lib/proxy-print/parse-deck";
+import { resolveProxyImageUrls } from "@/lib/proxy-print/resolve-urls";
 import type {
   DeckEntry,
   ProxyCardVariant,
   ProxyGame,
   ProxyPrintSlot,
 } from "@/lib/proxy-print/types";
-import { uniqueEntriesPreserveOrder } from "@/lib/proxy-print/parse-deck";
-import { resolveProxyImageUrls } from "@/lib/proxy-print/resolve-urls";
 
 const USER_AGENT = "DeckVault/1.0 (proxy-print)";
 const YGO_CARDINFO = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
 const YGO_BATCH_SIZE = 80;
 const NAME_CONCURRENCY = 8;
-const OTHER_GAME_CONCURRENCY = 6;
 
 interface YgoSet {
   set_name: string;
@@ -111,8 +111,25 @@ async function resolveYgoEntriesBulk(
   entries: DeckEntry[]
 ): Promise<Map<string, { name: string; variants: ProxyCardVariant[] }>> {
   const result = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
-  const passcodeEntries = entries.filter((e) => /^\d+$/.test(e.key));
-  const nameEntries = entries.filter((e) => !/^\d+$/.test(e.key));
+  const passcodeEntries = entries.filter((e) => !e.customImageUrl && /^\d+$/.test(e.key));
+  const nameEntries = entries.filter((e) => !e.customImageUrl && !/^\d+$/.test(e.key));
+  const customEntries = entries.filter((e) => e.customImageUrl);
+
+  for (const entry of customEntries) {
+    result.set(deckEntryResolveKey(entry), {
+      name: entry.name,
+      variants: [
+        {
+          key: "custom",
+          label: entry.name,
+          rarity: null,
+          setName: null,
+          setCode: null,
+          imageUrl: entry.customImageUrl!,
+        },
+      ],
+    });
+  }
 
   const ids = [...new Set(passcodeEntries.map((e) => parseInt(e.key, 10)))];
   const cards = await fetchYgoBatch(ids);
@@ -122,11 +139,11 @@ async function resolveYgoEntriesBulk(
     const id = parseInt(entry.key, 10);
     const card = byId.get(id);
     if (card) {
-      result.set(entry.key, { name: card.name, variants: buildYgoVariants(card) });
+      result.set(deckEntryResolveKey(entry), { name: card.name, variants: buildYgoVariants(card) });
     } else {
       const url = buildYgoImageUrl(entry.key, "full");
       result.set(
-        entry.key,
+        deckEntryResolveKey(entry),
         url
           ? {
               name: entry.key,
@@ -149,23 +166,20 @@ async function resolveYgoEntriesBulk(
   await mapPool(nameEntries, NAME_CONCURRENCY, async (entry) => {
     const card = await resolveYgoByName(entry);
     if (card) {
-      result.set(entry.key, { name: card.name, variants: buildYgoVariants(card) });
+      result.set(deckEntryResolveKey(entry), { name: card.name, variants: buildYgoVariants(card) });
     } else {
-      result.set(entry.key, { name: entry.name, variants: [] });
+      result.set(deckEntryResolveKey(entry), { name: entry.name, variants: [] });
     }
   });
 
   return result;
 }
 
-function pickDefaultVariant(
-  variants: ProxyCardVariant[],
-  entry: DeckEntry
-): ProxyCardVariant | null {
+function pickYgoVariant(variants: ProxyCardVariant[], entry: DeckEntry): ProxyCardVariant | null {
   if (!variants.length) return null;
   if (entry.artHint) {
     const hint = entry.artHint.toLowerCase();
-    if (hint === "fa" || hint === "aa") {
+    if (hint === "fa" || hint === "aa" || hint === "alt") {
       const alt = variants.find((v) => v.key.startsWith("art-"));
       if (alt) return alt;
     }
@@ -175,6 +189,28 @@ function pickDefaultVariant(
     }
   }
   return variants[0];
+}
+
+function pickVariantForGame(
+  game: ProxyGame,
+  variants: ProxyCardVariant[],
+  entry: DeckEntry
+): ProxyCardVariant | null {
+  if (entry.customImageUrl) {
+    return (
+      variants.find((v) => v.key === "custom") ?? {
+        key: "custom",
+        label: entry.name,
+        rarity: null,
+        setName: null,
+        setCode: null,
+        imageUrl: entry.customImageUrl,
+      }
+    );
+  }
+  if (game === "digimon") return pickDigimonVariant(variants, entry);
+  if (game === "yugioh") return pickYgoVariant(variants, entry);
+  return variants[0] ?? null;
 }
 
 function variantToSlotFields(variant: ProxyCardVariant) {
@@ -187,17 +223,37 @@ function variantToSlotFields(variant: ProxyCardVariant) {
   };
 }
 
-async function resolveOtherGameEntriesBulk(
+async function resolveSimpleGameEntriesBulk(
   game: ProxyGame,
   entries: DeckEntry[]
 ): Promise<Map<string, { name: string; variants: ProxyCardVariant[] }>> {
-  const keyToUrl = await resolveProxyImageUrls(game, entries);
   const result = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
 
   for (const entry of entries) {
+    if (entry.customImageUrl) {
+      result.set(deckEntryResolveKey(entry), {
+        name: entry.name,
+        variants: [
+          {
+            key: "custom",
+            label: entry.name,
+            rarity: null,
+            setName: null,
+            setCode: null,
+            imageUrl: entry.customImageUrl,
+          },
+        ],
+      });
+    }
+  }
+
+  const toResolve = entries.filter((e) => !e.customImageUrl);
+  const keyToUrl = await resolveProxyImageUrls(game, toResolve);
+
+  for (const entry of toResolve) {
     const url = keyToUrl[entry.key];
     result.set(
-      entry.key,
+      deckEntryResolveKey(entry),
       url
         ? {
             name: entry.name,
@@ -219,44 +275,75 @@ async function resolveOtherGameEntriesBulk(
   return result;
 }
 
+async function resolveEntriesByGame(
+  game: ProxyGame,
+  entries: DeckEntry[]
+): Promise<Map<string, { name: string; variants: ProxyCardVariant[] }>> {
+  if (game === "yugioh") return resolveYgoEntriesBulk(entries);
+  if (game === "digimon") return resolveDigimonEntriesBulk(entries);
+  return resolveSimpleGameEntriesBulk(game, entries);
+}
+
 export interface ProxyResolvePayload {
   slots: ProxyPrintSlot[];
   missing: string[];
+  mixed: boolean;
 }
 
 export async function buildProxyPrintSlots(
-  game: ProxyGame,
+  defaultGame: ProxyGame,
   entries: DeckEntry[],
-  slotRefs: { slotId: string; entryKey: string; entry: DeckEntry }[]
+  slotRefs: { slotId: string; entryKey: string; resolveKey: string; entry: DeckEntry }[]
 ): Promise<ProxyResolvePayload> {
   const uniqueEntries = uniqueEntriesPreserveOrder(entries);
-  const variantCache =
-    game === "yugioh"
-      ? await resolveYgoEntriesBulk(uniqueEntries)
-      : await resolveOtherGameEntriesBulk(game, uniqueEntries);
+  const gamesUsed = new Set(uniqueEntries.map((e) => e.game ?? defaultGame));
+  const mixed = gamesUsed.size > 1;
+
+  const variantCache = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
+
+  const byGame = new Map<ProxyGame, DeckEntry[]>();
+  for (const entry of uniqueEntries) {
+    const g = entry.game ?? defaultGame;
+    const list = byGame.get(g) ?? [];
+    list.push(entry);
+    byGame.set(g, list);
+  }
+
+  for (const [game, gameEntries] of byGame) {
+    const resolved = await resolveEntriesByGame(game, gameEntries);
+    for (const [rk, data] of resolved) variantCache.set(rk, data);
+  }
 
   const missing: string[] = [];
   const slots: ProxyPrintSlot[] = [];
 
   for (const ref of slotRefs) {
-    const resolved = variantCache.get(ref.entryKey);
+    const game = ref.entry.game ?? defaultGame;
+    const resolved = variantCache.get(ref.resolveKey);
     const variants = resolved?.variants ?? [];
-    const defaultVariant = pickDefaultVariant(variants, ref.entry);
+    const defaultVariant = pickVariantForGame(game, variants, ref.entry);
     const name = resolved?.name ?? ref.entry.name;
 
     if (!defaultVariant) missing.push(name);
 
+    const fields = defaultVariant ? variantToSlotFields(defaultVariant) : null;
+
     slots.push({
       slotId: ref.slotId,
       entryKey: ref.entryKey,
+      resolveKey: ref.resolveKey,
+      sourceQuery: ref.entry.query,
+      game,
       name,
-      setLine: defaultVariant ? variantToSlotFields(defaultVariant).setLine : null,
-      rarity: defaultVariant?.rarity ?? null,
-      imageUrl: defaultVariant?.imageUrl ?? null,
-      variants: [],
-      selectedVariantKey: defaultVariant?.key ?? null,
+      variantLabel: defaultVariant?.label ?? null,
+      setLine: fields?.setLine ?? null,
+      rarity: fields?.rarity ?? null,
+      imageUrl: fields?.imageUrl ?? null,
+      customImageUrl: ref.entry.customImageUrl ?? null,
+      variants,
+      selectedVariantKey: fields?.selectedVariantKey ?? null,
     });
   }
 
-  return { slots, missing: [...new Set(missing)] };
+  return { slots, missing: [...new Set(missing)], mixed };
 }

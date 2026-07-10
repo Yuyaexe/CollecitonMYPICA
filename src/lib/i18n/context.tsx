@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { useLocaleStore } from "@/lib/i18n/store";
 import type { AppLocale } from "@/lib/i18n/types";
@@ -12,8 +12,11 @@ export function useLocale(): AppLocale {
 
 export function useT() {
   const locale = useLocale();
-  return (key: MessageKey, params?: Record<string, string | number>) =>
-    translate(locale, key, params);
+  return useCallback(
+    (key: MessageKey, params?: Record<string, string | number>) =>
+      translate(locale, key, params),
+    [locale]
+  );
 }
 
 export function LocaleSync() {

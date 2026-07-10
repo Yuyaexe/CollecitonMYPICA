@@ -43,6 +43,7 @@ export function detectGameFromText(text: string): ProxyGame | null {
     onepiece: 0,
   };
   let cardLines = 0;
+  let genericNameLines = 0;
 
   for (const raw of normalized.split("\n")) {
     const line = raw.trim().replace(/\t/g, " ");
@@ -81,11 +82,14 @@ export function detectGameFromText(text: string): ProxyGame | null {
       scores.onepiece += 1;
       continue;
     }
-        if (/^\d+\s+[A-Za-z]/.test(line) && !DIGIMON_SET_ID.test(line) && !ONEPIECE_SET_ID.test(line)) {
-          scores.yugioh += 2;
-          scores.pokemon += 1;
-          continue;
-        }
+    if (/^\d+\s+[A-Za-z]/.test(line) && !DIGIMON_SET_ID.test(line) && !ONEPIECE_SET_ID.test(line)) {
+      genericNameLines += 1;
+      continue;
+    }
+  }
+
+  if (genericNameLines >= 3 && scores.digimon === 0 && scores.onepiece === 0) {
+    scores.yugioh += genericNameLines;
   }
 
   if (cardLines === 0) return null;

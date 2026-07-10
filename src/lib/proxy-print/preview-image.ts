@@ -6,6 +6,7 @@ const DIRECT_PREVIEW_HOSTS = [
   "digimoncard.com",
   "pokemontcg.io",
   "digitaloceanspaces.com",
+  "tcgplayer.com",
 ];
 
 export function canLoadPreviewDirect(url: string): boolean {

@@ -1,18 +1,22 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileUp, ClipboardPaste, Printer, Trash2, Eye, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { LoadingOverlay } from "@/components/shared/LoadingOverlay";
-import { ProxyBinderPreview } from "@/features/proxy-print/components/ProxyBinderPreview";
+import {
+  ProxyBinderPreview,
+  type SlotUpdate,
+} from "@/features/proxy-print/components/ProxyBinderPreview";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { detectGameFromText } from "@/lib/proxy-print/detect-game";
 import { buildProxyPdf, previewLayoutText } from "@/lib/proxy-print/build-pdf";
+import { hasMixedGameSections, deckLineWithVariantImage } from "@/lib/proxy-print/parse-deck";
 import {
+  DEFAULT_CARD_SIZE_FOR_GAME,
+  DEFAULT_PDF_DPI,
   GAME_LABELS,
-  PROXY_GAMES,
   type CardSizePreset,
   type ProxyGame,
   type ProxyPrintSlot,
@@ -23,19 +27,42 @@ import { toast } from "sonner";
 
 type InputMode = "paste" | "file";
 
+const AUTO_PREVIEW_MS = 700;
+
 export function ProxyPrintPanel() {
   const t = useT();
   const locale = useLocale();
   const fileRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const previewRequestRef = useRef(0);
+  const deckTextRef = useRef("");
+  const defaultGameRef = useRef<ProxyGame>("yugioh");
+  const tRef = useRef(t);
+  const variantOverridesRef = useRef(new Map<string, SlotUpdate>());
+
+  const applyVariantOverrides = useCallback((incoming: ProxyPrintSlot[]): ProxyPrintSlot[] => {
+    const overrides = variantOverridesRef.current;
+    if (!overrides.size) return incoming;
+    return incoming.map((slot) => {
+      const override = overrides.get(slot.resolveKey);
+      if (!override) return slot;
+      return {
+        ...slot,
+        imageUrl: override.imageUrl,
+        selectedVariantKey: override.selectedVariantKey,
+        rarity: override.rarity,
+        setLine: override.setLine,
+        variantLabel: override.variantLabel ?? slot.variantLabel,
+      };
+    });
+  }, []);
 
   const [inputMode, setInputMode] = useState<InputMode>("paste");
   const [deckText, setDeckText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [game, setGame] = useState<ProxyGame>("yugioh");
   const [cardSize, setCardSize] = useState<CardSizePreset>("yugioh");
-  const [dpi, setDpi] = useState<200 | 300>(300);
   const [cardsGlued, setCardsGlued] = useState(true);
+  const [autoPreview, setAutoPreview] = useState(true);
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const [progressMax, setProgressMax] = useState(100);
@@ -46,6 +73,17 @@ export function ProxyPrintPanel() {
   const [spreadIndex, setSpreadIndex] = useState(0);
 
   const hasPreview = slots.length > 0;
+  const isMixedDeck = useMemo(() => hasMixedGameSections(deckText), [deckText]);
+
+  const defaultGame = useMemo((): ProxyGame => {
+    const text = deckText.trim();
+    if (!text) return "yugioh";
+    return detectGameFromText(text) ?? "yugioh";
+  }, [deckText]);
+
+  deckTextRef.current = deckText;
+  defaultGameRef.current = defaultGame;
+  tRef.current = t;
 
   const preview = useMemo(
     () => previewLayoutText(cardSize, cardsGlued, locale === "pt-BR" ? "pt-BR" : "en"),
@@ -58,7 +96,14 @@ export function ProxyPrintPanel() {
         setStatus(t("proxyPrint.hint"));
         return;
       }
+      if (hasMixedGameSections(text)) {
+        setStatus(t("proxyPrint.gameMixed"));
+        return;
+      }
       const detected = detectGameFromText(text);
+      if (detected) {
+        setCardSize(DEFAULT_CARD_SIZE_FOR_GAME[detected]);
+      }
       setStatus(
         detected
           ? t("proxyPrint.gameDetected", { game: GAME_LABELS[detected] })
@@ -68,11 +113,86 @@ export function ProxyPrintPanel() {
     [t]
   );
 
+  const handleSlotUpdate = useCallback(
+    (slotId: string, update: SlotUpdate, sourceQuery: string | null) => {
+      let resolveKey: string | null = null;
+
+      setSlots((prev) => {
+        const target = prev.find((s) => s.slotId === slotId);
+        if (!target) return prev;
+        resolveKey = target.resolveKey;
+        variantOverridesRef.current.set(target.resolveKey, update);
+        return prev.map((slot) =>
+          slot.resolveKey === target.resolveKey
+            ? {
+                ...slot,
+                imageUrl: update.imageUrl,
+                selectedVariantKey: update.selectedVariantKey,
+                rarity: update.rarity,
+                setLine: update.setLine,
+                variantLabel: update.variantLabel ?? slot.variantLabel,
+              }
+            : slot
+        );
+      });
+
+      if (sourceQuery && update.imageUrl) {
+        setDeckText((text) => deckLineWithVariantImage(text, sourceQuery, update.imageUrl));
+      }
+    },
+    []
+  );
+
+  const fetchResolvedSlots = useCallback(
+    async (signal?: AbortSignal): Promise<ProxyPrintSlot[]> => {
+      const text = deckTextRef.current.trim();
+      if (!text) throw new Error(tRef.current("proxyPrint.needList"));
+
+      const res = await fetch("/api/proxy-print/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckText: text, game: defaultGameRef.current }),
+        signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? tRef.current("proxyPrint.failed"));
+      if (data.mixed) {
+        setStatus(tRef.current("proxyPrint.gameMixed"));
+      } else if (data.game) {
+        setCardSize(DEFAULT_CARD_SIZE_FOR_GAME[data.game as ProxyGame]);
+      }
+      return applyVariantOverrides(data.slots as ProxyPrintSlot[]);
+    },
+    [applyVariantOverrides]
+  );
+
+  const commitPreviewSlots = useCallback((resolved: ProxyPrintSlot[], requestId: number) => {
+    if (requestId !== previewRequestRef.current) return false;
+    setSlots(resolved);
+    setSpreadIndex(0);
+    return true;
+  }, []);
+
+  const resolveSlotsFromApi = useCallback(
+    async (options?: { silent?: boolean }): Promise<ProxyPrintSlot[]> => {
+      const resolved = await fetchResolvedSlots(abortRef.current?.signal);
+      setSlots(resolved);
+      setSpreadIndex(0);
+      if (!options?.silent) {
+        const missing = resolved.filter((s) => !s.imageUrl).length;
+        if (missing) toast.warning(t("proxyPrint.partialResolve", { count: missing }));
+      }
+      return resolved;
+    },
+    [fetchResolvedSlots, t]
+  );
+
   const handlePasteChange = (value: string) => {
+    variantOverridesRef.current.clear();
     setDeckText(value);
     setFileName(null);
     setInputMode("paste");
-    setSlots([]);
+    if (!autoPreview) setSlots([]);
     refreshDetection(value);
   };
 
@@ -91,33 +211,13 @@ export function ProxyPrintPanel() {
     setDeckText(text);
     setFileName(file.name);
     setInputMode("file");
-    setSlots([]);
-    if (file.name.toLowerCase().endsWith(".ydk")) setGame("yugioh");
+    if (!autoPreview) setSlots([]);
+    variantOverridesRef.current.clear();
+    if (file.name.toLowerCase().endsWith(".ydk")) {
+      setCardSize("yugioh");
+    }
     refreshDetection(text);
     if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const resolveSlotsFromApi = async (): Promise<ProxyPrintSlot[]> => {
-    const text = deckText.trim();
-    if (!text) throw new Error(t("proxyPrint.needList"));
-
-    const detected = detectGameFromText(text);
-    const gameToUse = detected ?? game;
-    if (detected) setGame(detected);
-
-    const res = await fetch("/api/proxy-print/resolve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckText: text, game: gameToUse }),
-      signal: abortRef.current?.signal,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? t("proxyPrint.failed"));
-    if (data.game) setGame(data.game);
-    const next = data.slots as ProxyPrintSlot[];
-    setSlots(next);
-    setSpreadIndex(0);
-    return next;
   };
 
   const handlePreview = async () => {
@@ -129,8 +229,6 @@ export function ProxyPrintPanel() {
     try {
       const resolved = await resolveSlotsFromApi();
       setStatus(t("proxyPrint.previewReady", { count: resolved.length }));
-      const missing = resolved.filter((s) => !s.imageUrl).length;
-      if (missing) toast.warning(t("proxyPrint.partialResolve", { count: missing }));
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         setStatus(t("proxyPrint.cancelled"));
@@ -144,6 +242,52 @@ export function ProxyPrintPanel() {
     }
   };
 
+  useEffect(() => {
+    if (!autoPreview) return;
+    const text = deckText.trim();
+    if (!text) {
+      setSlots([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+
+      const requestId = ++previewRequestRef.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setBusy(true);
+      setStatus(tRef.current("proxyPrint.resolving"));
+
+      void fetchResolvedSlots(controller.signal)
+        .then((resolved) => {
+          if (cancelled || requestId !== previewRequestRef.current) return;
+          commitPreviewSlots(resolved, requestId);
+          setStatus(tRef.current("proxyPrint.previewReady", { count: resolved.length }));
+        })
+        .catch((err) => {
+          if (cancelled || requestId !== previewRequestRef.current) return;
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          toast.error(err instanceof Error ? err.message : tRef.current("proxyPrint.failed"));
+          setStatus(tRef.current("proxyPrint.error"));
+        })
+        .finally(() => {
+          if (requestId === previewRequestRef.current) {
+            setBusy(false);
+            abortRef.current = null;
+          }
+        });
+    }, AUTO_PREVIEW_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [autoPreview, deckText, defaultGame, fetchResolvedSlots, commitPreviewSlots]);
+
   const handleGenerate = async () => {
     abortRef.current = new AbortController();
     setPdfBusy(true);
@@ -154,7 +298,7 @@ export function ProxyPrintPanel() {
       let currentSlots = slots;
       if (!currentSlots.length) {
         setStatus(t("proxyPrint.resolving"));
-        currentSlots = await resolveSlotsFromApi();
+        currentSlots = await resolveSlotsFromApi({ silent: true });
       }
 
       const imageUrls = currentSlots.map((s) => s.imageUrl).filter(Boolean) as string[];
@@ -169,7 +313,7 @@ export function ProxyPrintPanel() {
       const blob = await buildProxyPdf({
         imageUrls,
         cardSize,
-        dpi,
+        dpi: DEFAULT_PDF_DPI,
         cardsGlued,
         signal: abortRef.current.signal,
         onProgress: ({ current, total }) => {
@@ -283,6 +427,7 @@ export function ProxyPrintPanel() {
                   size="sm"
                   onClick={() => {
                     setDeckText("");
+                    variantOverridesRef.current.clear();
                     setSlots([]);
                     setStatus(t("proxyPrint.hint"));
                   }}
@@ -305,27 +450,9 @@ export function ProxyPrintPanel() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            <div className="space-y-2">
-              <Label>{t("proxyPrint.game")}</Label>
-              <ResponsiveSelect
-                value={game}
-                onValueChange={(v) => setGame(v as ProxyGame)}
-                options={PROXY_GAMES.map((g) => ({ value: g, label: GAME_LABELS[g] }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("proxyPrint.dpi")}</Label>
-              <ResponsiveSelect
-                value={String(dpi)}
-                onValueChange={(v) => setDpi(v === "200" ? 200 : 300)}
-                options={[
-                  { value: "300", label: t("proxyPrint.dpiHd") },
-                  { value: "200", label: t("proxyPrint.dpiFast") },
-                ]}
-              />
-            </div>
-          </div>
+          {isMixedDeck ? (
+            <p className="text-xs text-muted-foreground">{t("proxyPrint.mixedDeckHint")}</p>
+          ) : null}
 
           <div className="space-y-2">
             <Label>{t("proxyPrint.cardSize")}</Label>
@@ -373,11 +500,27 @@ export function ProxyPrintPanel() {
             </div>
           </div>
 
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={autoPreview}
+              onChange={(e) => setAutoPreview(e.target.checked)}
+              className="rounded border-input"
+            />
+            {t("proxyPrint.autoPreview")}
+          </label>
+
           <p className="text-xs text-muted-foreground">{preview}</p>
+          <p className="text-xs text-muted-foreground">{t("proxyPrint.syntaxHint")}</p>
           {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => void handlePreview()}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void handlePreview()}
+            >
               <Eye className="mr-2 h-4 w-4" />
               {t("proxyPrint.preview")}
             </Button>
@@ -395,18 +538,27 @@ export function ProxyPrintPanel() {
           <p className="text-xs text-muted-foreground">{t("proxyPrint.printHint")}</p>
         </div>
 
-        <div className="relative flex min-h-[28rem] flex-1 flex-col rounded-xl border border-border/60 bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background p-3 sm:p-4 lg:min-h-0 lg:overflow-hidden">
-          {busy && !pdfBusy ? (
+        <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background p-2 sm:p-3 lg:min-h-0">
+          {busy && !pdfBusy && !hasPreview ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p>{status || t("proxyPrint.resolving")}</p>
             </div>
           ) : hasPreview ? (
-            <ProxyBinderPreview
-              slots={slots}
-              spreadIndex={spreadIndex}
-              onSpreadChange={setSpreadIndex}
-            />
+            <div className="flex min-h-0 flex-1 flex-col">
+              {busy && !pdfBusy ? (
+                <div className="mb-2 flex shrink-0 items-center gap-2 px-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span>{status || t("proxyPrint.resolving")}</span>
+                </div>
+              ) : null}
+              <ProxyBinderPreview
+                slots={slots}
+                spreadIndex={spreadIndex}
+                onSpreadChange={setSpreadIndex}
+                onSlotUpdate={handleSlotUpdate}
+              />
+            </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
               <p>{t("proxyPrint.previewEmpty")}</p>
@@ -415,7 +567,6 @@ export function ProxyPrintPanel() {
           )}
         </div>
       </div>
-
     </div>
   );
 }

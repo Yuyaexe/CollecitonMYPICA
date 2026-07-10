@@ -50,20 +50,36 @@ function layoutCells(
   return { pageW, pageH, offX, offY, g, cw, ch };
 }
 
-async function loadImageDataUrl(proxyUrl: string): Promise<string | null> {
+async function blobToDataUrl(blob: Blob): Promise<string | null> {
+  return await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadImageDataUrl(remote: string): Promise<string | null> {
   try {
-    const res = await fetch(proxyUrl);
+    const fetchUrl =
+      remote.startsWith("blob:") ||
+      remote.startsWith("data:") ||
+      remote.startsWith("/")
+        ? remote
+        : `/api/proxy-image?url=${encodeURIComponent(remote)}`;
+    const res = await fetch(fetchUrl);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    return blobToDataUrl(blob);
   } catch {
     return null;
   }
+}
+
+function imageFormatFromDataUrl(dataUrl: string): "JPEG" | "PNG" | "WEBP" {
+  if (dataUrl.startsWith("data:image/png")) return "PNG";
+  if (dataUrl.startsWith("data:image/webp")) return "WEBP";
+  return "JPEG";
 }
 
 function placeholderDataUrl(cw: number, ch: number, label: string): string {
@@ -111,9 +127,7 @@ export async function buildProxyPdf(options: {
     const remote = imageUrls[index];
     let dataUrl: string | null = null;
     if (remote) {
-      dataUrl = await loadImageDataUrl(
-        `/api/proxy-image?url=${encodeURIComponent(remote)}`
-      );
+      dataUrl = await loadImageDataUrl(remote);
     }
     if (!dataUrl) dataUrl = placeholderDataUrl(cw, ch, label);
     imageCache.set(index, dataUrl);
@@ -144,7 +158,7 @@ export async function buildProxyPdf(options: {
       const x = offX + col * (cw + g);
       const y = offY + row * (ch + g);
       const dataUrl = await getCellImage(globalIndex, `Card ${globalIndex + 1}`);
-      pdf.addImage(dataUrl, "JPEG", x, y, cw, ch, undefined, "FAST");
+      pdf.addImage(dataUrl, imageFormatFromDataUrl(dataUrl), x, y, cw, ch, undefined, "FAST");
     }
   }
 

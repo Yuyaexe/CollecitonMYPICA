@@ -122,37 +122,78 @@ async function resolveOnepiece(entries: DeckEntry[]): Promise<Record<string, str
   return keyToUrl;
 }
 
-async function resolveDigimon(entries: DeckEntry[]): Promise<Record<string, string>> {
-  const keyToUrl: Record<string, string> = {};
-  for (const key of uniqueKeysPreserveOrder(entries)) {
-    const lookupId = key.toUpperCase();
-    let url: string | null = null;
+const DIGIMON_CARD_ID = /^[A-Za-z][A-Za-z0-9]*-\d+(?:[-_][A-Za-z0-9]+)*$/i;
 
+async function searchDigimonRows(params: URLSearchParams): Promise<Record<string, unknown>[]> {
+  const rows = await fetchJson<Record<string, unknown>[]>(`${DIGIMON_SEARCH}?${params}`);
+  return Array.isArray(rows) ? rows : [];
+}
+
+function pickDigimonRowByName(rows: Record<string, unknown>[], name: string): Record<string, unknown> | null {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return null;
+  return (
+    rows.find((row) => String(row.name ?? "").toLowerCase() === normalized) ??
+    rows.find((row) => String(row.name ?? "").toLowerCase().includes(normalized)) ??
+    rows[0] ??
+    null
+  );
+}
+
+async function digimonImageForId(cardId: string): Promise<string | null> {
+  const lookupId = cardId.toUpperCase();
+  return firstWorkingUrl([DIGIMON_IMG_OFFICIAL(lookupId), DIGIMON_IMG_HD(lookupId)]);
+}
+
+async function resolveDigimonCardKey(key: string): Promise<string | null> {
+  const lookupId = key.trim();
+  if (!lookupId) return null;
+
+  if (DIGIMON_CARD_ID.test(lookupId)) {
     try {
       const params = new URLSearchParams({
-        card: lookupId,
+        card: lookupId.toUpperCase(),
         series: "Digimon Card Game",
       });
-      const rows = await fetchJson<Record<string, unknown>[]>(
-        `${DIGIMON_SEARCH}?${params}`
-      );
-      if (Array.isArray(rows) && rows.length) {
+      const rows = await searchDigimonRows(params);
+      if (rows.length) {
         const apiId = String(rows[0].id ?? lookupId).toUpperCase();
-        url = await firstWorkingUrl([
-          DIGIMON_IMG_OFFICIAL(apiId),
-          DIGIMON_IMG_HD(apiId),
-        ]);
+        const url = await digimonImageForId(apiId);
+        if (url) return url;
       }
     } catch {
       /* fallback below */
     }
+    return digimonImageForId(lookupId);
+  }
 
-    if (!url) {
-      url = await firstWorkingUrl([
-        DIGIMON_IMG_OFFICIAL(lookupId),
-        DIGIMON_IMG_HD(lookupId),
-      ]);
+  const nameQuery = lookupId.replace(/:+\s*$/, "").trim();
+  try {
+    const params = new URLSearchParams({
+      n: nameQuery,
+      desc: nameQuery,
+      limit: "24",
+      series: "Digimon Card Game",
+      sort: "name",
+      sortdirection: "asc",
+    });
+    const rows = await searchDigimonRows(params);
+    const match = pickDigimonRowByName(rows, nameQuery);
+    if (match?.id) {
+      const url = await digimonImageForId(String(match.id));
+      if (url) return url;
     }
+  } catch {
+    /* no match */
+  }
+
+  return null;
+}
+
+async function resolveDigimon(entries: DeckEntry[]): Promise<Record<string, string>> {
+  const keyToUrl: Record<string, string> = {};
+  for (const key of uniqueKeysPreserveOrder(entries)) {
+    const url = await resolveDigimonCardKey(key);
     if (url) keyToUrl[key] = url;
   }
   return keyToUrl;

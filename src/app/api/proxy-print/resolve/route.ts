@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { detectGameFromText } from "@/lib/proxy-print/detect-game";
 import {
   flattenZones,
+  hasMixedGameSections,
   loadZonesFromText,
   orderedSlotsFromZones,
 } from "@/lib/proxy-print/parse-deck";
@@ -20,6 +21,7 @@ async function resolveDeck(deckText: string, game: ProxyGame) {
 
   return {
     game,
+    mixed: hasMixedGameSections(deckText),
     slots,
     missing,
     totalUnique: new Set(entries.map((e) => e.key)).size,
@@ -51,15 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     let result = await resolveDeck(deckText, preferred);
-    let game = preferred;
-
-    if (result && result.found === 0 && detected && detected !== preferred) {
-      const fallback = await resolveDeck(deckText, detected);
-      if (fallback && fallback.found > 0) {
-        result = fallback;
-        game = detected;
-      }
-    }
+    const game = preferred;
 
     if (!result) {
       return NextResponse.json({ error: "No cards found in list" }, { status: 400 });
@@ -68,10 +62,7 @@ export async function POST(request: NextRequest) {
     if (result.found === 0) {
       return NextResponse.json(
         {
-          error:
-            detected && detected !== preferred
-              ? `No images found for ${preferred}. Try ${detected}.`
-              : "No card images found",
+          error: "No card images found",
           detected,
         },
         { status: 422 }
@@ -81,6 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ...result,
       game,
+      mixed: result.mixed,
       autoDetected: game === detected,
       detected,
     });

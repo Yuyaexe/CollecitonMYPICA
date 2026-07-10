@@ -7,7 +7,9 @@ export interface DeckEntry {
   name: string;
   quantity: number;
   query: string;
+  game?: ProxyGame;
   artHint?: string | null;
+  customImageUrl?: string | null;
 }
 
 export interface ProxyCardVariant {
@@ -22,10 +24,15 @@ export interface ProxyCardVariant {
 export interface ProxyPrintSlot {
   slotId: string;
   entryKey: string;
+  resolveKey: string;
+  sourceQuery: string | null;
+  game: ProxyGame;
   name: string;
+  variantLabel: string | null;
   setLine: string | null;
   rarity: string | null;
   imageUrl: string | null;
+  customImageUrl: string | null;
   variants: ProxyCardVariant[];
   selectedVariantKey: string | null;
 }
@@ -55,6 +62,14 @@ export const GAME_LABELS: Record<ProxyGame, string> = {
 export const CARD_SIZE_PRESETS: Record<CardSizePreset, { w: number; h: number }> = {
   yugioh: { w: 59, h: 86 },
   bandai: { w: 63, h: 88 },
+};
+
+/** Default PDF card size per game (Digimon / One Piece use Bandai dimensions). */
+export const DEFAULT_CARD_SIZE_FOR_GAME: Record<ProxyGame, CardSizePreset> = {
+  yugioh: "yugioh",
+  pokemon: "yugioh",
+  digimon: "bandai",
+  onepiece: "bandai",
 };
 
 export const DEFAULT_PDF_DPI = 300;

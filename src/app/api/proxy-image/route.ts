@@ -5,11 +5,13 @@ const TRUSTED_HOST_PATTERNS = [
   "limitlesstcg",
   "digimoncard.io",
   "digimoncard.com",
+  "world.digimoncard.com",
   "pokemontcg.io",
   "pokemoncard.io",
   "digitaloceanspaces.com",
   "cardtrader.com",
   "product-images.cardtrader",
+  "tcgplayer.com",
 ];
 
 function isTrustedImageUrl(raw: string): boolean {
