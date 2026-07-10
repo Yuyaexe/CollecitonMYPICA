@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   Layers,
   LayoutGrid,
   Printer,
@@ -9,20 +8,14 @@ import {
 } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-export interface DashboardNavItem {
+export interface AppNavItem {
   href: string;
   labelKey: MessageKey;
   shortLabelKey: MessageKey;
   icon: LucideIcon;
 }
 
-export const dashboardNavItems: DashboardNavItem[] = [
-  {
-    href: "/dashboard",
-    labelKey: "nav.dashboard",
-    shortLabelKey: "nav.dashboardShort",
-    icon: LayoutDashboard,
-  },
+export const appNavItems: AppNavItem[] = [
   {
     href: "/collections",
     labelKey: "nav.collectionManager",

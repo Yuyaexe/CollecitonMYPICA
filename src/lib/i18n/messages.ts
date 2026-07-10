@@ -3,8 +3,6 @@ import { extraMessages } from "@/lib/i18n/messages-extra";
 
 export const messages = {
   en: {
-    "nav.dashboard": "Dashboard",
-    "nav.dashboardShort": "Home",
     "nav.collectionManager": "Collection Manager",
     "nav.collectionManagerShort": "Folders",
     "nav.collection": "Collection",
@@ -59,17 +57,6 @@ export const messages = {
     "settings.busyWait": "Please wait...",
     "settings.busyRestoreWarning":
       "Do not close this tab — restoration may take several minutes for large collections.",
-
-    "dashboard.title": "Dashboard",
-    "dashboard.description": "Overview of your TCG collection",
-    "dashboard.viewCollection": "View collection",
-    "dashboard.totalCards": "Total cards",
-    "dashboard.uniqueSets": "Unique sets",
-    "dashboard.quickActions": "Quick actions",
-    "dashboard.goToCollection": "Go to collection",
-    "dashboard.import": "Import",
-    "dashboard.valueHistory": "Value history",
-    "dashboard.valueHistoryHint": "Charts coming in Phase 3",
 
     "collection.loading": "Loading collection...",
     "collection.loadingCards": "Loading cards...",
@@ -296,8 +283,6 @@ export const messages = {
     ...extraMessages.en,
   },
   "pt-BR": {
-    "nav.dashboard": "Painel",
-    "nav.dashboardShort": "Início",
     "nav.collectionManager": "Gerenciar coleções",
     "nav.collectionManagerShort": "Pastas",
     "nav.collection": "Coleção",
@@ -355,17 +340,6 @@ export const messages = {
     "settings.busyWait": "Aguarde...",
     "settings.busyRestoreWarning":
       "Não feche esta aba — a restauração pode levar alguns minutos em coleções grandes.",
-
-    "dashboard.title": "Painel",
-    "dashboard.description": "Visão geral da sua coleção TCG",
-    "dashboard.viewCollection": "Ver coleção",
-    "dashboard.totalCards": "Total de cartas",
-    "dashboard.uniqueSets": "Conjuntos únicos",
-    "dashboard.quickActions": "Ações rápidas",
-    "dashboard.goToCollection": "Ir para coleção",
-    "dashboard.import": "Importar",
-    "dashboard.valueHistory": "Histórico de valor",
-    "dashboard.valueHistoryHint": "Gráficos na Fase 3",
 
     "collection.loading": "Carregando coleção...",
     "collection.loadingCards": "Carregando cartas...",

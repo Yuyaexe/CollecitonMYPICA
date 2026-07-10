@@ -22,6 +22,33 @@ function slugifyForCardTrader(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** CardTrader catalog spelling differs from Konami/YGOPRODeck on some cards. */
+function normalizeCardTraderCardName(name: string): string {
+  return name.trim().replace(/\bAzathot\b/gi, "Azathoth");
+}
+
+function cardTraderRaritySlugPart(
+  rarity: string | null | undefined,
+  gameSlug?: string | null
+): string | null {
+  if (!rarity?.trim()) return null;
+  const label = resolveRarityStyle(rarity, gameSlug ?? "yugioh").label;
+  return slugifyForCardTrader(label !== "?" ? label : rarity);
+}
+
+function buildCardTraderSlugParts(input: {
+  name: string;
+  setName?: string | null;
+  rarity?: string | null;
+  gameSlug?: string | null;
+}): string[] {
+  const parts = [slugifyForCardTrader(normalizeCardTraderCardName(input.name))];
+  const raritySlug = cardTraderRaritySlugPart(input.rarity, input.gameSlug);
+  if (raritySlug) parts.push(raritySlug);
+  if (input.setName?.trim()) parts.push(slugifyForCardTrader(input.setName));
+  return parts;
+}
+
 /** Extract numeric blueprint id from CardTrader CDN image URLs. */
 export function extractBlueprintIdFromImageUrl(
   imageUrl: string | null | undefined
@@ -104,6 +131,50 @@ export function getBlueprintProductSlug(blueprintId: number): string | null {
   return blueprintSlugCache.get(blueprintId) ?? null;
 }
 
+function encodeCardTraderManaSearchIds(blueprintIds: number[]): string {
+  const payload = blueprintIds.join(",");
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(payload, "utf8").toString("base64");
+  }
+  return btoa(payload);
+}
+
+/** Multi-version search — lists every printing of the same card name. */
+export function buildCardTraderManaSearchUrl(
+  name: string,
+  blueprintIds: number[],
+  page = 1
+): string {
+  const ids = [...new Set(blueprintIds.filter((id) => Number.isFinite(id) && id > 0))];
+  const cardName = normalizeCardTraderCardName(name);
+  if (ids.length === 0) {
+    return buildCardTraderSlugUrl({ name: cardName });
+  }
+  const q = encodeURIComponent(cardName);
+  const idsParam = encodeURIComponent(encodeCardTraderManaSearchIds(ids));
+  return `https://www.cardtrader.com/en/manasearch_results?ids=${idsParam}&q=${q}&page=${page}`;
+}
+
+export interface CardTraderBlueprintMeta {
+  id: number;
+}
+
+export interface CardTraderBlueprintPayload {
+  id: number;
+  name: string;
+  same_meta?: CardTraderBlueprintMeta[] | null;
+}
+
+export function collectCardTraderBlueprintGroupIds(
+  blueprint: CardTraderBlueprintPayload
+): number[] {
+  const ids = new Set<number>([blueprint.id]);
+  for (const meta of blueprint.same_meta ?? []) {
+    if (meta?.id > 0) ids.add(meta.id);
+  }
+  return [...ids];
+}
+
 /** Direct product page — e.g. /en/cards/201101-speedroid-scratch-secret-rare-brothers-of-legend */
 export function buildCardTraderCardUrl(input: {
   blueprintId: number;
@@ -111,6 +182,7 @@ export function buildCardTraderCardUrl(input: {
   setName?: string | null;
   rarity?: string | null;
   imageUrl?: string | null;
+  gameSlug?: string | null;
 }): string {
   const cached = getBlueprintProductSlug(input.blueprintId);
   const fromImage = cached ?? extractCardTraderSlugFromImageUrl(input.imageUrl);
@@ -118,20 +190,40 @@ export function buildCardTraderCardUrl(input: {
     return `https://www.cardtrader.com/en/cards/${fromImage}`;
   }
 
-  const parts = [slugifyForCardTrader(input.name)];
-  if (input.rarity?.trim()) parts.push(slugifyForCardTrader(input.rarity));
-  if (input.setName?.trim()) parts.push(slugifyForCardTrader(input.setName));
+  const parts = buildCardTraderSlugParts({
+    name: input.name,
+    setName: input.setName,
+    rarity: input.rarity,
+    gameSlug: input.gameSlug,
+  });
 
   return `https://www.cardtrader.com/en/cards/${input.blueprintId}-${parts.join("-")}`;
 }
 
+/** Slug-only product page — works when blueprint id is unknown. */
+export function buildCardTraderSlugUrl(input: {
+  name: string;
+  setName?: string | null;
+  rarity?: string | null;
+  gameSlug?: string | null;
+}): string {
+  return `https://www.cardtrader.com/en/cards/${buildCardTraderSlugParts(input).join("-")}`;
+}
+
 export function buildCardTraderSearchUrl(
   name: string,
-  setName?: string | null,
-  _setCode?: string | null
+  _setName?: string | null,
+  _setCode?: string | null,
+  options?: {
+    rarity?: string | null;
+    gameSlug?: string | null;
+    blueprintIds?: number[];
+  }
 ): string {
-  const terms = [name, setName].filter(Boolean).join(" ").trim();
-  return `https://www.cardtrader.com/en/search?query=${encodeURIComponent(terms)}`;
+  if (options?.blueprintIds?.length) {
+    return buildCardTraderManaSearchUrl(name, options.blueprintIds);
+  }
+  return buildCardTraderManaSearchUrl(name, []);
 }
 
 function storedBlueprintMatchesInput(
@@ -218,13 +310,7 @@ export function resolveCardTraderProductUrl(params: {
     blueprintId = null;
   }
   if (blueprintId != null) {
-    return buildCardTraderCardUrl({
-      blueprintId,
-      name: params.name,
-      setName: params.setName,
-      rarity: params.rarity,
-      imageUrl: params.imageUrl,
-    });
+    return buildCardTraderManaSearchUrl(params.name, [blueprintId]);
   }
-  return buildCardTraderSearchUrl(params.name, params.setName);
+  return buildCardTraderManaSearchUrl(params.name, []);
 }

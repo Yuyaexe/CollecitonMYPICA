@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { dashboardNavItems } from "@/lib/navigation";
+import { appNavItems } from "@/lib/navigation";
 import { useT } from "@/lib/i18n/context";
 
 export function MobileBottomNav() {
@@ -17,7 +17,7 @@ export function MobileBottomNav() {
       aria-label={t("nav.main")}
     >
       <ul className="flex h-14 items-stretch">
-        {dashboardNavItems.map((item) => {
+        {appNavItems.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (

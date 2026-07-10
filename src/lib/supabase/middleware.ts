@@ -39,8 +39,13 @@ export async function updateSession(request: NextRequest) {
   const isProtected =
     request.nextUrl.pathname.startsWith("/collection") ||
     request.nextUrl.pathname.startsWith("/collections") ||
-    request.nextUrl.pathname.startsWith("/settings") ||
-    request.nextUrl.pathname.startsWith("/dashboard");
+    request.nextUrl.pathname.startsWith("/settings");
+
+  if (request.nextUrl.pathname === "/dashboard" || request.nextUrl.pathname.startsWith("/dashboard/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/collection";
+    return NextResponse.redirect(url);
+  }
 
   if (!user && isProtected && !isAuthRoute) {
     const url = request.nextUrl.clone();

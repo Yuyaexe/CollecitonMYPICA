@@ -3,7 +3,7 @@
 import { useMemo, useCallback, useEffect } from "react";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { applyCollectionFilters, sortOwnedCards } from "@/features/collection/utils/filters";
-import { resolveCardTraderUrl } from "@/features/market/hooks/useCardTraderPrices";
+import { openCardTraderManaSearch } from "@/features/market/hooks/useCardTraderPrices";
 import { useAppData } from "@/hooks/useAppData";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeIdOrder } from "@/lib/collections/card-order";
@@ -140,8 +140,7 @@ export function useCollectionViewData(): CollectionViewData {
   );
 
   const openCardTraderLink = useCallback((item: DemoOwnedCard) => {
-    const url = resolveCardTraderUrl(item);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    void openCardTraderManaSearch(item);
   }, []);
 
   return useMemo(

@@ -75,10 +75,3 @@ export function sortOwnedCards(
 
   return dir === "desc" ? sorted.reverse() : sorted;
 }
-
-export function computeCollectionStats(cards: DemoOwnedCard[]) {
-  const totalCards = cards.reduce((sum, oc) => sum + oc.quantity, 0);
-  const uniqueSets = new Set(cards.map((oc) => oc.card.setName).filter(Boolean)).size;
-
-  return { totalCards, uniqueSets };
-}

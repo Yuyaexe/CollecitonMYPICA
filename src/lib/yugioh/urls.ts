@@ -1,3 +1,5 @@
+import { yugiohSetNumberRef } from "@/lib/yugioh/lookup";
+
 /** YGOPRODeck site + image URL helpers */
 
 export function slugifyCardName(name: string): string {
@@ -38,6 +40,13 @@ export function buildLigaYugiohSearchUrl(name: string): string {
   return `https://www.ligayugioh.com.br/?view=cards/search&card=${encodeURIComponent(name.trim())}`;
 }
 
-export function buildMyPCardsSearchUrl(name: string): string {
-  return `https://mypcards.com/yugioh?busca=${encodeURIComponent(name.trim())}`;
+export function buildMyPCardsSearchUrl(
+  name: string,
+  options?: { collectorNumber?: string | null; setCode?: string | null }
+): string {
+  const setRef = yugiohSetNumberRef(options?.setCode, options?.collectorNumber);
+  const query = (setRef ?? name).trim();
+  const params = new URLSearchParams();
+  params.set("ProdutoSearch[query]", query);
+  return `https://mypcards.com/yugioh?${params.toString()}`;
 }

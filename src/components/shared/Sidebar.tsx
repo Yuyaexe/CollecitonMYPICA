@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppProfile } from "@/hooks/useAppProfile";
-import { dashboardNavItems } from "@/lib/navigation";
+import { appNavItems } from "@/lib/navigation";
 import { useT } from "@/lib/i18n/context";
 
 interface SidebarProps {
@@ -44,7 +44,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        {dashboardNavItems.map((item) => {
+        {appNavItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const content = (
             <Link

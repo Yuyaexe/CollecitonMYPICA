@@ -27,6 +27,7 @@ import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { resolveCardTraderProductUrl } from "@/lib/cardtrader";
+import { fetchCardTraderManaSearchUrl } from "@/features/market/hooks/useCardTraderPrices";
 import { fetchYugiohOwnedCardDetail } from "@/lib/yugioh/lookup";
 import { useT, useLocale } from "@/lib/i18n/context";
 
@@ -109,7 +110,7 @@ export function CardInspectDialog({
 
   const cardDetail = cardDetailData?.result ?? null;
 
-  const cardTraderProductUrl = useMemo(() => {
+  const cardTraderFallbackUrl = useMemo(() => {
     if (!card) return null;
     return resolveCardTraderProductUrl({
       name: card.card.name,
@@ -122,6 +123,20 @@ export function CardInspectDialog({
       imageUrl: card.card.imageUrl,
     });
   }, [card]);
+
+  const { data: cardTraderProductUrl } = useQuery({
+    queryKey: [
+      "cardtrader-url",
+      card?.id,
+      card?.card.cardTraderBlueprintId,
+      card?.card.externalId,
+      card?.card.imageUrl,
+      card?.card.name,
+    ],
+    queryFn: () => fetchCardTraderManaSearchUrl(card!),
+    enabled: open && !!card,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
 
   const ygoPasscode = useYugiohPasscodeForDisplay(
     card?.card ?? {
@@ -174,7 +189,7 @@ export function CardInspectDialog({
   }
 
   const listings = buildMarketplaceListings(card.card, {
-    cardTraderUrl: cardTraderProductUrl,
+    cardTraderUrl: cardTraderProductUrl ?? cardTraderFallbackUrl,
   });
 
   const ygoImageLoading = card.card.gameSlug === "yugioh" && ygoPasscode === undefined;

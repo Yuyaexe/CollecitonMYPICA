@@ -25,9 +25,12 @@ const LAYOUT_CONFIG: Record<
   BinderGridLayout,
   { cols: number; rows: number; label: string; maxWidth: string }
 > = {
-  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-6xl" },
-  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-4xl" },
+  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-7xl" },
+  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-5xl" },
 };
+
+/** Matches the comfortable binder density at ~90% browser zoom. */
+const BINDER_DISPLAY_ZOOM = 0.9;
 
 function resolvePageCards(
   slotIds: (string | null)[],
@@ -38,12 +41,7 @@ function resolvePageCards(
 
 function BinderCardName({ name }: { name: string }) {
   return (
-    <p
-      className={cn(
-        "truncate text-[9px] font-medium leading-tight text-white/75 transition-all duration-150",
-        "group-hover:text-[11px] group-hover:font-semibold group-hover:text-white"
-      )}
-    >
+    <p className="min-w-0 flex-1 truncate text-[8px] font-medium leading-tight text-white/80">
       {name}
     </p>
   );
@@ -72,7 +70,7 @@ function BinderSlot({
     return (
       <div
         className={cn(
-          "flex min-h-[120px] flex-col gap-1 rounded-md transition-colors",
+          "flex min-h-0 flex-col rounded-md transition-colors",
           dragHandlers.isDragOver(slotKey) && "ring-2 ring-primary/40"
         )}
         aria-hidden
@@ -81,7 +79,6 @@ function BinderSlot({
         )}
       >
         <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
-        <div className="h-9 rounded-md border border-dashed border-stone-400/20 bg-stone-500/5 dark:border-stone-600/25 dark:bg-stone-950/15" />
       </div>
     );
   }
@@ -121,7 +118,7 @@ function BinderSlotFilled({
     <div
       {...binderCardDragProps(dragHandlers, card.id, globalIndex, moveToSlot)}
       className={cn(
-        "group flex flex-col gap-1 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
+        "group flex min-h-0 flex-col gap-0.5 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
         selected && "ring-2 ring-primary ring-offset-1 ring-offset-stone-200 dark:ring-offset-stone-900",
         dragOver && "ring-2 ring-primary/40"
       )}
@@ -129,8 +126,9 @@ function BinderSlotFilled({
       <button
         type="button"
         onClick={onOpen}
+        title={`${card.card.name} · ${setLine}`}
         className={cn(
-          "relative aspect-[59/86] w-full overflow-hidden rounded-md bg-stone-900/10 shadow-sm ring-1 ring-stone-900/10",
+          "relative aspect-[59/86] w-full shrink-0 overflow-hidden rounded-md bg-stone-900/10 shadow-sm ring-1 ring-stone-900/10",
           "transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-primary/40",
           "dark:bg-stone-950/40 dark:ring-stone-100/10"
         )}
@@ -144,31 +142,20 @@ function BinderSlotFilled({
           sizes="(max-width: 768px) 20vw, 100px"
           className="object-contain p-0.5 transition-transform duration-150 group-hover:scale-[1.02]"
         />
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1.5 pb-1.5 pt-6",
-            "translate-y-full opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
-          )}
-        >
-          <p className="line-clamp-2 text-center text-[10px] font-semibold leading-tight text-white sm:text-[11px]">
-            {card.card.name}
-          </p>
-        </div>
       </button>
 
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full flex-col gap-0.5 rounded-md bg-zinc-900/90 px-1.5 py-1 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
+        className="flex w-full shrink-0 flex-col gap-0 rounded-md bg-zinc-900/90 px-1 py-0.5 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
       >
-        <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1">
           <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} size="sm" />
-          <span className="shrink-0 text-[10px] font-bold tabular-nums text-white/90">
+          <BinderCardName name={card.card.name} />
+          <span className="shrink-0 text-[9px] font-bold tabular-nums text-white/80">
             ×{card.quantity}
           </span>
         </div>
-        <BinderCardName name={card.card.name} />
-        <p className="truncate text-[8px] text-white/50 group-hover:text-white/70">{setLine}</p>
       </button>
     </div>
   );
@@ -204,7 +191,7 @@ function BinderPage({
   return (
     <div
       className={cn(
-        "relative flex min-w-0 flex-1 flex-col p-2 sm:p-4",
+        "relative flex min-h-0 min-w-0 flex-1 flex-col p-1.5 sm:p-2",
         "bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200/90",
         "dark:from-stone-800 dark:via-stone-900 dark:to-stone-950",
         side === "left"
@@ -214,14 +201,14 @@ function BinderPage({
     >
       <div
         className={cn(
-          "pointer-events-none absolute inset-y-2 w-6 opacity-30 sm:inset-y-4",
+          "pointer-events-none absolute inset-y-1.5 w-5 opacity-30 sm:inset-y-2",
           side === "left"
             ? "right-0 bg-gradient-to-l from-stone-900/15 to-transparent"
             : "left-0 bg-gradient-to-r from-stone-900/15 to-transparent"
         )}
       />
       <div
-        className="grid flex-1 gap-1.5 sm:gap-2"
+        className="grid min-h-0 flex-1 gap-1 sm:gap-1.5"
         style={{
           gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${rows}, minmax(0, auto))`,
@@ -444,8 +431,11 @@ export function CollectionBinderView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background">
-      <div className="flex flex-1 flex-col items-center overflow-auto px-2 py-3 sm:px-4 sm:py-5">
-        <div className={cn("w-full", maxWidth)}>
+      <div className="flex flex-1 flex-col items-center overflow-auto px-2 py-2 sm:px-4 sm:py-4">
+        <div
+          className={cn("w-full", maxWidth)}
+          style={{ zoom: BINDER_DISPLAY_ZOOM }}
+        >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground/80">

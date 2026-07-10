@@ -76,7 +76,10 @@ export function buildMarketplaceListings(
           name: "MyP Cards",
           price: null,
           currency: "BRL",
-          url: buildMyPCardsSearchUrl(card.name),
+          url: buildMyPCardsSearchUrl(card.name, {
+            collectorNumber: card.collectorNumber,
+            setCode: card.setCode,
+          }),
         },
         {
           source: "CardTrader",
