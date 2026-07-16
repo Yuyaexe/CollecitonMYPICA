@@ -1,6 +1,10 @@
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { mapPool } from "@/lib/proxy-print/map-pool";
 import { pickDigimonVariant, resolveDigimonEntriesBulk } from "@/lib/proxy-print/digimon-resolve";
+import {
+  pickDragonballVariant,
+  resolveDragonballEntriesBulk,
+} from "@/lib/proxy-print/dragonball-resolve";
 import { deckEntryResolveKey, uniqueEntriesPreserveOrder } from "@/lib/proxy-print/parse-deck";
 import { resolveProxyImageUrls } from "@/lib/proxy-print/resolve-urls";
 import type {
@@ -209,6 +213,7 @@ function pickVariantForGame(
     );
   }
   if (game === "digimon") return pickDigimonVariant(variants, entry);
+  if (game === "dragonball") return pickDragonballVariant(variants, entry);
   if (game === "yugioh") return pickYgoVariant(variants, entry);
   return variants[0] ?? null;
 }
@@ -281,6 +286,7 @@ async function resolveEntriesByGame(
 ): Promise<Map<string, { name: string; variants: ProxyCardVariant[] }>> {
   if (game === "yugioh") return resolveYgoEntriesBulk(entries);
   if (game === "digimon") return resolveDigimonEntriesBulk(entries);
+  if (game === "dragonball") return resolveDragonballEntriesBulk(entries);
   return resolveSimpleGameEntriesBulk(game, entries);
 }
 

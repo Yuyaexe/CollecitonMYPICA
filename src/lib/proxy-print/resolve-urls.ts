@@ -263,6 +263,22 @@ async function resolvePokemon(entries: DeckEntry[]): Promise<Record<string, stri
   return keyToUrl;
 }
 
+async function resolveDragonball(entries: DeckEntry[]): Promise<Record<string, string>> {
+  const { resolveDragonballEntriesBulk, pickDragonballVariant } = await import(
+    "@/lib/proxy-print/dragonball-resolve"
+  );
+  const { deckEntryResolveKey } = await import("@/lib/proxy-print/parse-deck");
+  const resolved = await resolveDragonballEntriesBulk(entries);
+  const keyToUrl: Record<string, string> = {};
+  for (const entry of entries) {
+    const data = resolved.get(deckEntryResolveKey(entry));
+    if (!data) continue;
+    const variant = pickDragonballVariant(data.variants, entry);
+    if (variant?.imageUrl) keyToUrl[entry.key] = variant.imageUrl;
+  }
+  return keyToUrl;
+}
+
 export async function resolveProxyImageUrls(
   game: ProxyGame,
   entries: DeckEntry[]
@@ -271,6 +287,7 @@ export async function resolveProxyImageUrls(
   if (game === "onepiece") return resolveOnepiece(entries);
   if (game === "digimon") return resolveDigimon(entries);
   if (game === "pokemon") return resolvePokemon(entries);
+  if (game === "dragonball") return resolveDragonball(entries);
   return {};
 }
 

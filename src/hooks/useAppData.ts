@@ -6,33 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import { useDemoStore } from "@/lib/demo/store";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { DEFAULT_COLLECTION_ID } from "@/lib/demo/types";
-import type { DemoOwnedCard, DemoProfile, DemoCollection, DemoTag } from "@/lib/demo/types";
-import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
-import type { CardCondition, CardLanguage } from "@/types/tcg";
-
-type AppMode = "supabase" | "demo";
-
-async function fetchConfig(): Promise<{ mode: AppMode }> {
-  const res = await fetch("/api/app/config");
-  if (!res.ok) return { mode: "demo" };
-  return res.json();
-}
-
-interface AppState {
-  profile: DemoProfile;
-  collections: DemoCollection[];
-  ownedCards: DemoOwnedCard[];
-  tags: DemoTag[];
-}
-
-async function fetchAppState(): Promise<AppState> {
-  const res = await fetch("/api/app/state");
-  if (!res.ok) throw new Error("Failed to load state");
-  return res.json();
-}
+import type { DemoProfile, DemoCollection } from "@/lib/demo/types";
+import { fetchAppState, type AppState } from "@/hooks/app-data/types";
+import { useAppConfig } from "@/hooks/useAppConfig";
+import { useOwnedCardsMutations } from "@/hooks/useOwnedCardsMutations";
 
 export function useAppData() {
   const queryClient = useQueryClient();
+  const { mode, isSupabaseMode, configLoading } = useAppConfig();
   const demoOwnedCards = useDemoStore((s) => s.ownedCards);
   const demoCollections = useDemoStore((s) => s.collections);
   const demoProfile = useDemoStore((s) => s.profile);
@@ -41,15 +22,6 @@ export function useAppData() {
 
   const activeCollectionId = useDataUiStore((s) => s.activeCollectionId);
   const setActiveCollectionId = useDataUiStore((s) => s.setActiveCollectionId);
-
-  const { data: config, isLoading: configLoading } = useQuery({
-    queryKey: ["app-config"],
-    queryFn: fetchConfig,
-    staleTime: 30_000,
-  });
-
-  const mode = config?.mode ?? "demo";
-  const isSupabaseMode = mode === "supabase";
 
   const {
     data: serverState,
@@ -107,6 +79,20 @@ export function useAppData() {
     if (defaultCol?.id) return defaultCol.id;
     return isSupabaseMode ? null : DEFAULT_COLLECTION_ID;
   }, [activeCollectionId, collections, isSupabaseMode]);
+
+  const {
+    addCardMutation,
+    updateCardMutation,
+    batchRepairCardsMutation,
+    deleteCardsMutation,
+    importMutation,
+    importDeckMutation,
+  } = useOwnedCardsMutations({
+    isSupabaseMode,
+    resolvedActiveId,
+    invalidate,
+    refreshAppState,
+  });
 
   useEffect(() => {
     if (!isSupabaseMode && !activeCollectionId && demoActiveCollectionId) {
@@ -273,249 +259,6 @@ export function useAppData() {
     onSuccess: invalidate,
   });
 
-  const addCardMutation = useMutation({
-    mutationFn: async (args: {
-      result: CardSearchResult;
-      gameId: string;
-      gameSlug: string;
-      gameName: string;
-    }) => {
-      if (!isSupabaseMode) {
-        useDemoStore.getState().addCardFromSearch(
-          args.result,
-          args.gameId,
-          args.gameSlug,
-          args.gameName,
-          resolvedActiveId ?? undefined
-        );
-        return;
-      }
-      const res = await fetch("/api/app/owned-cards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "add-from-search",
-          collectionId: resolvedActiveId,
-          ...args,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to add card");
-      await refreshAppState();
-    },
-    onSuccess: invalidate,
-  });
-
-  const updateCardMutation = useMutation({
-    mutationFn: async ({
-      id,
-      updates,
-      silent,
-    }: {
-      id: string;
-      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> };
-      silent?: boolean;
-    }) => {
-      if (!isSupabaseMode) {
-        useDemoStore.getState().updateOwnedCard(id, updates);
-        return;
-      }
-      try {
-        const res = await fetch("/api/app/owned-cards", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, updates }),
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? "Failed to update card");
-        }
-      } catch (error) {
-        if (silent) {
-          console.warn("[updateOwnedCard] silent update failed", id, error);
-          return;
-        }
-        throw error;
-      }
-    },
-    onMutate: async ({ id, updates, silent }) => {
-      if (!isSupabaseMode) return { previous: undefined, silent };
-      await queryClient.cancelQueries({ queryKey: ["app-state"] });
-      const previous = queryClient.getQueryData<AppState>(["app-state"]);
-      if (previous) {
-        queryClient.setQueryData<AppState>(["app-state"], {
-          ...previous,
-          ownedCards: previous.ownedCards.map((oc) => {
-            if (oc.id !== id) return oc;
-            const { card: cardUpdates, ...ownedUpdates } = updates;
-            const next: DemoOwnedCard = { ...oc, ...ownedUpdates };
-            if (cardUpdates) {
-              next.card = { ...oc.card, ...cardUpdates };
-            }
-            return next;
-          }),
-        });
-      }
-      return { previous, silent };
-    },
-    onError: (_err, variables, context) => {
-      if (variables.silent) return;
-      if (context?.previous) {
-        queryClient.setQueryData(["app-state"], context.previous);
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (isSupabaseMode && !variables.silent) {
-        queryClient.invalidateQueries({ queryKey: ["app-state"] });
-      }
-    },
-  });
-
-  const batchRepairCardsMutation = useMutation({
-    mutationFn: async (
-      repairs: Array<{ id: string; card: Partial<DemoOwnedCard["card"]> }>
-    ) => {
-      if (repairs.length === 0) return;
-      if (!isSupabaseMode) {
-        useDemoStore.setState((state) => ({
-          ownedCards: state.ownedCards.map((oc) => {
-            const repair = repairs.find((entry) => entry.id === oc.id);
-            if (!repair) return oc;
-            return { ...oc, card: { ...oc.card, ...repair.card } };
-          }),
-        }));
-        return;
-      }
-      await Promise.allSettled(
-        repairs.map(async ({ id, card }) => {
-          const res = await fetch("/api/app/owned-cards", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, updates: { card } }),
-          });
-          if (!res.ok) {
-            console.warn("[batchRepairOwnedCards] repair failed", id);
-          }
-        })
-      );
-    },
-    onMutate: async (repairs) => {
-      if (!isSupabaseMode || repairs.length === 0) return { previous: undefined };
-      await queryClient.cancelQueries({ queryKey: ["app-state"] });
-      const previous = queryClient.getQueryData<AppState>(["app-state"]);
-      if (previous) {
-        const repairById = new Map(repairs.map((entry) => [entry.id, entry.card]));
-        queryClient.setQueryData<AppState>(["app-state"], {
-          ...previous,
-          ownedCards: previous.ownedCards.map((oc) => {
-            const cardUpdates = repairById.get(oc.id);
-            if (!cardUpdates) return oc;
-            return { ...oc, card: { ...oc.card, ...cardUpdates } };
-          }),
-        });
-      }
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["app-state"], context.previous);
-      }
-    },
-  });
-
-  const deleteCardsMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      if (!isSupabaseMode) {
-        useDemoStore.getState().deleteOwnedCards(ids);
-        return;
-      }
-      const res = await fetch("/api/app/owned-cards", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) throw new Error("Failed to delete cards");
-    },
-    onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey: ["app-state"] });
-      const previous = queryClient.getQueryData<AppState>(["app-state"]);
-      if (previous) {
-        queryClient.setQueryData<AppState>(["app-state"], {
-          ...previous,
-          ownedCards: previous.ownedCards.filter((oc) => !ids.includes(oc.id)),
-        });
-      }
-      return { previous };
-    },
-    onError: (_err, _ids, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["app-state"], context.previous);
-      }
-    },
-    onSettled: () => {
-      if (isSupabaseMode) {
-        queryClient.invalidateQueries({ queryKey: ["app-state"] });
-      }
-    },
-  });
-
-  const importMutation = useMutation({
-    mutationFn: async ({
-      rows,
-      mergeDuplicates,
-    }: {
-      rows: Parameters<ReturnType<typeof useDemoStore.getState>["importRows"]>[0];
-      mergeDuplicates: boolean;
-    }) => {
-      if (!isSupabaseMode) {
-        return useDemoStore.getState().importRows(rows, mergeDuplicates);
-      }
-      const res = await fetch("/api/app/owned-cards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "import",
-          collectionId: resolvedActiveId,
-          rows,
-          mergeDuplicates,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to import");
-      const json = await res.json();
-      await refreshAppState();
-      return json.imported as number;
-    },
-    onSuccess: invalidate,
-  });
-
-  const importDeckMutation = useMutation({
-    mutationFn: async ({
-      items,
-      mergeDuplicates,
-    }: {
-      items: Parameters<ReturnType<typeof useDemoStore.getState>["importFromSearchResults"]>[0];
-      mergeDuplicates: boolean;
-    }) => {
-      if (!isSupabaseMode) {
-        return useDemoStore.getState().importFromSearchResults(items, mergeDuplicates);
-      }
-      const res = await fetch("/api/app/owned-cards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "import-deck",
-          collectionId: resolvedActiveId,
-          items,
-          mergeDuplicates,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to import deck");
-      const json = await res.json();
-      await refreshAppState();
-      return json.imported as number;
-    },
-    onSuccess: invalidate,
-  });
-
   return {
     mode,
     isSupabaseMode,
@@ -536,14 +279,14 @@ export function useAppData() {
       renameCollectionMutation.mutateAsync({ id, name }),
     deleteCollection: (id: string) => deleteCollectionMutation.mutateAsync(id),
     addCardFromSearch: (
-      result: CardSearchResult,
+      result: Parameters<typeof addCardMutation.mutateAsync>[0]["result"],
       gameId: string,
       gameSlug: string,
       gameName: string
     ) => addCardMutation.mutateAsync({ result, gameId, gameSlug, gameName }),
     updateOwnedCard: (
       id: string,
-      updates: Partial<Omit<DemoOwnedCard, "card">> & { card?: Partial<DemoOwnedCard["card"]> },
+      updates: Parameters<typeof updateCardMutation.mutateAsync>[0]["updates"],
       options?: { silent?: boolean }
     ) => {
       const silent = options?.silent ?? false;
@@ -554,26 +297,15 @@ export function useAppData() {
       return updateCardMutation.mutateAsync({ id, updates, silent: false });
     },
     batchRepairOwnedCards: (
-      repairs: Array<{ id: string; card: Partial<DemoOwnedCard["card"]> }>
+      repairs: Parameters<typeof batchRepairCardsMutation.mutateAsync>[0]
     ) => batchRepairCardsMutation.mutateAsync(repairs),
     deleteOwnedCards: (ids: string[]) => deleteCardsMutation.mutateAsync(ids),
     importRows: (
-      rows: Array<{
-        name: string;
-        set?: string;
-        quantity: number;
-        condition: CardCondition;
-        language: CardLanguage;
-        gameId: string;
-        gameSlug: string;
-        gameName: string;
-        isFoil?: boolean;
-        purchasePrice?: number;
-      }>,
+      rows: Parameters<typeof importMutation.mutateAsync>[0]["rows"],
       mergeDuplicates: boolean
     ) => importMutation.mutateAsync({ rows, mergeDuplicates }),
     importDeckFromSearch: (
-      items: Parameters<ReturnType<typeof useDemoStore.getState>["importFromSearchResults"]>[0],
+      items: Parameters<typeof importDeckMutation.mutateAsync>[0]["items"],
       mergeDuplicates: boolean
     ) => importDeckMutation.mutateAsync({ items, mergeDuplicates }),
   };

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { getCatalogWriteClient } from "@/lib/data/server/catalog-client";
 import { toDemoCard, toDemoCollection, toDemoOwnedCard, toDemoProfile, marketPriceMetadata } from "@/lib/data/mappers";
 import type { DemoCollection, DemoOwnedCard, DemoProfile } from "@/lib/demo/types";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -362,17 +363,18 @@ async function findOrCreateSupabaseCard(
   gameSlug: string,
   currency: Currency
 ): Promise<string> {
+  const catalog = getCatalogWriteClient(supabase);
   const { metadata } = await resolveStoredMarketPrice(gameSlug, result, currency);
 
   if (result.externalId) {
-    const { data: existing } = await supabase
+    const { data: existing } = await catalog
       .from("cards")
       .select("id")
       .eq("game_id", gameId)
       .eq("external_id", result.externalId)
       .maybeSingle();
     if (existing) {
-      await supabase
+      await catalog
         .from("cards")
         .update({
           name: result.name,
@@ -389,7 +391,7 @@ async function findOrCreateSupabaseCard(
     }
   }
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await catalog
     .from("cards")
     .insert({
       game_id: gameId,
@@ -502,7 +504,8 @@ export async function updateSupabaseOwnedCard(
   }
 
   if (updates.card?.marketPrice !== undefined) {
-    const { error } = await supabase
+    const catalog = getCatalogWriteClient(supabase);
+    const { error } = await catalog
       .from("cards")
       .update({
         metadata: marketPriceMetadata(updates.card.marketPrice),
@@ -523,10 +526,11 @@ export async function updateSupabaseOwnedCard(
 
   if (!updates.card || Object.keys(cardPayload).length <= 1) return;
 
+  const catalog = getCatalogWriteClient(supabase);
   let targetCardId = ownedRow.card_id;
 
   if (updates.card.externalId !== undefined) {
-    const { data: currentCard, error: currentCardError } = await supabase
+    const { data: currentCard, error: currentCardError } = await catalog
       .from("cards")
       .select("game_id")
       .eq("id", targetCardId)
@@ -534,7 +538,7 @@ export async function updateSupabaseOwnedCard(
     if (currentCardError) throw currentCardError;
 
     if (currentCard) {
-      const { data: existingCard, error: existingError } = await supabase
+      const { data: existingCard, error: existingError } = await catalog
         .from("cards")
         .select("id")
         .eq("game_id", currentCard.game_id)
@@ -555,7 +559,7 @@ export async function updateSupabaseOwnedCard(
     }
   }
 
-  const { error: cardUpdateError } = await supabase
+  const { error: cardUpdateError } = await catalog
     .from("cards")
     .update(cardPayload)
     .eq("id", targetCardId);
@@ -670,7 +674,8 @@ export async function importSupabaseRows(
       }
     }
 
-    const { data: cardRow, error: cardErr } = await supabase
+    const catalog = getCatalogWriteClient(supabase);
+    const { data: cardRow, error: cardErr } = await catalog
       .from("cards")
       .insert({ game_id: row.gameId, name: row.name, set_name: row.set ?? null })
       .select("id")

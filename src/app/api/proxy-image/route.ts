@@ -1,29 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const TRUSTED_HOST_PATTERNS = [
-  "ygoprodeck.com",
-  "limitlesstcg",
-  "digimoncard.io",
-  "digimoncard.com",
-  "world.digimoncard.com",
-  "pokemontcg.io",
-  "pokemoncard.io",
-  "digitaloceanspaces.com",
-  "cardtrader.com",
-  "product-images.cardtrader",
-  "tcgplayer.com",
-];
-
-function isTrustedImageUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:") return false;
-    const host = url.hostname.toLowerCase();
-    return TRUSTED_HOST_PATTERNS.some((p) => host.includes(p));
-  } catch {
-    return false;
-  }
-}
+import { isTrustedImageUrl } from "@/lib/cache/trusted-image-hosts";
 
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get("url");
@@ -40,7 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Upstream failed" }, { status: upstream.status });
     }
     const bytes = await upstream.arrayBuffer();
-    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const contentType = sniffImageContentType(bytes, upstream.headers.get("content-type"));
     return new NextResponse(bytes, {
       headers: {
         "Content-Type": contentType,
@@ -51,4 +27,44 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/proxy-image", error);
     return NextResponse.json({ error: "Failed to fetch image" }, { status: 502 });
   }
+}
+
+function sniffImageContentType(bytes: ArrayBuffer, fallback: string | null): string {
+  const u8 = new Uint8Array(bytes);
+  if (u8.length >= 3 && u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    u8.length >= 8 &&
+    u8[0] === 0x89 &&
+    u8[1] === 0x50 &&
+    u8[2] === 0x4e &&
+    u8[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (
+    u8.length >= 6 &&
+    u8[0] === 0x47 &&
+    u8[1] === 0x49 &&
+    u8[2] === 0x46 &&
+    u8[3] === 0x38
+  ) {
+    return "image/gif";
+  }
+  if (
+    u8.length >= 12 &&
+    u8[0] === 0x52 &&
+    u8[1] === 0x49 &&
+    u8[2] === 0x46 &&
+    u8[3] === 0x46 &&
+    u8[8] === 0x57 &&
+    u8[9] === 0x45 &&
+    u8[10] === 0x42 &&
+    u8[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  if (fallback && fallback.startsWith("image/")) return fallback;
+  return "image/jpeg";
 }

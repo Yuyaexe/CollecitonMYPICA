@@ -28,14 +28,16 @@ export function CollectionCompactView() {
     virtualizer.measure();
   }, [data.filtered.length, virtualizer]);
 
-  const handleQuantityChange = useCallback(
-    (id: string, quantity: number) => data.handleQuantityChange(id, quantity),
-    [data.handleQuantityChange]
+  const { handleQuantityChange, handleRemove } = data;
+
+  const onQuantityChange = useCallback(
+    (id: string, quantity: number) => handleQuantityChange(id, quantity),
+    [handleQuantityChange]
   );
 
-  const handleRemove = useCallback(
-    (id: string) => data.handleRemove(id),
-    [data.handleRemove]
+  const onRemove = useCallback(
+    (id: string) => handleRemove(id),
+    [handleRemove]
   );
 
   const rows = virtualizer.getVirtualItems();
@@ -67,8 +69,8 @@ export function CollectionCompactView() {
                   toggleSelect(item.id, false, data.allIds, virtualRow.index)
                 }
                 onOpen={() => openCardInspect(item.id, "details")}
-                onQuantityChange={(qty) => handleQuantityChange(item.id, qty)}
-                onRemove={() => handleRemove(item.id)}
+                onQuantityChange={(qty) => onQuantityChange(item.id, qty)}
+                onRemove={() => onRemove(item.id)}
               />
             </div>
           );

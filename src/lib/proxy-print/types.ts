@@ -1,4 +1,9 @@
-export type ProxyGame = "yugioh" | "pokemon" | "digimon" | "onepiece";
+export type ProxyGame =
+  | "yugioh"
+  | "pokemon"
+  | "digimon"
+  | "onepiece"
+  | "dragonball";
 
 export type CardSizePreset = "yugioh" | "bandai";
 
@@ -50,13 +55,20 @@ export interface ProxyPrintOptions {
   cardsGlued: boolean;
 }
 
-export const PROXY_GAMES: ProxyGame[] = ["yugioh", "pokemon", "digimon", "onepiece"];
+export const PROXY_GAMES: ProxyGame[] = [
+  "yugioh",
+  "pokemon",
+  "digimon",
+  "onepiece",
+  "dragonball",
+];
 
 export const GAME_LABELS: Record<ProxyGame, string> = {
   yugioh: "Yu-Gi-Oh!",
   pokemon: "Pokemon",
   digimon: "Digimon",
   onepiece: "One Piece",
+  dragonball: "Dragon Ball",
 };
 
 export const CARD_SIZE_PRESETS: Record<CardSizePreset, { w: number; h: number }> = {
@@ -64,12 +76,13 @@ export const CARD_SIZE_PRESETS: Record<CardSizePreset, { w: number; h: number }>
   bandai: { w: 63, h: 88 },
 };
 
-/** Default PDF card size per game (Digimon / One Piece use Bandai dimensions). */
+/** Default PDF card size per game (Bandai TCGs share dimensions). */
 export const DEFAULT_CARD_SIZE_FOR_GAME: Record<ProxyGame, CardSizePreset> = {
   yugioh: "yugioh",
   pokemon: "yugioh",
   digimon: "bandai",
   onepiece: "bandai",
+  dragonball: "bandai",
 };
 
 export const DEFAULT_PDF_DPI = 300;

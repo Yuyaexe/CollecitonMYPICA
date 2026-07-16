@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
 
+import { Checkbox } from "@/components/ui/checkbox";
+
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 
 import { useAppData } from "@/hooks/useAppData";
@@ -91,6 +93,10 @@ export default function SettingsPage() {
   const locale = useLocaleStore((s) => s.locale);
 
   const setLocale = useLocaleStore((s) => s.setLocale);
+
+  const animeAutoBackupEnabled = useDataUiStore((s) => s.animeAutoBackupEnabled);
+
+  const setAnimeAutoBackupEnabled = useDataUiStore((s) => s.setAnimeAutoBackupEnabled);
 
   const [backingUp, setBackingUp] = useState(false);
 
@@ -248,7 +254,21 @@ export default function SettingsPage() {
 
     try {
 
-      const backup = await readBackupFile(file);
+      const parsed = await readBackupFile(file);
+
+      if (parsed.scope === "anime") {
+        useDemoStore.getState().restoreAnimeCollectionFromBackup(parsed.backup);
+        toast.success(
+          t("settings.restoreAnimeSuccess", {
+            series: parsed.backup.animeSeries.length,
+            characters: parsed.backup.animeCharacters.length,
+            cards: parsed.backup.animeCharacterCards.length,
+          })
+        );
+        return;
+      }
+
+      const backup = parsed.backup;
 
       const activeId = defaultCollectionAfterRestore(backup);
 
@@ -469,6 +489,24 @@ export default function SettingsPage() {
             <h2 className="text-base font-semibold sm:text-lg">{t("settings.backup")}</h2>
 
             <p className="text-sm text-muted-foreground">{t("settings.backupHint")}</p>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+              <Checkbox
+                checked={animeAutoBackupEnabled}
+                onCheckedChange={(checked) =>
+                  setAnimeAutoBackupEnabled(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium">
+                  {t("settings.animeAutoBackup")}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {t("settings.animeAutoBackupHint")}
+                </span>
+              </span>
+            </label>
 
             <div className="flex flex-col gap-2 sm:flex-row">
 

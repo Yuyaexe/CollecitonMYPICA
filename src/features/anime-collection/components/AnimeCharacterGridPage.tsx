@@ -11,7 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { CharacterBubbleGrid } from "@/features/anime-collection/components/CharacterBubbleGrid";
+import { EditCharacterModal } from "@/features/anime-collection/components/EditCharacterModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import type { AnimeCharacter } from "@/features/anime-collection/types";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
@@ -22,10 +25,14 @@ export interface AnimeCharacterGridPageProps {
 export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPageProps) {
   const t = useT();
   const router = useRouter();
+  const isTouchDevice = useMediaQuery("(hover: none) and (pointer: coarse)");
   const {
     getSeriesBySlug,
     getCharactersForSeries,
     addAnimeCharacter,
+    renameAnimeCharacter,
+    updateAnimeCharacterImage,
+    deleteAnimeCharacter,
   } = useAnimeCollection();
 
   const series = getSeriesBySlug(seriesSlug);
@@ -34,6 +41,10 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<AnimeCharacter | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AnimeCharacter | null>(null);
 
   if (!series) {
     return (
@@ -60,6 +71,35 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
     setNewImageUrl("");
     setCreateOpen(false);
     toast.success(t("anime.characterAdded", { name: trimmed }));
+  };
+
+  const openEdit = (character: AnimeCharacter) => {
+    setEditTarget(character);
+    setEditOpen(true);
+  };
+
+  const handleEditSave = (input: { name: string; imageUrl: string | null }) => {
+    if (!editTarget) return;
+    if (input.name !== editTarget.name) {
+      renameAnimeCharacter(editTarget.id, input.name);
+    }
+    if (input.imageUrl !== editTarget.imageUrl) {
+      updateAnimeCharacterImage(editTarget.id, input.imageUrl);
+    }
+    setEditTarget(null);
+  };
+
+  const openDelete = (character: AnimeCharacter) => {
+    setDeleteTarget(character);
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteAnimeCharacter(deleteTarget.id);
+    setDeleteOpen(false);
+    setDeleteTarget(null);
+    toast.success(t("anime.characterDeleted"));
   };
 
   return (
@@ -93,9 +133,12 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         ) : (
           <CharacterBubbleGrid
             characters={characters}
+            isTouchDevice={isTouchDevice}
             onSelect={(character) =>
               router.push(`/anime-collection/${seriesSlug}/${character.id}`)
             }
+            onEdit={openEdit}
+            onDelete={openDelete}
             onAdd={() => setCreateOpen(true)}
           />
         )}
@@ -105,7 +148,7 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         open={createOpen}
         onOpenChange={setCreateOpen}
         title={t("anime.addCharacterTitle")}
-        description={`Add a character to ${series.name}.`}
+        description={t("anime.addCharacterDescription", { series: series.name })}
         footer={
           <>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
@@ -138,6 +181,34 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
             />
           </div>
         </div>
+      </Modal>
+
+      <EditCharacterModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        characterName={editTarget?.name ?? ""}
+        currentImageUrl={editTarget?.imageUrl ?? null}
+        accentColor={editTarget?.accentColor ?? null}
+        onSave={handleEditSave}
+      />
+
+      <Modal
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("anime.deleteCharacterTitle")}
+        description={t("anime.deleteCharacterConfirm", { name: deleteTarget?.name ?? "" })}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      >
+        <span className="sr-only">{t("anime.confirmDeleteCharacter")}</span>
       </Modal>
     </>
   );

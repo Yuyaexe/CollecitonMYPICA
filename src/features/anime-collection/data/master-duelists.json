@@ -1,0 +1,1755 @@
+{
+  "version": "1.0",
+  "compiledAt": "2026-07-15",
+  "criteria": "Named anime duelists who duel on-screen or have a defined canonical deck in the anime (DM through VRAINS).",
+  "duelists": [
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Yami Yugi",
+      "accentColor": "#4a1d6e",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Yugi Muto",
+      "accentColor": "#5b21b6",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Seto Kaiba",
+      "accentColor": "#1a365d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Joey Wheeler",
+      "accentColor": "#7c2d12",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Téa Gardner",
+      "accentColor": "#831843",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Mai Valentine",
+      "accentColor": "#701a75",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Tristan Taylor",
+      "accentColor": "#365314",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Main",
+      "name": "Mokuba Kaiba",
+      "accentColor": "#1e40af",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Weevil Underwood",
+      "accentColor": "#166534",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Rex Raptor",
+      "accentColor": "#92400e",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Mako Tsunami",
+      "accentColor": "#0e7490",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Maximillion Pegasus",
+      "accentColor": "#713f12",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Bandit Keith",
+      "accentColor": "#44403c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Ishizu Ishtar",
+      "accentColor": "#854d0e",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Odion",
+      "accentColor": "#57534e",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Yami Bakura",
+      "aliases": [
+        "Ryo Bakura"
+      ],
+      "accentColor": "#374151",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Yami Marik",
+      "aliases": [
+        "Dark Marik"
+      ],
+      "accentColor": "#7f1d1d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Arkana",
+      "accentColor": "#581c87",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Bonz",
+      "accentColor": "#3f3f46",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Espa Roba",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Paradox Brothers",
+      "accentColor": "#4338ca",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Lumis and Umbra",
+      "accentColor": "#6b21a8",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Duke Devlin",
+      "accentColor": "#334155",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Solomon Muto",
+      "accentColor": "#78716c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Jean Claude Magnum",
+      "accentColor": "#c026d3",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Johnny Steps",
+      "accentColor": "#0891b2",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Marik Ishtar",
+      "accentColor": "#991b1b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Pandora",
+      "accentColor": "#7e22ce",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Seeker",
+      "aliases": [
+        "Rare Hunter"
+      ],
+      "accentColor": "#4b5563",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Shadi",
+      "accentColor": "#312e81",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Battle City",
+      "name": "Strings",
+      "accentColor": "#6b7280",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Arthur Hawkins",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Ghost Kotsuzuka",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Panik",
+      "aliases": [
+        "Player Killer of Darkness"
+      ],
+      "accentColor": "#1c1917",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Rebecca Hawkins",
+      "aliases": [
+        "Rebecca Hopkins"
+      ],
+      "accentColor": "#be185d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Satake",
+      "aliases": [
+        "Zygor"
+      ],
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Serenity Wheeler",
+      "accentColor": "#f472b6",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Sid",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Duelist Kingdom",
+      "name": "Tom",
+      "accentColor": "#a8a29e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "KC Grand Championship",
+      "name": "Leon von Schroider",
+      "accentColor": "#eab308",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "KC Grand Championship",
+      "name": "Siegfried von Schroider",
+      "accentColor": "#ca8a04",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "KC Grand Championship",
+      "name": "Vivian Wong",
+      "accentColor": "#db2777",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Akhenaden",
+      "accentColor": "#292524",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Kisara",
+      "accentColor": "#e0f2fe",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Isis",
+      "accentColor": "#854d0e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Karimu",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Mahad",
+      "accentColor": "#6366f1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Mana",
+      "accentColor": "#a855f7",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Seto",
+      "accentColor": "#1e3a8a",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Millennium World",
+      "name": "Priest Shada",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Crump",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Gansley",
+      "accentColor": "#374151",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Gozaburo Kaiba",
+      "accentColor": "#1e293b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Johnson",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Leichter",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Nezbitt",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Virtual World",
+      "name": "Noah Kaiba",
+      "accentColor": "#2563eb",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Waking the Dragons",
+      "name": "Alister",
+      "accentColor": "#1d4ed8",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Waking the Dragons",
+      "name": "Dartz",
+      "accentColor": "#0f766e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Waking the Dragons",
+      "name": "Rafael",
+      "accentColor": "#15803d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh",
+      "arc": "Waking the Dragons",
+      "name": "Valon",
+      "accentColor": "#b91c1c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Jaden Yuki",
+      "accentColor": "#b45309",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Chazz Princeton",
+      "accentColor": "#1e3a8a",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Alexis Rhodes",
+      "accentColor": "#be185d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Syrus Truesdale",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Zane Truesdale",
+      "accentColor": "#334155",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Aster Phoenix",
+      "accentColor": "#7c3aed",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Jesse Anderson",
+      "accentColor": "#15803d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Bastion Misawa",
+      "accentColor": "#4338ca",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Dr. Vellian Crowler",
+      "accentColor": "#713f12",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Tyranno Hassleberry",
+      "accentColor": "#166534",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Society of Light",
+      "name": "Sartorius Kumar",
+      "accentColor": "#581c87",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Blair Flannigan",
+      "accentColor": "#db2777",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Genex Tournament",
+      "name": "Axel Brodie",
+      "accentColor": "#b91c1c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Genex Tournament",
+      "name": "Jim \"Crocodile\" Cook",
+      "accentColor": "#ca8a04",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Yubel",
+      "name": "Yubel",
+      "accentColor": "#9333ea",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Yubel",
+      "name": "Supreme King Jaden",
+      "accentColor": "#1c1917",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Yubel",
+      "name": "Jaden/Yubel",
+      "accentColor": "#6d28d9",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Genex Tournament",
+      "name": "Damon",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Adrian Gecko",
+      "accentColor": "#0d9488",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Atticus Rhodes",
+      "accentColor": "#312e81",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Belowski",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Chancellor Sheppard",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Dimitri",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Dr. Jean-Louis Bonaparte",
+      "accentColor": "#92400e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Fonda Fontaine",
+      "accentColor": "#ec4899",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Howard X Miller",
+      "accentColor": "#ca8a04",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Lindsey",
+      "accentColor": "#f472b6",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Marcel Bonaparte",
+      "accentColor": "#78350f",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Mr. Shou",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Mr. Stein",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Princess Rose",
+      "accentColor": "#f472b6",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Reggie Faulkner",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Sarina",
+      "accentColor": "#a855f7",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "T-Bone",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Main",
+      "name": "Torrey",
+      "accentColor": "#166534",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Shadow Riders",
+      "name": "Abidos the Third",
+      "accentColor": "#854d0e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Shadow Riders",
+      "name": "Amnael",
+      "aliases": [
+        "Professor Banner"
+      ],
+      "accentColor": "#581c87",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Shadow Riders",
+      "name": "Camula",
+      "accentColor": "#7f1d1d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Shadow Riders",
+      "name": "Kagemaru",
+      "accentColor": "#1c1917",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Shadow Riders",
+      "name": "Tania",
+      "accentColor": "#b45309",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Society of Light",
+      "name": "Nightshroud",
+      "accentColor": "#374151",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Society of Light",
+      "name": "Professor Viper",
+      "accentColor": "#166534",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-gx",
+      "arc": "Society of Light",
+      "name": "Trueman",
+      "accentColor": "#0f172a",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Yusei Fudo",
+      "accentColor": "#1d4ed8",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Jack Atlas",
+      "accentColor": "#b45309",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Crow Hogan",
+      "accentColor": "#374151",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Akiza Izinski",
+      "accentColor": "#be123c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Leo",
+      "accentColor": "#059669",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Luna",
+      "accentColor": "#7c3aed",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Officer Tetsu Trudge",
+      "accentColor": "#475569",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Kalin Kessler",
+      "accentColor": "#44403c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Carly Carmine",
+      "accentColor": "#9f1239",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Kalin Kessler",
+      "accentColor": "#292524",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Carly Carmine",
+      "accentColor": "#881337",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Rex Goodwin",
+      "accentColor": "#78350f",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Antinomy",
+      "accentColor": "#1e293b",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Primo",
+      "accentColor": "#64748b",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Aporia",
+      "accentColor": "#525252",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Paradox",
+      "accentColor": "#312e81",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Z-one",
+      "accentColor": "#0f172a",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Sherry LeBlanc",
+      "accentColor": "#a16207",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Ark Cradle",
+      "name": "Vizor",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Devack",
+      "accentColor": "#14532d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Greiger",
+      "accentColor": "#713f12",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Misty Lola",
+      "accentColor": "#0e7490",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Dark Signer Roman Goodwin",
+      "accentColor": "#451a03",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Devack",
+      "accentColor": "#166534",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Greiger",
+      "accentColor": "#92400e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Misty Lola",
+      "accentColor": "#0891b2",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Rex Goodwin",
+      "accentColor": "#92400e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Dark Signers",
+      "name": "Roman Goodwin",
+      "accentColor": "#78350f",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Bolton",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Bruno",
+      "accentColor": "#334155",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Dexter",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Don Piero",
+      "accentColor": "#713f12",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Jean",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Larry",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Lazar",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Mitch",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Nicolas",
+      "accentColor": "#1e293b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Niederman",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Professor Frank",
+      "accentColor": "#713f12",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "Main",
+      "name": "Yeager",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "WRGP",
+      "name": "Broder",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "WRGP",
+      "name": "Dragan",
+      "accentColor": "#b91c1c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "WRGP",
+      "name": "Halldor",
+      "accentColor": "#1e40af",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "WRGP",
+      "name": "Sect Ikkaku",
+      "accentColor": "#581c87",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-5ds",
+      "arc": "WRGP",
+      "name": "Stefan",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Yuma and Astral",
+      "accentColor": "#dc2626",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Reginald \"Shark\" Kastle",
+      "accentColor": "#1e40af",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Rio Kastle",
+      "accentColor": "#be185d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Kite Tenjo",
+      "accentColor": "#334155",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Tori Meadows",
+      "accentColor": "#ec4899",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Bronk Stone",
+      "accentColor": "#78716c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Trey",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Quattro",
+      "accentColor": "#4338ca",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Quinton",
+      "accentColor": "#6366f1",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Anna Kaboom",
+      "accentColor": "#ea580c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Girag",
+      "accentColor": "#7c3aed",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Alito",
+      "accentColor": "#b91c1c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Mizar",
+      "accentColor": "#0891b2",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Dumon",
+      "accentColor": "#059669",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Eliphas",
+      "accentColor": "#e0f2fe",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Barian",
+      "name": "Vector",
+      "accentColor": "#7c3aed",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Astral",
+      "accentColor": "#38bdf8",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Caswell Francis",
+      "accentColor": "#059669",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Cathy",
+      "accentColor": "#f97316",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Dextra",
+      "accentColor": "#db2777",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Droite",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Flip Turner",
+      "accentColor": "#6366f1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Lilly",
+      "accentColor": "#f472b6",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Mister Heartland",
+      "accentColor": "#713f12",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Nelson Andrews",
+      "accentColor": "#ca8a04",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Nistro",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Striker",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Main",
+      "name": "Yuma Tsukumo",
+      "accentColor": "#ef4444",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Chills",
+      "accentColor": "#2563eb",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Dr. Faker",
+      "aliases": [
+        "Tron"
+      ],
+      "accentColor": "#1e293b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Number 96",
+      "aliases": [
+        "Dark Mist"
+      ],
+      "accentColor": "#1c1917",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-zexal",
+      "arc": "Numbers",
+      "name": "Scorch",
+      "accentColor": "#dc2626",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Yuya Sakaki",
+      "accentColor": "#dc2626",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Zuzu Boyle",
+      "accentColor": "#db2777",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Gong Strong",
+      "accentColor": "#78716c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Sylvio Sawatari",
+      "accentColor": "#16a34a",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Declan Akaba",
+      "accentColor": "#1e3a8a",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Sora Perse",
+      "accentColor": "#f59e0b",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Shay Obsidian",
+      "accentColor": "#334155",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Yuto",
+      "accentColor": "#4338ca",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Yugo",
+      "accentColor": "#0ea5e9",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Yuri",
+      "accentColor": "#9333ea",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Celina",
+      "accentColor": "#be185d",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Lulu Obsidian",
+      "accentColor": "#7c3aed",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Rin",
+      "accentColor": "#059669",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Dennis McField",
+      "accentColor": "#ea580c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Battle Beast",
+      "accentColor": "#92400e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Hikage",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Julia",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Olga",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Sayer",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Sergey Volkov",
+      "accentColor": "#1c1917",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Dimensions",
+      "name": "Zarc",
+      "accentColor": "#581c87",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Barrett",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Dipper Oron",
+      "accentColor": "#4338ca",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Grace Tyler",
+      "accentColor": "#059669",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Halil",
+      "accentColor": "#92400e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Isao Kachidoki",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Marin",
+      "accentColor": "#0891b2",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Michio",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Moon Shadow",
+      "accentColor": "#312e81",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Noboru Gongen",
+      "accentColor": "#78716c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Reed Pepper",
+      "accentColor": "#b45309",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Riley Akaba",
+      "accentColor": "#6366f1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Roger",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Sun Shadow",
+      "accentColor": "#ca8a04",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Taka",
+      "accentColor": "#475569",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-arc-v",
+      "arc": "Main",
+      "name": "Yoko Sakaki",
+      "accentColor": "#be185d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Playmaker and Ai",
+      "accentColor": "#2563eb",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Soulburner",
+      "accentColor": "#dc2626",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Blue Angel",
+      "aliases": [
+        "Skye Zaizen"
+      ],
+      "accentColor": "#ec4899",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "The Gore",
+      "accentColor": "#78716c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Ghost Gal",
+      "accentColor": "#6366f1",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Varis",
+      "aliases": [
+        "Revolver"
+      ],
+      "accentColor": "#b91c1c",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Spectre",
+      "accentColor": "#059669",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Akira Zaizen",
+      "accentColor": "#475569",
+      "inOriginalSeed": true
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Ai",
+      "accentColor": "#3b82f6",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Aqua",
+      "accentColor": "#0891b2",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Bohman",
+      "accentColor": "#1e293b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Earth",
+      "accentColor": "#166534",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Flame",
+      "accentColor": "#ea580c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Lightning",
+      "accentColor": "#eab308",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Queen",
+      "accentColor": "#9333ea",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Ignis",
+      "name": "Windy",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "BitBoot",
+      "accentColor": "#525252",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Blood Shepard",
+      "accentColor": "#44403c",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Cal Kolter",
+      "accentColor": "#334155",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Dr. Genome",
+      "accentColor": "#713f12",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Emma Bessho",
+      "accentColor": "#be185d",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Kengo Ono",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Kitamura",
+      "accentColor": "#57534e",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "McKendrick Kappa",
+      "accentColor": "#0369a1",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Pandor",
+      "accentColor": "#64748b",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Roboppy",
+      "accentColor": "#94a3b8",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Skye Zaizen",
+      "accentColor": "#f9a8d4",
+      "inOriginalSeed": false
+    },
+    {
+      "series": "yugioh-vrains",
+      "arc": "Main",
+      "name": "Yusaku Fujiki",
+      "accentColor": "#1d4ed8",
+      "inOriginalSeed": false
+    }
+  ]
+}

@@ -7,16 +7,36 @@ alwaysApply: false
 # Architecture
 
 Feature-based structure under `src/features/`:
-collection, deckbuilder, wishlist, market, pricing, trade, catalog, import, auth, dashboard
 
-Shared: `src/components/shared/`, `src/hooks/`, `src/services/`, `src/types/`, `src/utils/`
+**Shipped today:** collection, catalog, import, auth, dashboard, **anime-collection**, **proxy-print**, market (thin)
+
+**Schema-ready / planned:** deckbuilder, wishlist, pricing, trade (DB tables exist; UI not started)
+
+Shared: `src/components/shared/`, `src/hooks/`, `src/types/`, `src/lib/`
+
+## Data modes
+
+- **Demo:** Zustand persist (`deckvault-demo`) — full TCG collection + anime collection
+- **Supabase:** React Query + `/api/app/*` for TCG; **anime collection stays local-only** until cloud sync is built
 
 ## Before writing code
+
 1. Analyze requirements
 2. Suggest architecture
-3. Explain state management (React Query = server, Zustand = UI)
+3. Explain state management (React Query = server, Zustand = UI/local)
 4. Explain database changes
 5. Explain reusable components
 6. Then generate code
 
 Strict TypeScript — no `any`. Small functions, maximum readability, no deeply nested logic.
+
+## App data hooks
+
+- `useAppConfig()` — demo vs supabase mode
+- `useOwnedCardsMutations()` — add/update/import/delete cards
+- `useAppData()` — composes the above with collections, profile, realtime
+
+## Security notes
+
+- Shared `cards` catalog: server writes via service role only (`0009_cards_catalog_immutable.sql`)
+- Image proxy: `src/lib/cache/trusted-image-hosts.ts` (suffix match, not substring)

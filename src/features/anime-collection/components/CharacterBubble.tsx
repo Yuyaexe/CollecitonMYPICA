@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { CardImage } from "@/components/shared/CardImage";
 import { getCharacterInitials } from "@/features/anime-collection/types";
+import { AnimeImage } from "@/features/anime-collection/components/AnimeImage";
 
 export interface CharacterBubbleProps {
   name: string;
@@ -50,7 +50,17 @@ export function CharacterBubble({
         }
       >
         {imageUrl ? (
-          <CardImage src={imageUrl} alt={name} fill sizes="88px" className="object-cover" />
+          <AnimeImage
+            src={imageUrl}
+            alt={name}
+            fill
+            className="object-cover"
+            onErrorFallback={
+              <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/90">
+                {initials}
+              </span>
+            }
+          />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/90">
             {initials}

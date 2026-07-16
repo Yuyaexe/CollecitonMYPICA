@@ -269,6 +269,105 @@ async function main() {
     "https://www.cardtrader.com/en/search?query=Speedroid%20Scratch%20Brothers%20of%20Legend"
   );
 
+  section("Trusted image hosts");
+
+  const TRUSTED_IMAGE_HOST_SUFFIXES = [
+    "ygoprodeck.com",
+    "limitlesstcg.com",
+    "digimoncard.io",
+    "digimoncard.com",
+    "world.digimoncard.com",
+    "dbs-cardgame.com",
+    "pokemontcg.io",
+    "pokemoncard.io",
+    "digitaloceanspaces.com",
+    "cardtrader.com",
+    "product-images.cardtrader.com",
+    "tcgplayer.com",
+    "static.wikia.nocookie.net",
+    "wikia.nocookie.net",
+    "wikimedia.org",
+    "upload.wikimedia.org",
+  ];
+
+  function isTrustedImageHost(hostname) {
+    const host = hostname.toLowerCase();
+    return TRUSTED_IMAGE_HOST_SUFFIXES.some(
+      (suffix) => host === suffix || host.endsWith(`.${suffix}`)
+    );
+  }
+
+  function isTrustedImageUrl(raw) {
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:") return false;
+      return isTrustedImageHost(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  if (isTrustedImageUrl("https://images.ygoprodeck.com/images/cards/123.jpg")) {
+    pass("Trusted YGOProDeck host accepted");
+  } else {
+    fail("Trusted YGOProDeck host accepted", "expected trusted");
+  }
+  if (!isTrustedImageUrl("https://evil-ygoprodeck.com/image.jpg")) {
+    pass("Substring host bypass rejected");
+  } else {
+    fail("Substring host bypass rejected", "evil host was accepted");
+  }
+  if (isTrustedImageUrl("https://product-images.tcgplayer.com/fallback.jpg")) {
+    pass("TCGPlayer host accepted");
+  } else {
+    fail("TCGPlayer host accepted", "expected trusted");
+  }
+
+  section("CSV condition / language mapping");
+
+  const CONDITION_ALIASES = {
+    nm: "NM",
+    "near mint": "NM",
+    lp: "LP",
+    "lightly played": "LP",
+    mp: "MP",
+    "moderately played": "MP",
+    hp: "HP",
+    "heavily played": "HP",
+    dmg: "DMG",
+    damaged: "DMG",
+  };
+
+  const LANGUAGE_ALIASES = {
+    en: "EN",
+    english: "EN",
+    jp: "JP",
+    japanese: "JP",
+    pt: "PT",
+    portuguese: "PT",
+  };
+
+  function normalizeCardCondition(raw) {
+    if (!raw?.trim()) return "NM";
+    const key = raw.trim().toLowerCase();
+    if (["NM", "LP", "MP", "HP", "DMG"].includes(raw.trim())) return raw.trim();
+    return CONDITION_ALIASES[key] ?? "NM";
+  }
+
+  function normalizeCardLanguage(raw) {
+    if (!raw?.trim()) return "EN";
+    const key = raw.trim().toLowerCase();
+    if (["EN", "JP", "PT", "DE", "FR", "ES", "IT", "KO", "ZH"].includes(raw.trim())) {
+      return raw.trim();
+    }
+    return LANGUAGE_ALIASES[key] ?? "EN";
+  }
+
+  assertEqual('CSV "Lightly Played" maps to LP', normalizeCardCondition("Lightly Played"), "LP");
+  assertEqual('CSV "Near Mint" maps to NM', normalizeCardCondition("Near Mint"), "NM");
+  assertEqual('CSV "English" maps to EN', normalizeCardLanguage("English"), "EN");
+  assertEqual("Unknown condition defaults to NM", normalizeCardCondition("Minty Fresh"), "NM");
+
   section("Environment");
 
   const envPath = join(ROOT, ".env.local");

@@ -1,0 +1,40 @@
+import { seedChar } from "@/features/anime-collection/data/seeds/shared";
+import { getSeriesCover } from "@/features/anime-collection/data/seed-image-urls";
+import type { AnimeSeedSeries } from "@/features/anime-collection/data/seeds/shared";
+
+export const YUGIOH_VRAINS_SEED: AnimeSeedSeries = {
+  name: "Yu-Gi-Oh! VRAINS",
+  slug: "yugioh-vrains",
+  coverImageUrl: getSeriesCover("yugioh-vrains"),
+  coverColor: "#0f172a",
+  characters: [
+    seedChar("Playmaker and Ai", "#2563eb"),
+    seedChar("Soulburner", "#dc2626"),
+    seedChar("Blue Angel", "#ec4899"),
+    seedChar("The Gore", "#78716c"),
+    seedChar("Ghost Gal", "#6366f1"),
+    seedChar("Varis", "#b91c1c"),
+    seedChar("Spectre", "#059669"),
+    seedChar("Akira Zaizen", "#475569"),
+    seedChar("Ai", "#3b82f6"),
+    seedChar("Aqua", "#0891b2"),
+    seedChar("Bohman", "#1e293b"),
+    seedChar("Earth", "#166534"),
+    seedChar("Flame", "#ea580c"),
+    seedChar("Lightning", "#eab308"),
+    seedChar("Queen", "#9333ea"),
+    seedChar("Windy", "#64748b"),
+    seedChar("BitBoot", "#525252"),
+    seedChar("Blood Shepard", "#44403c"),
+    seedChar("Cal Kolter", "#334155"),
+    seedChar("Dr. Genome", "#713f12"),
+    seedChar("Emma Bessho", "#be185d"),
+    seedChar("Kengo Ono", "#64748b"),
+    seedChar("Kitamura", "#57534e"),
+    seedChar("McKendrick Kappa", "#0369a1"),
+    seedChar("Pandor", "#64748b"),
+    seedChar("Roboppy", "#94a3b8"),
+    seedChar("Skye Zaizen", "#f9a8d4"),
+    seedChar("Yusaku Fujiki", "#1d4ed8"),
+  ],
+};

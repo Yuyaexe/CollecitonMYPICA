@@ -12,6 +12,16 @@ import type {
 import { buildSeedState } from "@/features/anime-collection/data/seed-catalog";
 
 export const BACKUP_VERSION = "1.0" as const;
+export const ANIME_BACKUP_KIND = "anime-collection" as const;
+
+export interface AnimeCollectionBackup {
+  version: typeof BACKUP_VERSION;
+  kind: typeof ANIME_BACKUP_KIND;
+  exportedAt: string;
+  animeSeries: AnimeSeries[];
+  animeCharacters: AnimeCharacter[];
+  animeCharacterCards: AnimeCharacterCard[];
+}
 
 export interface DeckVaultBackup {
   version: typeof BACKUP_VERSION;
@@ -85,10 +95,33 @@ export function buildBackupPayload(
   };
 }
 
-export function downloadBackup(backup: DeckVaultBackup) {
-  const date = backup.exportedAt.slice(0, 10);
-  const filename = `deckvault_backup_${date}.json`;
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
+export function buildAnimeBackupPayload(
+  data: Pick<DeckVaultBackup, "animeSeries" | "animeCharacters" | "animeCharacterCards">
+): AnimeCollectionBackup {
+  const anime = resolveAnimeBackupFields(data);
+  return {
+    version: BACKUP_VERSION,
+    kind: ANIME_BACKUP_KIND,
+    exportedAt: new Date().toISOString(),
+    ...anime,
+  };
+}
+
+export function isAnimeCollectionBackup(raw: unknown): raw is AnimeCollectionBackup {
+  if (!raw || typeof raw !== "object") return false;
+  const obj = raw as AnimeCollectionBackup;
+  return obj.kind === ANIME_BACKUP_KIND && obj.version === BACKUP_VERSION;
+}
+
+export function animeBackupSnapshot(
+  data: Pick<DeckVaultBackup, "animeSeries" | "animeCharacters" | "animeCharacterCards">
+): string {
+  const anime = resolveAnimeBackupFields(data);
+  return JSON.stringify(anime);
+}
+
+export function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
@@ -97,6 +130,24 @@ export function downloadBackup(backup: DeckVaultBackup) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadBackup(backup: DeckVaultBackup) {
+  const date = backup.exportedAt.slice(0, 10);
+  downloadJson(`deckvault_backup_${date}.json`, backup);
+}
+
+export function animeBackupFilename(exportedAt: string = new Date().toISOString()): string {
+  const stamp = exportedAt
+    .replace(/\.\d{3}Z$/, "Z")
+    .replace(/:/g, "-")
+    .replace("T", "_")
+    .replace(/Z$/, "");
+  return `deckvault_anime_backup_${stamp}.json`;
+}
+
+export function downloadAnimeBackup(backup: AnimeCollectionBackup) {
+  downloadJson(animeBackupFilename(backup.exportedAt), backup);
 }
 
 export async function fetchBackupFromServer(): Promise<DeckVaultBackup> {

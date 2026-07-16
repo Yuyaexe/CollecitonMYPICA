@@ -1,9 +1,10 @@
 import { PASSCODE_CACHE_TTL_MS } from "@/lib/cache/constants";
 
 const DB_NAME = "deckvault-cache";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const PASSCODE_STORE = "passcodes";
 const IMAGE_STORE = "images";
+const PROXY_CUSTOM_STORE = "proxy-custom-images";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -22,6 +23,9 @@ function openDb(): Promise<IDBDatabase> {
         }
         if (!db.objectStoreNames.contains(IMAGE_STORE)) {
           db.createObjectStore(IMAGE_STORE);
+        }
+        if (!db.objectStoreNames.contains(PROXY_CUSTOM_STORE)) {
+          db.createObjectStore(PROXY_CUSTOM_STORE);
         }
       };
       request.onsuccess = () => resolve(request.result);
@@ -161,4 +165,32 @@ async function pruneImageStore(): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+export interface ProxyCustomImageEntry {
+  blob: Blob;
+  updatedAt: number;
+}
+
+export async function readProxyCustomImageBlob(id: string): Promise<Blob | null> {
+  if (!id || typeof indexedDB === "undefined") return null;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(PROXY_CUSTOM_STORE, "readonly");
+    const store = tx.objectStore(PROXY_CUSTOM_STORE);
+    const entry = (await idbRequest(store.get(id))) as ProxyCustomImageEntry | undefined;
+    await idbTxDone(tx);
+    return entry?.blob ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeProxyCustomImageBlob(id: string, blob: Blob): Promise<void> {
+  if (!id || typeof indexedDB === "undefined") return;
+  const db = await openDb();
+  const tx = db.transaction(PROXY_CUSTOM_STORE, "readwrite");
+  const store = tx.objectStore(PROXY_CUSTOM_STORE);
+  store.put({ blob, updatedAt: Date.now() } satisfies ProxyCustomImageEntry, id);
+  await idbTxDone(tx);
 }

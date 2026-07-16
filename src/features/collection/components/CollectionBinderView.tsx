@@ -415,18 +415,20 @@ export function CollectionBinderView() {
 
   const cardsOnSpread = currentSpreadSlots.filter(Boolean).length;
 
+  const { binderLayout, moveCardToBinderSlot } = data;
+
   const handleDropToSpread = useCallback(
     (draggedId: string, targetSpread: number) => {
       if (targetSpread < 0) return;
       const targetIndex = firstAvailableSlotInSpread(
-        data.binderLayout,
+        binderLayout,
         targetSpread,
         spreadSize
       );
-      data.moveCardToBinderSlot(draggedId, targetIndex);
+      moveCardToBinderSlot(draggedId, targetIndex);
       setSpreadIndex(targetSpread);
     },
-    [data.binderLayout, data.moveCardToBinderSlot, spreadSize]
+    [binderLayout, moveCardToBinderSlot, spreadSize]
   );
 
   return (

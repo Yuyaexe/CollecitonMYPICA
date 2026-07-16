@@ -25,7 +25,11 @@ import {
 import type { DecklistGameSlug, ResolvedDeckEntry } from "@/features/import/types";
 import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
-import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
+import {
+  normalizeCardCondition,
+  normalizeCardLanguage,
+} from "@/features/import/utils/csv-card-fields";
+import { NO_ACTIVE_COLLECTION } from "@/lib/data/collection-requirements";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import { useT } from "@/lib/i18n/context";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -204,6 +208,8 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     } catch (err) {
       if (err instanceof Error && err.message === RESOLVE_FAILED) {
         toast.error(t("import.resolveFailed"));
+      } else if (err instanceof Error && err.message === NO_ACTIVE_COLLECTION) {
+        toast.error(t("collection.noActiveCollection"));
       } else {
         toast.error(err instanceof Error ? err.message : t("import.failed"));
       }
@@ -227,12 +233,8 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
           name: row.name,
           set: row.set,
           quantity: row.quantity,
-          condition: (CARD_CONDITIONS.includes(row.condition as CardCondition)
-            ? row.condition
-            : "NM") as CardCondition,
-          language: (CARD_LANGUAGES.includes(row.language as CardLanguage)
-            ? row.language
-            : "EN") as CardLanguage,
+          condition: normalizeCardCondition(row.condition) as CardCondition,
+          language: normalizeCardLanguage(row.language) as CardLanguage,
           gameId: game.id,
           gameSlug: game.slug,
           gameName: game.name,
@@ -245,7 +247,11 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       onOpenChange(false);
       resetState();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("import.csvFailed"));
+      if (err instanceof Error && err.message === NO_ACTIVE_COLLECTION) {
+        toast.error(t("collection.noActiveCollection"));
+      } else {
+        toast.error(err instanceof Error ? err.message : t("import.csvFailed"));
+      }
     } finally {
       setImporting(false);
       setImportStatus(null);

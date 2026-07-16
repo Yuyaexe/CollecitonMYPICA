@@ -1,6 +1,8 @@
 import {
   BACKUP_VERSION,
+  isAnimeCollectionBackup,
   resolveAnimeBackupFields,
+  type AnimeCollectionBackup,
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
 import {
@@ -14,6 +16,10 @@ import {
   RestoreStepError,
   type RestoreFailureResponse,
 } from "@/features/import/services/restore-debug";
+
+export type ParsedBackupFile =
+  | { scope: "full"; backup: DeckVaultBackup }
+  | { scope: "anime"; backup: AnimeCollectionBackup };
 
 export function parseBackupJson(raw: unknown): DeckVaultBackup {
   if (!raw || typeof raw !== "object") {
@@ -65,7 +71,7 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
   }
 }
 
-export async function readBackupFile(file: File): Promise<DeckVaultBackup> {
+export async function readBackupFile(file: File): Promise<ParsedBackupFile> {
   const text = await file.text();
   let parsed: unknown;
   try {
@@ -73,7 +79,18 @@ export async function readBackupFile(file: File): Promise<DeckVaultBackup> {
   } catch {
     throw new Error("Arquivo não é um JSON válido");
   }
-  return parseBackupJson(parsed);
+
+  if (isAnimeCollectionBackup(parsed)) {
+    return {
+      scope: "anime",
+      backup: {
+        ...parsed,
+        ...resolveAnimeBackupFields(parsed),
+      },
+    };
+  }
+
+  return { scope: "full", backup: parseBackupJson(parsed) };
 }
 
 export function defaultCollectionAfterRestore(backup: DeckVaultBackup): string | null {

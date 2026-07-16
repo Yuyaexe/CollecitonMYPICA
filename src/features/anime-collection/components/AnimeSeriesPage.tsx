@@ -10,11 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   AnimeSeriesCard,
   AddAnimeSeriesCard,
 } from "@/features/anime-collection/components/AnimeSeriesCard";
-import { EditSeriesCoverModal } from "@/features/anime-collection/components/EditSeriesCoverModal";
+import { EditSeriesModal } from "@/features/anime-collection/components/EditSeriesModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { AnimeSeries } from "@/features/anime-collection/types";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
@@ -22,6 +30,7 @@ import { toast } from "sonner";
 export function AnimeSeriesPage() {
   const t = useT();
   const router = useRouter();
+  const isTouchDevice = useMediaQuery("(hover: none) and (pointer: coarse)");
   const {
     animeSeries,
     characterCountBySeries,
@@ -34,11 +43,8 @@ export function AnimeSeriesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCoverUrl, setNewCoverUrl] = useState("");
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameName, setRenameName] = useState("");
-  const [renameTarget, setRenameTarget] = useState<AnimeSeries | null>(null);
-  const [coverOpen, setCoverOpen] = useState(false);
-  const [coverTarget, setCoverTarget] = useState<AnimeSeries | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<AnimeSeries | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnimeSeries | null>(null);
 
@@ -55,25 +61,20 @@ export function AnimeSeriesPage() {
     toast.success(t("anime.seriesAdded", { name: trimmed }));
   };
 
-  const openRename = (series: AnimeSeries) => {
-    setRenameTarget(series);
-    setRenameName(series.name);
-    setRenameOpen(true);
+  const openEdit = (series: AnimeSeries) => {
+    setEditTarget(series);
+    setEditOpen(true);
   };
 
-  const handleRename = () => {
-    if (!renameTarget) return;
-    const trimmed = renameName.trim();
-    if (!trimmed) return;
-    renameAnimeSeries(renameTarget.id, trimmed);
-    setRenameOpen(false);
-    setRenameTarget(null);
-    toast.success(t("anime.seriesRenamed"));
-  };
-
-  const openCoverEdit = (series: AnimeSeries) => {
-    setCoverTarget(series);
-    setCoverOpen(true);
+  const handleEditSave = (input: { name: string; coverImageUrl: string | null }) => {
+    if (!editTarget) return;
+    if (input.name !== editTarget.name) {
+      renameAnimeSeries(editTarget.id, input.name);
+    }
+    if (input.coverImageUrl !== editTarget.coverImageUrl) {
+      updateAnimeSeriesCover(editTarget.id, input.coverImageUrl);
+    }
+    setEditTarget(null);
   };
 
   const openDelete = (series: AnimeSeries) => {
@@ -88,6 +89,18 @@ export function AnimeSeriesPage() {
     setDeleteTarget(null);
     toast.success(t("anime.seriesDeleted"));
   };
+
+  const renderSeriesCard = (series: AnimeSeries, index: number) => (
+    <AnimeSeriesCard
+      name={series.name}
+      coverImageUrl={series.coverImageUrl}
+      coverColor={series.coverColor}
+      characterCount={characterCountBySeries.get(series.id) ?? 0}
+      index={index}
+      onSelect={() => router.push(`/anime-collection/${series.slug}`)}
+      onEditCover={() => openEdit(series)}
+    />
+  );
 
   return (
     <>
@@ -107,39 +120,38 @@ export function AnimeSeriesPage() {
         />
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {animeSeries.map((series, index) => (
-            <div
-              key={series.id}
-              className="group relative"
-              onContextMenu={(e) => {
-                e.preventDefault();
-                openRename(series);
-              }}
-            >
-              <AnimeSeriesCard
-                name={series.name}
-                coverImageUrl={series.coverImageUrl}
-                coverColor={series.coverColor}
-                characterCount={characterCountBySeries.get(series.id) ?? 0}
-                index={index}
-                onSelect={() => router.push(`/anime-collection/${series.slug}`)}
-                onEditCover={() => openCoverEdit(series)}
-              />
-              {!series.isSeeded && (
-                <button
-                  type="button"
-                  aria-label={`Manage ${series.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDelete(series);
-                  }}
-                  className="absolute right-2 top-2 z-10 rounded-md bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  {t("common.delete")}
-                </button>
-              )}
-            </div>
-          ))}
+          {animeSeries.map((series, index) =>
+            isTouchDevice ? (
+              <div key={series.id} className="group relative">
+                {renderSeriesCard(series, index)}
+              </div>
+            ) : (
+              <ContextMenu key={series.id}>
+                <ContextMenuTrigger asChild>
+                  <div className="group relative">{renderSeriesCard(series, index)}</div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => router.push(`/anime-collection/${series.slug}`)}>
+                    {t("common.open")}
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => openEdit(series)}>
+                    {t("anime.editSeries")}
+                  </ContextMenuItem>
+                  {!series.isSeeded && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => openDelete(series)}
+                      >
+                        {t("common.delete")}
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+            )
+          )}
           <AddAnimeSeriesCard
             index={animeSeries.length}
             onClick={() => setCreateOpen(true)}
@@ -186,41 +198,13 @@ export function AnimeSeriesPage() {
         </div>
       </Modal>
 
-      <Modal
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
-        title={t("anime.renameSeriesTitle")}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button onClick={handleRename} disabled={!renameName.trim()}>
-              {t("common.save")}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-2 py-2">
-          <Label htmlFor="rename-series">{t("anime.seriesName")}</Label>
-          <Input
-            id="rename-series"
-            value={renameName}
-            onChange={(e) => setRenameName(e.target.value)}
-            autoFocus
-          />
-        </div>
-      </Modal>
-
-      <EditSeriesCoverModal
-        open={coverOpen}
-        onOpenChange={setCoverOpen}
-        seriesName={coverTarget?.name ?? ""}
-        currentCoverUrl={coverTarget?.coverImageUrl ?? null}
-        coverColor={coverTarget?.coverColor ?? null}
-        onSave={(url) => {
-          if (coverTarget) updateAnimeSeriesCover(coverTarget.id, url);
-        }}
+      <EditSeriesModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        seriesName={editTarget?.name ?? ""}
+        currentCoverUrl={editTarget?.coverImageUrl ?? null}
+        coverColor={editTarget?.coverColor ?? null}
+        onSave={handleEditSave}
       />
 
       <Modal

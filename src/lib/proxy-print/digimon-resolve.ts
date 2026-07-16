@@ -32,9 +32,22 @@ async function fetchDigimonRows(params: URLSearchParams): Promise<DigimonApiRow[
 }
 
 function digimonRowImageUrl(row: DigimonApiRow): string {
-  if (row.tcgplayer_id) return TCGPLAYER_IMG(row.tcgplayer_id);
+  // Prefer digimoncard.io HD art for the base printing; TCGPlayer for unique variants.
   const id = String(row.id ?? "").toUpperCase();
-  return DIGIMON_IMG_HD(id);
+  const tcgName = row.tcgplayer_name?.toLowerCase() ?? "";
+  const isVariantArt =
+    tcgName.includes("alternate") ||
+    tcgName.includes("textured") ||
+    tcgName.includes("box topper") ||
+    tcgName.includes("premium") ||
+    tcgName.includes("sp)");
+
+  if (row.tcgplayer_id && isVariantArt) {
+    return TCGPLAYER_IMG(row.tcgplayer_id);
+  }
+  if (id) return DIGIMON_IMG_HD(id);
+  if (row.tcgplayer_id) return TCGPLAYER_IMG(row.tcgplayer_id);
+  return DIGIMON_IMG_OFFICIAL(id);
 }
 
 function buildDigimonVariant(row: DigimonApiRow, index: number): ProxyCardVariant {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Loader2, SlidersHorizontal } from "lucide-react";
+import { Plus, Loader2, SlidersHorizontal } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CardImage } from "@/components/shared/CardImage";
@@ -13,6 +13,7 @@ import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_FULL } from "@/lib/ui/mobile-dialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAppData } from "@/hooks/useAppData";
+import { NO_ACTIVE_COLLECTION } from "@/lib/data/collection-requirements";
 import { isQuickAddSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
 import { fetchYugiohCardByName } from "@/lib/yugioh/lookup";
@@ -35,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n/context";
 import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
+import { QuickAddVariantPicker } from "@/features/collection/components/QuickAddVariantPicker";
 import {
   EMPTY_YGO_ADVANCED_FILTERS,
   hasActiveYgoAdvancedFilters,
@@ -208,7 +210,10 @@ export function QuickAddModal({
   });
 
   const isAdvancedMode = game.slug === "yugioh" && ygoSearchMode === "advanced";
-  const searchResults = isAdvancedMode ? (advancedData ?? []) : (data ?? []);
+  const searchResults = useMemo(
+    () => (isAdvancedMode ? (advancedData ?? []) : (data ?? [])),
+    [isAdvancedMode, advancedData, data]
+  );
   const searchLoading = isAdvancedMode ? advancedLoading : isLoading;
   const searchFetching = isAdvancedMode ? advancedFetching : isFetching;
   const searchIsError = isAdvancedMode ? advancedError : isError;
@@ -336,7 +341,11 @@ export function QuickAddModal({
     setRarityFilter("all");
     setPreviewKey(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("quickAdd.addFailed"));
+      if (err instanceof Error && err.message === NO_ACTIVE_COLLECTION) {
+        toast.error(t("collection.noActiveCollection"));
+      } else {
+        toast.error(err instanceof Error ? err.message : t("quickAdd.addFailed"));
+      }
     } finally {
       setAdding(false);
     }
@@ -413,119 +422,24 @@ export function QuickAddModal({
     >
       <div className={cn("flex flex-col", isAdvancedMode && !pendingCard ? "min-h-0 flex-1 gap-4" : "space-y-4")}>
         {pendingCard ? (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-2 gap-1"
-              onClick={() => {
-                setPendingCard(null);
-                setRarityFilter("all");
-                setPreviewKey(null);
-              }}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t("quickAdd.backToSearch")}
-            </Button>
-
-            <div className="flex flex-col gap-5 md:flex-row md:gap-6">
-              <div className="flex shrink-0 flex-col items-center md:w-[168px]">
-                <CardImage
-                  src={previewImage}
-                  alt={pendingCard.name}
-                  width={152}
-                  height={222}
-                  className="rounded-lg object-contain shadow-lg ring-1 ring-border/40"
-                />
-                <p className="mt-3 text-center text-sm font-semibold leading-tight">
-                  {pendingCard.name}
-                </p>
-                {previewVariant && (
-                  <div className="mt-2">
-                    <RarityBadge rarity={previewVariant.rarity} gameSlug={game.slug} size="md" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col gap-3">
-                {rarityOptions.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setRarityFilter("all")}
-                      className={cn(
-                        "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                        rarityFilter === "all"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/60 text-muted-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      {t("quickAdd.allRarities")}
-                    </button>
-                    {rarityOptions.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setRarityFilter(r)}
-                        className={cn(
-                          "rounded-md border p-0.5 transition-colors",
-                          rarityFilter === r
-                            ? "border-primary ring-1 ring-primary/40"
-                            : "border-transparent hover:border-border/60"
-                        )}
-                        title={r}
-                      >
-                        <RarityBadge rarity={r} gameSlug={game.slug} size="md" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <ScrollArea className="h-[340px] pr-2">
-                  <div className="space-y-1">
-                    {filteredVariants.map((variant) => (
-                      <button
-                        key={variant.key}
-                        type="button"
-                        onMouseEnter={() => setPreviewKey(variant.key)}
-                        onFocus={() => setPreviewKey(variant.key)}
-                        onClick={() => handleVariantPick(variant)}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50",
-                          previewKey === variant.key
-                            ? "border-primary/50 bg-muted/30"
-                            : "border-border/60"
-                        )}
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <RarityBadge rarity={variant.rarity} gameSlug={game.slug} size="md" />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {variant.setName ?? t("quickAdd.unknownSet")}
-                              {variant.variantLabel ? ` · ${variant.variantLabel}` : ""}
-                            </p>
-                            {(variant.collectorNumber ?? variant.setCode) && (
-                              <p className="truncate text-xs text-muted-foreground">
-                                {variant.collectorNumber ?? variant.setCode}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <Plus className="h-4 w-4 text-primary" />
-                        </div>
-                      </button>
-                    ))}
-                    {filteredVariants.length === 0 && (
-                      <p className="py-8 text-center text-sm text-muted-foreground">
-                        {t("quickAdd.noPrintsForRarity")}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </>
+          <QuickAddVariantPicker
+            pendingCard={pendingCard}
+            gameSlug={game.slug}
+            previewImage={previewImage}
+            previewVariant={previewVariant}
+            previewKey={previewKey}
+            rarityFilter={rarityFilter}
+            rarityOptions={rarityOptions}
+            filteredVariants={filteredVariants}
+            onBack={() => {
+              setPendingCard(null);
+              setRarityFilter("all");
+              setPreviewKey(null);
+            }}
+            onRarityFilterChange={setRarityFilter}
+            onPreviewKeyChange={setPreviewKey}
+            onVariantPick={handleVariantPick}
+          />
         ) : isAdvancedMode ? (
           <>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">

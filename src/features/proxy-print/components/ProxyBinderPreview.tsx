@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RarityBadge } from "@/components/shared/RarityBadge";
-import { previewImageSrc } from "@/lib/proxy-print/preview-image";
+import { isInlineImageUrl, previewImageSrc, resolvePreviewImageSrc } from "@/lib/proxy-print/preview-image";
 import {
   CARDS_PER_PAGE,
   SLOTS_PER_SPREAD,
@@ -63,17 +63,45 @@ const BinderThumb = memo(function BinderThumb({
   src,
   alt,
 }: {
-  src: string;
+  src: string | null;
   alt: string;
 }) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(() =>
+    src ? previewImageSrc(src) : null
+  );
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    setResolvedSrc(src ? previewImageSrc(src) : null);
+
+    void resolvePreviewImageSrc(src).then((next) => {
+      if (!cancelled) setResolvedSrc(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  if (!resolvedSrc || failed) {
+    return (
+      <div className="flex h-full items-center justify-center bg-muted/40 px-1 text-center text-[10px] text-muted-foreground">
+        {alt}
+      </div>
+    );
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={resolvedSrc}
       alt={alt}
       loading="lazy"
       decoding="async"
       className="absolute inset-0 h-full w-full object-contain p-0.5"
+      onError={() => setFailed(true)}
     />
   );
 });
@@ -88,7 +116,7 @@ const BinderSlot = memo(function BinderSlot({
   onCycle: () => void;
 }) {
   const t = useT();
-  const imgSrc = previewImageSrc(slot.imageUrl);  const hasVariants = slot.variants.length > 1;
+  const hasVariants = slot.variants.length > 1;
 
   return (
     <div className="group flex min-h-0 flex-col gap-0.5">
@@ -97,19 +125,15 @@ const BinderSlot = memo(function BinderSlot({
           "relative min-h-0 w-full flex-1 overflow-hidden rounded-md bg-stone-900/10 shadow-sm ring-1 ring-stone-900/10",
           "dark:bg-stone-950/40 dark:ring-stone-100/10"
         )}
-      >        <button
+      >
+        <button
           type="button"
           className="absolute inset-0 z-0 cursor-pointer"
           onClick={onCycle}
           aria-label={hasVariants ? t("proxyPrint.cycleVariant") : slot.name}
           title={slot.setLine ?? slot.name}
-        />        {imgSrc ? (
-          <BinderThumb src={imgSrc} alt={slot.name} />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-muted/40 text-[10px] text-muted-foreground">
-            ?
-          </div>
-        )}
+        />
+        <BinderThumb src={slot.imageUrl} alt={slot.name} />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-end gap-0.5 p-0.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
           {hasVariants ? (
             <span className="rounded bg-black/60 px-1 py-0.5 text-[8px] text-white/90">
@@ -148,7 +172,8 @@ const BinderSlot = memo(function BinderSlot({
             {slot.name}
           </p>
         </div>
-      </div>    </div>
+      </div>
+    </div>
   );
 });
 
@@ -222,7 +247,7 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
     if (!editSlot) return;
     setDraftVariantKey(editSlot.selectedVariantKey);
     setUrlDraft(editSlot.imageUrl?.startsWith("blob:") ? "" : (editSlot.imageUrl ?? ""));
-  }, [editSlotId, editSlot?.selectedVariantKey, editSlot?.imageUrl]);
+  }, [editSlot, editSlotId]);
 
   const activeVariantLabel =
     editSlot?.variants.find((v) => v.key === draftVariantKey)?.label ??
@@ -264,7 +289,7 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
 
     if (matchedVariant && matchedVariant.imageUrl === url) {
       emitSlotUpdate(editSlot, variantFields(matchedVariant));
-    } else if (url.startsWith("http")) {
+    } else if (isInlineImageUrl(url)) {
       emitSlotUpdate(editSlot, {
         imageUrl: url,
         selectedVariantKey: "custom",
@@ -293,7 +318,16 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
   const handleFile = useCallback(
     (file: File | undefined) => {
       if (!file) return;
-      applyCustomImage(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          applyCustomImage(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        applyCustomImage(URL.createObjectURL(file));
+      };
+      reader.readAsDataURL(file);
     },
     [applyCustomImage]
   );
@@ -415,7 +449,10 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
                 id="proxy-custom-file"
                 type="file"
                 accept="image/*"
-                onChange={(e) => handleFile(e.target.files?.[0])}
+                onChange={(e) => {
+                  handleFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
               />
             </div>
           </div>
@@ -425,7 +462,7 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
             </Button>
             <Button
               type="button"
-              disabled={!urlDraft.trim().startsWith("http")}
+              disabled={!isInlineImageUrl(urlDraft.trim())}
               onClick={handleSave}
             >
               {t("common.save")}

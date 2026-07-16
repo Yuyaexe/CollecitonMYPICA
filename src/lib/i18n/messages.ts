@@ -48,10 +48,15 @@ export const messages = {
     "settings.restore": "Restore",
     "settings.backupSaved": "Backup saved ({cards} cards, {collections} collections, {anime} anime cards)",
     "settings.backupFailed": "Failed to create backup",
+    "settings.animeAutoBackup": "Automatic Anime Collection backup",
+    "settings.animeAutoBackupHint":
+      "Downloads a JSON file ~20s after you edit the Anime Collection (not for background image sync). Also saves when you leave or hide the tab.",
     "settings.restoreSuccessCloud":
       "Restored: {cards} cards in {collections} collections, {anime} anime cards",
     "settings.restoreSuccessLocal":
       "Restored: {cards} cards in {collections} collections, {anime} anime cards",
+    "settings.restoreAnimeSuccess":
+      "Anime collection restored ({series} series, {characters} characters, {cards} cards)",
     "settings.restoreFailed": "Failed to restore backup",
     "settings.busySaving": "Saving settings...",
     "settings.busyWait": "Please wait...",
@@ -112,6 +117,7 @@ export const messages = {
     "collection.bulkDeleting": "Deleting...",
     "collection.bulkDeleted": "{count} card(s) removed",
     "collection.bulkDeleteFailed": "Failed to delete cards",
+    "collection.noActiveCollection": "Create or select a collection before adding cards.",
 
     "quickAdd.title": "Quick Add",
     "quickAdd.choosePrint": "Choose print",
@@ -228,7 +234,7 @@ export const messages = {
     "proxyPrint.modeFile": "Upload file",
     "proxyPrint.pasteLabel": "Deck list",
     "proxyPrint.pastePlaceholder":
-      "Limitless, PTCGL, YDK passcodes (#main), DigimonCard.io…",
+      "Limitless, PTCGL, YDK, Digimon, Dragon Ball (FB01-015)…",
     "proxyPrint.pasteClipboard": "Paste from clipboard",
     "proxyPrint.fileSelected": "File",
     "proxyPrint.pickFile": "Choose a .ydk or .txt file",
@@ -259,7 +265,7 @@ export const messages = {
     "proxyPrint.clipboardEmpty": "Clipboard is empty",
     "proxyPrint.printHint": "Print the PDF at 100% scale on A4 (actual size).",
     "proxyPrint.pastePlaceholderNames":
-      "3 Ash Blossom & Joyous Spring\n1 EX7-073 AA\n#digimon\n1 BT25-092 SP\n#yugioh\n1 Maxx \"C\"",
+      "3 Ash Blossom & Joyous Spring\n1 FB01-015 AA\n#dragonball\n1 Beerus\n#digimon\n1 EX7-073 AA\n#yugioh\n1 Maxx \"C\"",
     "proxyPrint.preview": "Preview binder",
     "proxyPrint.previewReady": "{count} cards ready for print",
     "proxyPrint.previewEmpty": "Binder preview",
@@ -269,14 +275,15 @@ export const messages = {
     "proxyPrint.partialResolve": "{count} card(s) could not be resolved",
     "proxyPrint.needPreview": "Generate a preview first",
     "proxyPrint.autoPreview": "Auto-update preview",
-    "proxyPrint.gameMixed": "Mixed deck — use #digimon / #yugioh sections",
-    "proxyPrint.mixedDeckHint": "Sections #digimon, #yugioh, etc. override the game above.",
+    "proxyPrint.gameMixed": "Mixed deck — use #digimon / #dragonball / #yugioh sections",
+    "proxyPrint.mixedDeckHint": "Sections #digimon, #dragonball, #yugioh, etc. override the game above.",
     "proxyPrint.syntaxHint":
-      "Digimon alt art: EX7-073 AA · textured · SP · foil. Custom image: Card Name | https://… · click slot to upload.",
+      "Digimon: EX7-073 AA · Dragon Ball: FB01-015 AA / Beerus · Custom image: upload on slot (@img:…).",
     "proxyPrint.customImage": "Custom image",
     "proxyPrint.customImageTitle": "Card image",
     "proxyPrint.customImageUrl": "Image URL",
     "proxyPrint.customImageFile": "Upload image",
+    "proxyPrint.customImageSaveFailed": "Could not save custom image. Try a smaller file.",
     "proxyPrint.pickVariant": "Print variant",
     "proxyPrint.cycleVariant": "Cycle print variant",
 
@@ -331,10 +338,15 @@ export const messages = {
     "settings.backupSaved":
       "Backup salvo ({cards} cartas, {collections} coleções, {anime} cartas anime)",
     "settings.backupFailed": "Falha ao criar backup",
+    "settings.animeAutoBackup": "Backup automático da Coleção Anime",
+    "settings.animeAutoBackupHint":
+      "Baixa um JSON ~20s após você editar a Coleção Anime (ignora sync de imagens em segundo plano). Também salva ao sair ou ocultar a aba.",
     "settings.restoreSuccessCloud":
       "Restaurado: {cards} cartas em {collections} coleções, {anime} cartas anime",
     "settings.restoreSuccessLocal":
       "Restaurado: {cards} cartas em {collections} coleções, {anime} cartas anime",
+    "settings.restoreAnimeSuccess":
+      "Coleção anime restaurada ({series} séries, {characters} personagens, {cards} cartas)",
     "settings.restoreFailed": "Falha ao restaurar backup",
     "settings.busySaving": "Salvando configurações...",
     "settings.busyWait": "Aguarde...",
@@ -395,6 +407,7 @@ export const messages = {
     "collection.bulkDeleting": "Excluindo...",
     "collection.bulkDeleted": "{count} carta(s) removida(s)",
     "collection.bulkDeleteFailed": "Falha ao excluir cartas",
+    "collection.noActiveCollection": "Crie ou selecione uma coleção antes de adicionar cartas.",
 
     "quickAdd.title": "Adicionar rápido",
     "quickAdd.choosePrint": "Escolher print",
@@ -511,7 +524,7 @@ export const messages = {
     "proxyPrint.modeFile": "Enviar ficheiro",
     "proxyPrint.pasteLabel": "Lista do deck",
     "proxyPrint.pastePlaceholder":
-      "Limitless, PTCGL, passcodes YDK (#main), DigimonCard.io…",
+      "Limitless, PTCGL, passcodes YDK (#main), Digimon, Dragon Ball (FB01-015)…",
     "proxyPrint.pasteClipboard": "Colar da área de transferência",
     "proxyPrint.fileSelected": "Ficheiro",
     "proxyPrint.pickFile": "Escolhe um ficheiro .ydk ou .txt",
@@ -542,7 +555,7 @@ export const messages = {
     "proxyPrint.clipboardEmpty": "Área de transferência vazia",
     "proxyPrint.printHint": "Imprime o PDF a 100% em A4 (tamanho real).",
     "proxyPrint.pastePlaceholderNames":
-      "3 Ash Blossom & Joyous Spring\n1 EX7-073 AA\n#digimon\n1 BT25-092 SP\n#yugioh\n1 Maxx \"C\"",
+      "3 Ash Blossom & Joyous Spring\n1 FB01-015 AA\n#dragonball\n1 Beerus\n#digimon\n1 EX7-073 AA\n#yugioh\n1 Maxx \"C\"",
     "proxyPrint.preview": "Pré-visualizar binder",
     "proxyPrint.previewReady": "{count} cartas prontas para impressão",
     "proxyPrint.previewEmpty": "Pré-visualização do binder",
@@ -552,14 +565,15 @@ export const messages = {
     "proxyPrint.partialResolve": "{count} carta(s) não foram resolvidas",
     "proxyPrint.needPreview": "Gera a pré-visualização primeiro",
     "proxyPrint.autoPreview": "Atualizar pré-visualização automaticamente",
-    "proxyPrint.gameMixed": "Deck misto — use secções #digimon / #yugioh",
-    "proxyPrint.mixedDeckHint": "Secções #digimon, #yugioh, etc. substituem o jogo acima.",
+    "proxyPrint.gameMixed": "Deck misto — use secções #digimon / #dragonball / #yugioh",
+    "proxyPrint.mixedDeckHint": "Secções #digimon, #dragonball, #yugioh, etc. substituem o jogo acima.",
     "proxyPrint.syntaxHint":
-      "Alt art Digimon: EX7-073 AA · textured · SP · foil. Imagem própria: Nome | https://… · clique no slot para enviar.",
+      "Digimon: EX7-073 AA · Dragon Ball: FB01-015 AA / Beerus · Imagem própria: upload no slot (@img:…).",
     "proxyPrint.customImage": "Imagem personalizada",
     "proxyPrint.customImageTitle": "Imagem da carta",
     "proxyPrint.customImageUrl": "URL da imagem",
     "proxyPrint.customImageFile": "Enviar imagem",
+    "proxyPrint.customImageSaveFailed": "Não foi possível salvar a imagem. Tente um ficheiro menor.",
     "proxyPrint.pickVariant": "Variante de impressão",
     "proxyPrint.cycleVariant": "Alternar variante",
 

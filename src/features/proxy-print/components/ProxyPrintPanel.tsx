@@ -14,6 +14,12 @@ import { detectGameFromText } from "@/lib/proxy-print/detect-game";
 import { buildProxyPdf, previewLayoutText } from "@/lib/proxy-print/build-pdf";
 import { hasMixedGameSections, deckLineWithVariantImage } from "@/lib/proxy-print/parse-deck";
 import {
+  compactProxyDeckCustomImages,
+  hydrateProxySlotImageUrls,
+  preloadProxyDeckCustomImages,
+  toInlineDeckImageRef,
+} from "@/lib/proxy-print/custom-images";
+import {
   DEFAULT_CARD_SIZE_FOR_GAME,
   DEFAULT_PDF_DPI,
   GAME_LABELS,
@@ -115,12 +121,9 @@ export function ProxyPrintPanel() {
 
   const handleSlotUpdate = useCallback(
     (slotId: string, update: SlotUpdate, sourceQuery: string | null) => {
-      let resolveKey: string | null = null;
-
       setSlots((prev) => {
         const target = prev.find((s) => s.slotId === slotId);
         if (!target) return prev;
-        resolveKey = target.resolveKey;
         variantOverridesRef.current.set(target.resolveKey, update);
         return prev.map((slot) =>
           slot.resolveKey === target.resolveKey
@@ -137,10 +140,16 @@ export function ProxyPrintPanel() {
       });
 
       if (sourceQuery && update.imageUrl) {
-        setDeckText((text) => deckLineWithVariantImage(text, sourceQuery, update.imageUrl));
+        void toInlineDeckImageRef(update.imageUrl)
+          .then((inlineRef) => {
+            setDeckText((text) => deckLineWithVariantImage(text, sourceQuery, inlineRef));
+          })
+          .catch(() => {
+            toast.error(t("proxyPrint.customImageSaveFailed"));
+          });
       }
     },
-    []
+    [t]
   );
 
   const fetchResolvedSlots = useCallback(
@@ -148,10 +157,16 @@ export function ProxyPrintPanel() {
       const text = deckTextRef.current.trim();
       if (!text) throw new Error(tRef.current("proxyPrint.needList"));
 
+      await preloadProxyDeckCustomImages(text);
+
       const res = await fetch("/api/proxy-print/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deckText: text, game: defaultGameRef.current }),
+        body: JSON.stringify({
+          // Keep `@img:` short refs — hydrate blobs client-side after resolve.
+          deckText: text,
+          game: defaultGameRef.current,
+        }),
         signal,
       });
       const data = await res.json();
@@ -161,7 +176,8 @@ export function ProxyPrintPanel() {
       } else if (data.game) {
         setCardSize(DEFAULT_CARD_SIZE_FOR_GAME[data.game as ProxyGame]);
       }
-      return applyVariantOverrides(data.slots as ProxyPrintSlot[]);
+      const withOverrides = applyVariantOverrides(data.slots as ProxyPrintSlot[]);
+      return hydrateProxySlotImageUrls(withOverrides);
     },
     [applyVariantOverrides]
   );
@@ -194,6 +210,9 @@ export function ProxyPrintPanel() {
     setInputMode("paste");
     if (!autoPreview) setSlots([]);
     refreshDetection(value);
+    void compactProxyDeckCustomImages(value)
+      .then(setDeckText)
+      .catch(() => toast.error(t("proxyPrint.customImageSaveFailed")));
   };
 
   const handlePasteClipboard = async () => {
@@ -207,7 +226,12 @@ export function ProxyPrintPanel() {
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    const text = await file.text();
+    let text = await file.text();
+    try {
+      text = await compactProxyDeckCustomImages(text);
+    } catch {
+      toast.error(t("proxyPrint.customImageSaveFailed"));
+    }
     setDeckText(text);
     setFileName(file.name);
     setInputMode("file");
@@ -241,6 +265,24 @@ export function ProxyPrintPanel() {
       abortRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (!deckText.includes("data:image/")) return;
+    let cancelled = false;
+    void compactProxyDeckCustomImages(deckText)
+      .then((compact) => {
+        if (!cancelled) setDeckText(compact);
+      })
+      .catch(() => toast.error(t("proxyPrint.customImageSaveFailed")));
+    return () => {
+      cancelled = true;
+    };
+  }, [deckText, t]);
+
+  useEffect(() => {
+    if (!deckText.includes("@img:")) return;
+    void preloadProxyDeckCustomImages(deckText);
+  }, [deckText]);
 
   useEffect(() => {
     if (!autoPreview) return;
@@ -301,7 +343,13 @@ export function ProxyPrintPanel() {
         currentSlots = await resolveSlotsFromApi({ silent: true });
       }
 
-      const imageUrls = currentSlots.map((s) => s.imageUrl).filter(Boolean) as string[];
+      const imageUrls = (
+        await hydrateProxySlotImageUrls(
+          currentSlots.map((s) => ({ imageUrl: s.imageUrl }))
+        )
+      )
+        .map((s) => s.imageUrl)
+        .filter(Boolean) as string[];
       if (!imageUrls.length) {
         toast.warning(t("proxyPrint.needPreview"));
         return;

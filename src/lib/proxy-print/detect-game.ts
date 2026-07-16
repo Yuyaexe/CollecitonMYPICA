@@ -10,6 +10,7 @@ const ONEPIECE_SET_ID = /((?:OP|ST|EB|PRB)\d{2}-\d{3})/i;
 const DIGIMON_SET_ID = /\b(?:BT|EX|LM)\d{1,2}-\d{2,3}(?:_P\d+)?\b/i;
 const DIGIMON_CODE_TOKEN =
   /^(?:P-\d{3}|LM-\d{3}|[A-Z]{1,3}\d{1,2}-\d{2,3})(?:_P(\d+))?$/i;
+const DRAGONBALL_SET_ID = /\b(?:FB|FS|SB|FP)\d{2}-\d{2,3}\b/i;
 
 function normalizePaste(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -41,6 +42,7 @@ export function detectGameFromText(text: string): ProxyGame | null {
     pokemon: 0,
     digimon: 0,
     onepiece: 0,
+    dragonball: 0,
   };
   let cardLines = 0;
   let genericNameLines = 0;
@@ -66,6 +68,10 @@ export function detectGameFromText(text: string): ProxyGame | null {
       scores.onepiece += 4;
       continue;
     }
+    if (DRAGONBALL_SET_ID.test(line)) {
+      scores.dragonball += 5;
+      continue;
+    }
     if (DIGIMON_SET_ID.test(line)) {
       scores.digimon += 4;
       continue;
@@ -73,7 +79,11 @@ export function detectGameFromText(text: string): ProxyGame | null {
 
     const tokens = line.split(/\s+/);
     const last = tokens.at(-1)?.toUpperCase() ?? "";
-    if (DIGIMON_CODE_TOKEN.test(last) && !ONEPIECE_SET_ID.test(last)) {
+    if (DRAGONBALL_SET_ID.test(last)) {
+      scores.dragonball += 4;
+      continue;
+    }
+    if (DIGIMON_CODE_TOKEN.test(last) && !ONEPIECE_SET_ID.test(last) && !DRAGONBALL_SET_ID.test(last)) {
       scores.digimon += 3;
       continue;
     }
@@ -82,13 +92,23 @@ export function detectGameFromText(text: string): ProxyGame | null {
       scores.onepiece += 1;
       continue;
     }
-    if (/^\d+\s+[A-Za-z]/.test(line) && !DIGIMON_SET_ID.test(line) && !ONEPIECE_SET_ID.test(line)) {
+    if (
+      /^\d+\s+[A-Za-z]/.test(line) &&
+      !DIGIMON_SET_ID.test(line) &&
+      !ONEPIECE_SET_ID.test(line) &&
+      !DRAGONBALL_SET_ID.test(line)
+    ) {
       genericNameLines += 1;
       continue;
     }
   }
 
-  if (genericNameLines >= 3 && scores.digimon === 0 && scores.onepiece === 0) {
+  if (
+    genericNameLines >= 3 &&
+    scores.digimon === 0 &&
+    scores.onepiece === 0 &&
+    scores.dragonball === 0
+  ) {
     scores.yugioh += genericNameLines;
   }
 
@@ -103,7 +123,12 @@ export function detectGameFromText(text: string): ProxyGame | null {
     scores[a] >= scores[b] ? a : b
   );
   if (scores[best] >= 2) return best;
-  if (scores.pokemon >= cardLines && scores.digimon === 0 && scores.onepiece === 0) {
+  if (
+    scores.pokemon >= cardLines &&
+    scores.digimon === 0 &&
+    scores.onepiece === 0 &&
+    scores.dragonball === 0
+  ) {
     return "pokemon";
   }
   return null;

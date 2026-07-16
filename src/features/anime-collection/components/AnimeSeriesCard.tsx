@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Camera, Plus } from "lucide-react";
-import { CardImage } from "@/components/shared/CardImage";
+import { AnimeImage } from "@/features/anime-collection/components/AnimeImage";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/context";
 import { getCharacterInitials } from "@/features/anime-collection/types";
@@ -55,12 +55,14 @@ export function AnimeSeriesCard({
           }
         >
           {coverImageUrl ? (
-            <CardImage
+            <AnimeImage
               src={coverImageUrl}
               alt={name}
               fill
-              sizes="(max-width: 640px) 50vw, 200px"
               className="object-cover"
+              onErrorFallback={
+                <span className="text-3xl font-bold text-white/90">{initials}</span>
+              }
             />
           ) : (
             <span className="text-3xl font-bold text-white/90">{initials}</span>

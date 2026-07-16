@@ -19,8 +19,10 @@ import {
 import { reorderIds, reorderIdsToIndex } from "@/lib/collections/card-order";
 import {
   buildSeedState,
+  mergeAnimeSeedIntoState,
   slugifyAnimeName,
 } from "@/features/anime-collection/data/seed-catalog";
+import { runSilentAnimeMutation } from "@/features/anime-collection/utils/silent-anime-mutation";
 import {
   cardTraderBlueprintFromSearch,
   repairDemoCard,
@@ -77,7 +79,12 @@ interface DemoStore extends DemoState {
   toggleCollectionFavorite: (id: string) => void;
   restoreFromBackup: (backup: DeckVaultBackup) => void;
   /** Anime Collection lives in localStorage even in Supabase mode. */
-  restoreAnimeCollectionFromBackup: (backup: DeckVaultBackup) => void;
+  restoreAnimeCollectionFromBackup: (
+    backup: Pick<
+      DeckVaultBackup,
+      "animeSeries" | "animeCharacters" | "animeCharacterCards"
+    >
+  ) => void;
   addAnimeSeries: (input: {
     name: string;
     coverImageUrl?: string | null;
@@ -420,29 +427,33 @@ export const useDemoStore = create<DemoStore>()(
         })),
 
       restoreFromBackup: (backup) => {
-        const defaultCol =
-          backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
-        const anime = resolveAnimeBackupFields(backup);
-        set({
-          profile: backup.profile,
-          collections: backup.collections.length
-            ? backup.collections
-            : createInitialDemoState().collections,
-          ownedCards: backup.ownedCards,
-          tags: backup.tags ?? [],
-          activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
-          animeSeries: anime.animeSeries,
-          animeCharacters: anime.animeCharacters,
-          animeCharacterCards: anime.animeCharacterCards,
+        runSilentAnimeMutation(() => {
+          const defaultCol =
+            backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
+          const anime = resolveAnimeBackupFields(backup);
+          set({
+            profile: backup.profile,
+            collections: backup.collections.length
+              ? backup.collections
+              : createInitialDemoState().collections,
+            ownedCards: backup.ownedCards,
+            tags: backup.tags ?? [],
+            activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
+            animeSeries: anime.animeSeries,
+            animeCharacters: anime.animeCharacters,
+            animeCharacterCards: anime.animeCharacterCards,
+          });
         });
       },
 
       restoreAnimeCollectionFromBackup: (backup) => {
-        const anime = resolveAnimeBackupFields(backup);
-        set({
-          animeSeries: anime.animeSeries,
-          animeCharacters: anime.animeCharacters,
-          animeCharacterCards: anime.animeCharacterCards,
+        runSilentAnimeMutation(() => {
+          const anime = resolveAnimeBackupFields(backup);
+          set({
+            animeSeries: anime.animeSeries,
+            animeCharacters: anime.animeCharacters,
+            animeCharacterCards: anime.animeCharacterCards,
+          });
         });
       },
 
@@ -696,7 +707,7 @@ export const useDemoStore = create<DemoStore>()(
     }),
     {
       name: "deckvault-demo",
-      version: 6,
+      version: 8,
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -744,6 +755,28 @@ export const useDemoStore = create<DemoStore>()(
               byCharacter.set(entry.characterId, order + 1);
               return { ...entry, sortOrder: entry.sortOrder ?? order };
             }),
+          };
+        }
+        if (version < 7) {
+          const merged = mergeAnimeSeedIntoState({
+            animeSeries: state.animeSeries ?? [],
+            animeCharacters: state.animeCharacters ?? [],
+          });
+          state = {
+            ...state,
+            animeSeries: merged.animeSeries,
+            animeCharacters: merged.animeCharacters,
+          };
+        }
+        if (version < 8) {
+          const merged = mergeAnimeSeedIntoState({
+            animeSeries: state.animeSeries ?? [],
+            animeCharacters: state.animeCharacters ?? [],
+          });
+          state = {
+            ...state,
+            animeSeries: merged.animeSeries,
+            animeCharacters: merged.animeCharacters,
           };
         }
         return state;
