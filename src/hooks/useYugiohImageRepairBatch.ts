@@ -17,7 +17,7 @@ type RepairCardFields = Pick<
 
 export type YugiohImageRepair = { id: string; updates: Partial<RepairCardFields> };
 
-function needsRepair(card: RepairCardFields, passcode: string): boolean {
+export function needsYugiohImageRepair(card: RepairCardFields, passcode: string): boolean {
   if (card.gameSlug !== "yugioh") return false;
   if (isCardTraderPlaceholderImage(card.imageUrl)) return true;
   if (isCardTraderHostedImage(card.imageUrl)) return true;
@@ -32,6 +32,28 @@ function needsRepair(card: RepairCardFields, passcode: string): boolean {
   }
 
   return false;
+}
+
+/** Pure repair payload — keep CardTrader blueprint externalIds intact. */
+export function buildYugiohImageRepairUpdates(
+  card: RepairCardFields,
+  passcode: string
+): Partial<RepairCardFields> | null {
+  if (!needsYugiohImageRepair(card, passcode)) return null;
+
+  const imageUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(card.rarity));
+  if (!imageUrl) return null;
+
+  const cardUpdates: Partial<RepairCardFields> = { imageUrl };
+  // Match single-card repair: only rewrite externalId when it is already a passcode.
+  if (
+    card.externalId !== passcode &&
+    isYugiohPasscodeId(card.externalId, card.imageUrl)
+  ) {
+    cardUpdates.externalId = passcode;
+  }
+
+  return cardUpdates;
 }
 
 export function useYugiohImageRepairBatch(
@@ -56,21 +78,14 @@ export function useYugiohImageRepairBatch(
 
       const repairKey = `${item.id}:${passcode}`;
       if (repairedKeysGlobal.has(repairKey)) continue;
-      if (!needsRepair(item.card, passcode)) {
+
+      const cardUpdates = buildYugiohImageRepairUpdates(item.card, passcode);
+      if (!cardUpdates) {
         repairedKeysGlobal.add(repairKey);
         continue;
       }
 
-      const imageUrl = buildYgoImageUrl(passcode, pickYgoImageSizeForRarity(item.card.rarity));
-      if (!imageUrl) continue;
-
       repairedKeysGlobal.add(repairKey);
-
-      const cardUpdates: Partial<RepairCardFields> = { imageUrl };
-      if (item.card.externalId !== passcode) {
-        cardUpdates.externalId = passcode;
-      }
-
       repairs.push({ id: item.id, updates: cardUpdates });
     }
 
