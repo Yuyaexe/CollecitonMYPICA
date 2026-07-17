@@ -269,6 +269,7 @@ export default function SettingsPage() {
       }
 
       const backup = parsed.backup;
+      const restoresAnimeCollection = parsed.scope === "full";
 
       const activeId = defaultCollectionAfterRestore(backup);
 
@@ -284,7 +285,9 @@ export default function SettingsPage() {
 
         const result = await restoreBackupOnServer(backup);
 
-        useDemoStore.getState().restoreAnimeCollectionFromBackup(backup);
+        if (restoresAnimeCollection) {
+          useDemoStore.getState().restoreAnimeCollectionFromBackup(backup);
+        }
 
         await queryClient.invalidateQueries({ queryKey: ["app-state"] });
 
@@ -304,7 +307,9 @@ export default function SettingsPage() {
 
       } else {
 
-        useDemoStore.getState().restoreFromBackup(backup);
+        useDemoStore
+          .getState()
+          .restoreFromBackup(backup, { restoreAnimeCollection: restoresAnimeCollection });
 
         toast.success(
 

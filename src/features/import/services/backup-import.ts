@@ -19,7 +19,18 @@ import {
 
 export type ParsedBackupFile =
   | { scope: "full"; backup: DeckVaultBackup }
+  | { scope: "tcg"; backup: DeckVaultBackup }
   | { scope: "anime"; backup: AnimeCollectionBackup };
+
+function includesCompleteAnimeCollection(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const backup = raw as Record<string, unknown>;
+  return (
+    Array.isArray(backup.animeSeries) &&
+    Array.isArray(backup.animeCharacters) &&
+    Array.isArray(backup.animeCharacterCards)
+  );
+}
 
 export function parseBackupJson(raw: unknown): DeckVaultBackup {
   if (!raw || typeof raw !== "object") {
@@ -71,6 +82,23 @@ export function parseBackupJson(raw: unknown): DeckVaultBackup {
   }
 }
 
+export function parseBackupFileJson(raw: unknown): ParsedBackupFile {
+  if (isAnimeCollectionBackup(raw)) {
+    return {
+      scope: "anime",
+      backup: {
+        ...raw,
+        ...resolveAnimeBackupFields(raw),
+      },
+    };
+  }
+
+  return {
+    scope: includesCompleteAnimeCollection(raw) ? "full" : "tcg",
+    backup: parseBackupJson(raw),
+  };
+}
+
 export async function readBackupFile(file: File): Promise<ParsedBackupFile> {
   const text = await file.text();
   let parsed: unknown;
@@ -80,17 +108,7 @@ export async function readBackupFile(file: File): Promise<ParsedBackupFile> {
     throw new Error("Arquivo não é um JSON válido");
   }
 
-  if (isAnimeCollectionBackup(parsed)) {
-    return {
-      scope: "anime",
-      backup: {
-        ...parsed,
-        ...resolveAnimeBackupFields(parsed),
-      },
-    };
-  }
-
-  return { scope: "full", backup: parseBackupJson(parsed) };
+  return parseBackupFileJson(parsed);
 }
 
 export function defaultCollectionAfterRestore(backup: DeckVaultBackup): string | null {
