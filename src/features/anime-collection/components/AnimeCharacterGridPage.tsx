@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { AnimeCollectionBreadcrumb } from "@/features/anime-collection/components/AnimeCollectionBreadcrumb";
 import { CharacterBubbleGrid } from "@/features/anime-collection/components/CharacterBubbleGrid";
 import { EditCharacterModal } from "@/features/anime-collection/components/EditCharacterModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
@@ -104,13 +104,12 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
 
   return (
     <>
-      <Link
-        href="/anime-collection"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {t("anime.title")}
-      </Link>
+      <AnimeCollectionBreadcrumb
+        items={[
+          { label: t("anime.title"), href: "/anime-collection" },
+          { label: series.name },
+        ]}
+      />
 
       <PageHeader
         title={series.name}

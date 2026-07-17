@@ -127,6 +127,8 @@ export const extraMessages = {
     "anime.autoBackupSaved":
       "Anime backup saved ({series} series, {characters} characters, {cards} cards)",
     "anime.title": "Anime Collection",
+    "anime.breadcrumbLabel": "Anime collection navigation",
+    "anime.switchCharacter": "Switch character",
     "anime.description": "Organize by series and character",
     "anime.noSeriesTitle": "No series yet",
     "anime.noSeriesDescription": "Add a series to start organizing characters, figures, and merch.",
@@ -376,6 +378,8 @@ export const extraMessages = {
     "anime.autoBackupSaved":
       "Backup anime salvo ({series} séries, {characters} personagens, {cards} cartas)",
     "anime.title": "Coleção Anime",
+    "anime.breadcrumbLabel": "Navegação da coleção anime",
+    "anime.switchCharacter": "Trocar personagem",
     "anime.description": "Organize por série e personagem",
     "anime.noSeriesTitle": "Nenhuma série ainda",
     "anime.noSeriesDescription": "Adicione uma série para organizar personagens, figures e merch.",

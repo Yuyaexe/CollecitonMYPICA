@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getCharacterInitials } from "@/features/anime-collection/types";
 import { AnimeImage } from "@/features/anime-collection/components/AnimeImage";
@@ -11,6 +11,9 @@ export interface CharacterBubbleProps {
   accentColor?: string | null;
   onClick: () => void;
   index?: number;
+  variant?: "grid" | "wheel";
+  selected?: boolean;
+  showName?: boolean;
 }
 
 export function CharacterBubble({
@@ -19,29 +22,39 @@ export function CharacterBubble({
   accentColor,
   onClick,
   index = 0,
+  variant = "grid",
+  selected = false,
+  showName = true,
 }: CharacterBubbleProps) {
   const initials = getCharacterInitials(name);
+  const reduceMotion = useReducedMotion();
+  const isWheel = variant === "wheel";
+  const sizeClass = isWheel ? "h-[52px] w-[52px]" : "h-[88px] w-[88px]";
+  const initialsClass = isWheel ? "text-sm" : "text-lg";
 
   return (
     <motion.button
       type="button"
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.2, delay: index * 0.03 }}
-      whileHover={{ scale: 1.04, y: -2 }}
-      whileTap={{ scale: 0.98 }}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: selected && isWheel ? 1.08 : 1 }}
+      transition={{ duration: 0.2, delay: reduceMotion ? 0 : index * 0.03 }}
+      whileHover={reduceMotion ? undefined : { scale: selected && isWheel ? 1.1 : 1.04, y: isWheel ? 0 : -2 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
       onClick={onClick}
       className={cn(
         "group flex flex-col items-center gap-2 p-1",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-full"
       )}
       aria-label={`Open ${name}`}
+      aria-current={selected ? "true" : undefined}
     >
       <div
         className={cn(
-          "relative h-[88px] w-[88px] overflow-hidden rounded-full border-2 border-border/80",
-          "transition-[border-color,box-shadow] duration-200",
-          "group-hover:border-primary group-hover:shadow-[0_0_16px_hsla(221,83%,53%,0.25)]"
+          "relative overflow-hidden rounded-full border-2 transition-[border-color,box-shadow] duration-200",
+          sizeClass,
+          selected && isWheel
+            ? "border-primary shadow-[0_0_16px_hsla(221,83%,53%,0.45)]"
+            : "border-border/80 group-hover:border-primary group-hover:shadow-[0_0_16px_hsla(221,83%,53%,0.25)]"
         )}
         style={
           !imageUrl && accentColor
@@ -56,20 +69,38 @@ export function CharacterBubble({
             fill
             className="object-cover"
             onErrorFallback={
-              <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/90">
+              <span
+                className={cn(
+                  "flex h-full w-full items-center justify-center font-semibold text-white/90",
+                  initialsClass
+                )}
+              >
                 {initials}
               </span>
             }
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/90">
+          <span
+            className={cn(
+              "flex h-full w-full items-center justify-center font-semibold text-white/90",
+              initialsClass
+            )}
+          >
             {initials}
           </span>
         )}
       </div>
-      <span className="max-w-[96px] text-center text-xs leading-tight text-muted-foreground group-hover:text-foreground">
-        {name}
-      </span>
+      {showName && (
+        <span className="max-w-[96px] text-center text-xs leading-tight text-muted-foreground group-hover:text-foreground">
+          {name}
+        </span>
+      )}
+      {selected && isWheel && (
+        <span
+          className="h-0.5 w-6 rounded-full bg-primary"
+          aria-hidden
+        />
+      )}
     </motion.button>
   );
 }

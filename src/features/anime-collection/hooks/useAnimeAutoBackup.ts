@@ -26,17 +26,31 @@ function animeStateChanged(
   );
 }
 
+function isDemoStoreHydrated(): boolean {
+  return useDemoStore.persist?.hasHydrated?.() ?? false;
+}
+
 export function useAnimeAutoBackup() {
   const t = useT();
   const enabled = useDataUiStore((s) => s.animeAutoBackupEnabled);
-  const [hydrated, setHydrated] = useState(() => useDemoStore.persist.hasHydrated());
+  // persist API is client-only; guard for SSR/prerender (DashboardShell mounts this globally)
+  const [hydrated, setHydrated] = useState(isDemoStoreHydrated);
   const lastDownloadedRef = useRef<string | null>(null);
   const pendingSnapshotRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (hydrated) return;
-    return useDemoStore.persist.onFinishHydration(() => setHydrated(true));
+    const persistApi = useDemoStore.persist;
+    if (!persistApi?.onFinishHydration) {
+      setHydrated(true);
+      return;
+    }
+    if (persistApi.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    return persistApi.onFinishHydration(() => setHydrated(true));
   }, [hydrated]);
 
   useEffect(() => {

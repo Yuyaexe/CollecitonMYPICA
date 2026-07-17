@@ -17,11 +17,7 @@ import {
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
 import { reorderIds, reorderIdsToIndex } from "@/lib/collections/card-order";
-import {
-  buildSeedState,
-  mergeAnimeSeedIntoState,
-  slugifyAnimeName,
-} from "@/features/anime-collection/data/seed-catalog";
+import { slugifyAnimeName } from "@/features/anime-collection/utils/slugify-anime-name";
 import { runSilentAnimeMutation } from "@/features/anime-collection/utils/silent-anime-mutation";
 import {
   cardTraderBlueprintFromSearch,
@@ -30,6 +26,25 @@ import {
 
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+function stripSeededAnime(state: DemoState): DemoState {
+  const seededSeriesIds = new Set(
+    (state.animeSeries ?? []).filter((series) => series.isSeeded).map((series) => series.id)
+  );
+  const animeSeries = (state.animeSeries ?? []).filter((series) => !series.isSeeded);
+  const animeCharacters = (state.animeCharacters ?? []).filter(
+    (character) => !character.isSeeded && !seededSeriesIds.has(character.seriesId)
+  );
+  const characterIds = new Set(animeCharacters.map((character) => character.id));
+  return {
+    ...state,
+    animeSeries,
+    animeCharacters,
+    animeCharacterCards: (state.animeCharacterCards ?? []).filter((entry) =>
+      characterIds.has(entry.characterId)
+    ),
+  };
 }
 
 interface DemoStore extends DemoState {
@@ -707,7 +722,7 @@ export const useDemoStore = create<DemoStore>()(
     }),
     {
       name: "deckvault-demo",
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -720,13 +735,10 @@ export const useDemoStore = create<DemoStore>()(
           };
         }
         if (version < 3) {
-          const seed = buildSeedState();
           state = {
             ...state,
-            animeSeries: state.animeSeries?.length ? state.animeSeries : seed.animeSeries,
-            animeCharacters: state.animeCharacters?.length
-              ? state.animeCharacters
-              : seed.animeCharacters,
+            animeSeries: state.animeSeries ?? [],
+            animeCharacters: state.animeCharacters ?? [],
           };
         }
         if (version < 4) {
@@ -757,27 +769,8 @@ export const useDemoStore = create<DemoStore>()(
             }),
           };
         }
-        if (version < 7) {
-          const merged = mergeAnimeSeedIntoState({
-            animeSeries: state.animeSeries ?? [],
-            animeCharacters: state.animeCharacters ?? [],
-          });
-          state = {
-            ...state,
-            animeSeries: merged.animeSeries,
-            animeCharacters: merged.animeCharacters,
-          };
-        }
-        if (version < 8) {
-          const merged = mergeAnimeSeedIntoState({
-            animeSeries: state.animeSeries ?? [],
-            animeCharacters: state.animeCharacters ?? [],
-          });
-          state = {
-            ...state,
-            animeSeries: merged.animeSeries,
-            animeCharacters: merged.animeCharacters,
-          };
+        if (version < 9) {
+          state = stripSeededAnime(state);
         }
         return state;
       },

@@ -1,14 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Download, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
+import { Download, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { CharacterCardsView } from "@/features/anime-collection/components/CharacterCardsView";
+import { AnimeCollectionBreadcrumb } from "@/features/anime-collection/components/AnimeCollectionBreadcrumb";
+import { CharacterWheel } from "@/features/anime-collection/components/CharacterWheel";
 import {
   CharacterAvatar,
   EditCharacterPhotoModal,
@@ -44,6 +45,7 @@ export function CharacterDetailPage({
   const {
     getSeriesBySlug,
     getCharacterById,
+    getCharactersForSeries,
     renameAnimeCharacter,
     updateAnimeCharacterImage,
     deleteAnimeCharacter,
@@ -57,6 +59,7 @@ export function CharacterDetailPage({
 
   const series = getSeriesBySlug(seriesSlug);
   const character = getCharacterById(characterId);
+  const seriesCharacters = series ? getCharactersForSeries(series.id) : [];
   const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
   const characterCards = useMemo(
     () =>
@@ -131,13 +134,19 @@ export function CharacterDetailPage({
     <YugiohPasscodeProvider cards={ownedForPasscodes}>
       <AnimeYugiohPasscodeSync cards={characterCards} onUpdate={updateAnimeCharacterCard}>
     <>
-      <Link
-        href={`/anime-collection/${seriesSlug}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {series.name}
-      </Link>
+      <AnimeCollectionBreadcrumb
+        items={[
+          { label: t("anime.title"), href: "/anime-collection" },
+          { label: series.name, href: `/anime-collection/${seriesSlug}` },
+          { label: character.name },
+        ]}
+      />
+
+      <CharacterWheel
+        characters={seriesCharacters}
+        activeCharacterId={character.id}
+        seriesSlug={seriesSlug}
+      />
 
       <div className="mx-auto flex max-w-lg flex-col items-center pt-4">
         <CharacterAvatar

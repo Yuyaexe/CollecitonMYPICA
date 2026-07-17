@@ -9,8 +9,6 @@ import type {
   AnimeCharacter,
   AnimeSeries,
 } from "@/features/anime-collection/types";
-import { buildSeedState } from "@/features/anime-collection/data/seed-catalog";
-
 export const BACKUP_VERSION = "1.0" as const;
 export const ANIME_BACKUP_KIND = "anime-collection" as const;
 
@@ -40,10 +38,9 @@ export function defaultAnimeBackupFields(): Pick<
   DeckVaultBackup,
   "animeSeries" | "animeCharacters" | "animeCharacterCards"
 > {
-  const seed = buildSeedState();
   return {
-    animeSeries: seed.animeSeries,
-    animeCharacters: seed.animeCharacters,
+    animeSeries: [],
+    animeCharacters: [],
     animeCharacterCards: [],
   };
 }
