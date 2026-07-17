@@ -77,7 +77,10 @@ interface DemoStore extends DemoState {
   renameCollection: (id: string, name: string) => void;
   deleteCollection: (id: string) => void;
   toggleCollectionFavorite: (id: string) => void;
-  restoreFromBackup: (backup: DeckVaultBackup) => void;
+  restoreFromBackup: (
+    backup: DeckVaultBackup,
+    options?: { restoreAnimeCollection?: boolean }
+  ) => void;
   /** Anime Collection lives in localStorage even in Supabase mode. */
   restoreAnimeCollectionFromBackup: (
     backup: Pick<
@@ -426,11 +429,14 @@ export const useDemoStore = create<DemoStore>()(
           ),
         })),
 
-      restoreFromBackup: (backup) => {
+      restoreFromBackup: (backup, options) => {
         runSilentAnimeMutation(() => {
           const defaultCol =
             backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
-          const anime = resolveAnimeBackupFields(backup);
+          const anime =
+            options?.restoreAnimeCollection === false
+              ? {}
+              : resolveAnimeBackupFields(backup);
           set({
             profile: backup.profile,
             collections: backup.collections.length
@@ -439,9 +445,7 @@ export const useDemoStore = create<DemoStore>()(
             ownedCards: backup.ownedCards,
             tags: backup.tags ?? [],
             activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
-            animeSeries: anime.animeSeries,
-            animeCharacters: anime.animeCharacters,
-            animeCharacterCards: anime.animeCharacterCards,
+            ...anime,
           });
         });
       },

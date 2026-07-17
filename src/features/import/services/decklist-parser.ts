@@ -287,16 +287,26 @@ export function detectDecklistFormat(content: string): DecklistFormat {
   if (lines.some((line) => DIGIMONCARD_IO_HEADER.test(line))) return "digimon-text";
   if (lines[0]?.startsWith("// DeckList")) return "digimon-text";
 
+  const digimonSignals = countDigimonDeckSignals(lines);
+  const digimonMatches = lines.filter((line) => isDigimonDeckLine(line)).length;
   const ygoSectionCount = lines.filter((line) => isSectionHeader(line)).length;
+  const qtyLines = lines.filter((line) => QUANTITY_NAME_LINE.test(line)).length;
+
+  // Digimon lists also use Main/Side headers. Only classify as Digimon when
+  // ID-shaped lines cover the quantity list — otherwise older Yu-Gi-Oh set
+  // codes (SDK-001, LOB-001) would steal the format and drop plain name lines.
   if (ygoSectionCount >= 1) {
+    if (
+      (digimonSignals >= 2 || digimonMatches >= 2) &&
+      digimonMatches >= qtyLines
+    ) {
+      return "digimon-text";
+    }
     return "yugioh-text";
   }
 
-  const digimonSignals = countDigimonDeckSignals(lines);
-  const digimonMatches = lines.filter((line) => isDigimonDeckLine(line)).length;
   if (digimonSignals >= 2 || digimonMatches >= 2) return "digimon-text";
 
-  const qtyLines = lines.filter((line) => QUANTITY_NAME_LINE.test(line)).length;
   if (qtyLines >= 2) {
     return digimonSignals > 0 ? "digimon-text" : "yugioh-text";
   }
@@ -328,9 +338,15 @@ export function parseDecklist(
       entries = parseDigimonText(content);
       break;
     case "yugioh-text": {
+      // Prefer Digimon parse only when it covers at least as many lines. Older Yu-Gi-Oh
+      // set codes (SDK-001, LOB-001) look Digimon-shaped; choosing Digimon alone would
+      // silently drop quantity lines that lack those suffixes.
       const digimonEntries = parseDigimonText(content);
+      const yugiohEntries = parseYugiohText(content);
       entries =
-        digimonEntries.length >= 2 ? digimonEntries : parseYugiohText(content);
+        digimonEntries.length >= 2 && digimonEntries.length >= yugiohEntries.length
+          ? digimonEntries
+          : yugiohEntries;
       break;
     }
     default:
