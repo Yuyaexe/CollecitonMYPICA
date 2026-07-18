@@ -6,6 +6,7 @@ import {
   resolveDragonballEntriesBulk,
 } from "@/lib/proxy-print/dragonball-resolve";
 import { deckEntryResolveKey, uniqueEntriesPreserveOrder } from "@/lib/proxy-print/parse-deck";
+import { isUserUploadedCustomImage } from "@/lib/proxy-print/preview-image";
 import { resolveProxyImageUrls } from "@/lib/proxy-print/resolve-urls";
 import type {
   DeckEntry,
@@ -115,11 +116,13 @@ async function resolveYgoEntriesBulk(
   entries: DeckEntry[]
 ): Promise<Map<string, { name: string; variants: ProxyCardVariant[] }>> {
   const result = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
-  const passcodeEntries = entries.filter((e) => !e.customImageUrl && /^\d+$/.test(e.key));
-  const nameEntries = entries.filter((e) => !e.customImageUrl && !/^\d+$/.test(e.key));
-  const customEntries = entries.filter((e) => e.customImageUrl);
+  // Remote `| https://…` suffixes are preferred print picks, not true uploads — still fetch variants.
+  const catalogEntries = entries.filter((e) => !isUserUploadedCustomImage(e.customImageUrl));
+  const passcodeEntries = catalogEntries.filter((e) => /^\d+$/.test(e.key));
+  const nameEntries = catalogEntries.filter((e) => !/^\d+$/.test(e.key));
+  const uploadedCustomEntries = entries.filter((e) => isUserUploadedCustomImage(e.customImageUrl));
 
-  for (const entry of customEntries) {
+  for (const entry of uploadedCustomEntries) {
     result.set(deckEntryResolveKey(entry), {
       name: entry.name,
       variants: [
@@ -201,16 +204,20 @@ function pickVariantForGame(
   entry: DeckEntry
 ): ProxyCardVariant | null {
   if (entry.customImageUrl) {
-    return (
-      variants.find((v) => v.key === "custom") ?? {
-        key: "custom",
-        label: entry.name,
-        rarity: null,
-        setName: null,
-        setCode: null,
-        imageUrl: entry.customImageUrl,
-      }
-    );
+    if (isUserUploadedCustomImage(entry.customImageUrl)) {
+      return (
+        variants.find((v) => v.key === "custom") ?? {
+          key: "custom",
+          label: entry.name,
+          rarity: null,
+          setName: null,
+          setCode: null,
+          imageUrl: entry.customImageUrl,
+        }
+      );
+    }
+    const preferred = variants.find((v) => v.imageUrl === entry.customImageUrl);
+    if (preferred) return preferred;
   }
   if (game === "digimon") return pickDigimonVariant(variants, entry);
   if (game === "dragonball") return pickDragonballVariant(variants, entry);
@@ -235,7 +242,7 @@ async function resolveSimpleGameEntriesBulk(
   const result = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
 
   for (const entry of entries) {
-    if (entry.customImageUrl) {
+    if (isUserUploadedCustomImage(entry.customImageUrl)) {
       result.set(deckEntryResolveKey(entry), {
         name: entry.name,
         variants: [
@@ -245,14 +252,14 @@ async function resolveSimpleGameEntriesBulk(
             rarity: null,
             setName: null,
             setCode: null,
-            imageUrl: entry.customImageUrl,
+            imageUrl: entry.customImageUrl!,
           },
         ],
       });
     }
   }
 
-  const toResolve = entries.filter((e) => !e.customImageUrl);
+  const toResolve = entries.filter((e) => !isUserUploadedCustomImage(e.customImageUrl));
   const keyToUrl = await resolveProxyImageUrls(game, toResolve);
 
   for (const entry of toResolve) {

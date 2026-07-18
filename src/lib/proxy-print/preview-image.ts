@@ -14,6 +14,17 @@ export function isInlineImageUrl(value: string): boolean {
   return isProxyImageRef(trimmed) || INLINE_IMAGE_URL.test(trimmed);
 }
 
+/** True user uploads — not catalog print URLs written into the deck list. */
+export function isUserUploadedCustomImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  return (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:") ||
+    isProxyImageRef(trimmed)
+  );
+}
+
 /**
  * Browser-safe preview src.
  * Remote CDNs go through `/api/proxy-image` (TCGPlayer / digimoncard hotlink + MIME quirks).

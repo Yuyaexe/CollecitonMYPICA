@@ -1,5 +1,6 @@
 import type { DeckEntry, ProxyCardVariant } from "@/lib/proxy-print/types";
 import { deckEntryResolveKey } from "@/lib/proxy-print/parse-deck";
+import { isUserUploadedCustomImage } from "@/lib/proxy-print/preview-image";
 
 const USER_AGENT = "DeckVault/1.0 (proxy-print)";
 const CARDLIST_SEARCH = "https://www.dbs-cardgame.com/fw/en/cardlist/";
@@ -138,7 +139,7 @@ export async function resolveDragonballEntriesBulk(
   const result = new Map<string, { name: string; variants: ProxyCardVariant[] }>();
 
   for (const entry of entries) {
-    if (entry.customImageUrl) {
+    if (isUserUploadedCustomImage(entry.customImageUrl)) {
       result.set(deckEntryResolveKey(entry), {
         name: entry.name,
         variants: [
@@ -148,7 +149,7 @@ export async function resolveDragonballEntriesBulk(
             rarity: null,
             setName: null,
             setCode: null,
-            imageUrl: entry.customImageUrl,
+            imageUrl: entry.customImageUrl!,
           },
         ],
       });

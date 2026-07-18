@@ -8,10 +8,7 @@ interface DataUiStore {
   collectionOrder: string[];
   cardOrderByCollection: Record<string, string[]>;
   binderLayoutByCollection: Record<string, (string | null)[]>;
-  /** When true, anime collection changes download a JSON backup (debounced). */
-  animeAutoBackupEnabled: boolean;
   setActiveCollectionId: (id: string) => void;
-  setAnimeAutoBackupEnabled: (enabled: boolean) => void;
   setCollectionOrder: (order: string[]) => void;
   setCardOrder: (collectionId: string, order: string[]) => void;
   setBinderLayout: (collectionId: string, layout: (string | null)[]) => void;
@@ -31,9 +28,7 @@ export const useDataUiStore = create<DataUiStore>()(
       collectionOrder: [],
       cardOrderByCollection: {},
       binderLayoutByCollection: {},
-      animeAutoBackupEnabled: true,
       setActiveCollectionId: (id) => set({ activeCollectionId: id }),
-      setAnimeAutoBackupEnabled: (enabled) => set({ animeAutoBackupEnabled: enabled }),
       setCollectionOrder: (order) => set({ collectionOrder: order }),
       setCardOrder: (collectionId, order) =>
         set((s) => ({

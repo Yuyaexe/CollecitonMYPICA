@@ -4,7 +4,6 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
-import { AnimeAutoBackup } from "@/features/anime-collection/components/AnimeAutoBackup";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +19,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
-      <AnimeAutoBackup />
       <div className="hidden md:flex md:h-full">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>

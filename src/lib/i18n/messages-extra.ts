@@ -100,6 +100,11 @@ export const extraMessages = {
     "auth.login.noAccount": "No account?",
     "auth.login.signUp": "Sign up",
     "auth.login.welcomeBack": "Welcome back!",
+    "auth.logout": "Sign out",
+    "auth.logout.success": "Signed out",
+    "auth.logout.failed": "Could not sign out",
+    "auth.logout.account": "Account",
+    "auth.logout.hint": "End your session on this device.",
 
     "auth.signup.title": "Create account",
     "auth.signup.subtitle": "Start tracking your collection",
@@ -124,8 +129,6 @@ export const extraMessages = {
     "auth.forgot.notConfigured": "Supabase not configured",
     "auth.forgot.backToLogin": "Back to login",
 
-    "anime.autoBackupSaved":
-      "Anime backup saved ({series} series, {characters} characters, {cards} cards)",
     "anime.title": "Anime Collection",
     "anime.breadcrumbLabel": "Anime collection navigation",
     "anime.switchCharacter": "Switch character",
@@ -351,6 +354,11 @@ export const extraMessages = {
     "auth.login.noAccount": "Não tem conta?",
     "auth.login.signUp": "Criar conta",
     "auth.login.welcomeBack": "Bem-vindo de volta!",
+    "auth.logout": "Sair",
+    "auth.logout.success": "Sessão encerrada",
+    "auth.logout.failed": "Não foi possível sair",
+    "auth.logout.account": "Conta",
+    "auth.logout.hint": "Encerra a sessão neste dispositivo.",
 
     "auth.signup.title": "Criar conta",
     "auth.signup.subtitle": "Comece a organizar sua coleção",
@@ -375,8 +383,6 @@ export const extraMessages = {
     "auth.forgot.notConfigured": "Supabase não configurado",
     "auth.forgot.backToLogin": "Voltar ao login",
 
-    "anime.autoBackupSaved":
-      "Backup anime salvo ({series} séries, {characters} personagens, {cards} cartas)",
     "anime.title": "Coleção Anime",
     "anime.breadcrumbLabel": "Navegação da coleção anime",
     "anime.switchCharacter": "Trocar personagem",

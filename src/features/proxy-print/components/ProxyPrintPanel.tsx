@@ -12,13 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { detectGameFromText } from "@/lib/proxy-print/detect-game";
 import { buildProxyPdf, previewLayoutText } from "@/lib/proxy-print/build-pdf";
-import { hasMixedGameSections, deckLineWithVariantImage } from "@/lib/proxy-print/parse-deck";
+import {
+  deckLineClearVariantImage,
+  deckLineWithVariantImage,
+  hasMixedGameSections,
+  resolveKeyWithoutCustomImage,
+} from "@/lib/proxy-print/parse-deck";
 import {
   compactProxyDeckCustomImages,
   hydrateProxySlotImageUrls,
   preloadProxyDeckCustomImages,
   toInlineDeckImageRef,
 } from "@/lib/proxy-print/custom-images";
+import { isUserUploadedCustomImage } from "@/lib/proxy-print/preview-image";
 import {
   DEFAULT_CARD_SIZE_FOR_GAME,
   DEFAULT_PDF_DPI,
@@ -124,7 +130,15 @@ export function ProxyPrintPanel() {
       setSlots((prev) => {
         const target = prev.find((s) => s.slotId === slotId);
         if (!target) return prev;
-        variantOverridesRef.current.set(target.resolveKey, update);
+
+        const overrides = variantOverridesRef.current;
+        overrides.set(target.resolveKey, update);
+        // Catalog picks clear `| image` from the deck line — keep override under the base key too.
+        const baseKey = resolveKeyWithoutCustomImage(target.resolveKey);
+        if (baseKey !== target.resolveKey) {
+          overrides.set(baseKey, update);
+        }
+
         return prev.map((slot) =>
           slot.resolveKey === target.resolveKey
             ? {
@@ -139,7 +153,11 @@ export function ProxyPrintPanel() {
         );
       });
 
-      if (sourceQuery && update.imageUrl) {
+      if (!sourceQuery || !update.imageUrl) return;
+
+      // Only persist true uploads in the deck list. Writing catalog print URLs
+      // collapses the slot to a single "custom" variant on the next resolve.
+      if (update.selectedVariantKey === "custom" || isUserUploadedCustomImage(update.imageUrl)) {
         void toInlineDeckImageRef(update.imageUrl)
           .then((inlineRef) => {
             setDeckText((text) => deckLineWithVariantImage(text, sourceQuery, inlineRef));
@@ -147,7 +165,10 @@ export function ProxyPrintPanel() {
           .catch(() => {
             toast.error(t("proxyPrint.customImageSaveFailed"));
           });
+        return;
       }
+
+      setDeckText((text) => deckLineClearVariantImage(text, sourceQuery));
     },
     [t]
   );

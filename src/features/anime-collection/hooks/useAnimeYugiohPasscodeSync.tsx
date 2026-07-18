@@ -3,7 +3,6 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { useYugiohPasscodeContext } from "@/features/collection/context/yugioh-passcode-context";
 import { useYugiohImageRepairBatch } from "@/hooks/useYugiohImageRepairBatch";
-import { runSilentAnimeMutation } from "@/features/anime-collection/utils/silent-anime-mutation";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 
 export function useAnimeYugiohPasscodeSync(
@@ -24,11 +23,9 @@ export function useAnimeYugiohPasscodeSync(
 
   const applyRepairs = useCallback(
     (repairs: Array<{ id: string; updates: Partial<AnimeCharacterCard["card"]> }>) => {
-      runSilentAnimeMutation(() => {
-        for (const repair of repairs) {
-          onUpdate(repair.id, { card: repair.updates });
-        }
-      });
+      for (const repair of repairs) {
+        onUpdate(repair.id, { card: repair.updates });
+      }
     },
     [onUpdate]
   );

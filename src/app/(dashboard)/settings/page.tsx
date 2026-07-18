@@ -8,7 +8,8 @@ import { useTheme } from "next-themes";
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { HardDriveDownload, HardDriveUpload, Loader2 } from "lucide-react";
+import { HardDriveDownload, HardDriveUpload, Loader2, LogOut } from "lucide-react";
+import { useSignOut } from "@/features/auth/hooks/useSignOut";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 
@@ -21,8 +22,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
-
-import { Checkbox } from "@/components/ui/checkbox";
 
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 
@@ -85,6 +84,7 @@ export default function SettingsPage() {
   } = useAppData();
 
   const queryClient = useQueryClient();
+  const { signOut, loading: signingOut } = useSignOut();
 
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,10 +93,6 @@ export default function SettingsPage() {
   const locale = useLocaleStore((s) => s.locale);
 
   const setLocale = useLocaleStore((s) => s.setLocale);
-
-  const animeAutoBackupEnabled = useDataUiStore((s) => s.animeAutoBackupEnabled);
-
-  const setAnimeAutoBackupEnabled = useDataUiStore((s) => s.setAnimeAutoBackupEnabled);
 
   const [backingUp, setBackingUp] = useState(false);
 
@@ -482,31 +478,37 @@ export default function SettingsPage() {
 
           )}
 
-
+          {isSupabaseMode && (
+            <section className="space-y-3 border-t border-border pt-6 sm:pt-8">
+              <h2 className="text-base font-semibold sm:text-lg">{t("auth.logout.account")}</h2>
+              <p className="text-sm text-muted-foreground">{t("auth.logout.hint")}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => void signOut()}
+                disabled={signingOut || isBusy}
+              >
+                {signingOut ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("common.loading")}
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="h-4 w-4" />
+                    {t("auth.logout")}
+                  </>
+                )}
+              </Button>
+            </section>
+          )}
 
           <section className="space-y-4 border-t border-border pt-6 sm:pt-8">
 
             <h2 className="text-base font-semibold sm:text-lg">{t("settings.backup")}</h2>
 
             <p className="text-sm text-muted-foreground">{t("settings.backupHint")}</p>
-
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
-              <Checkbox
-                checked={animeAutoBackupEnabled}
-                onCheckedChange={(checked) =>
-                  setAnimeAutoBackupEnabled(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <span className="space-y-1">
-                <span className="block text-sm font-medium">
-                  {t("settings.animeAutoBackup")}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {t("settings.animeAutoBackupHint")}
-                </span>
-              </span>
-            </label>
 
             <div className="flex flex-col gap-2 sm:flex-row">
 

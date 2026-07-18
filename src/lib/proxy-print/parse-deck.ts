@@ -333,32 +333,56 @@ export function orderedKeysFromZones(zones: Record<string, DeckEntry[]>): string
   return keys;
 }
 
+function normalizeDeckLineBody(line: string): string {
+  return line
+    .trim()
+    .replace(new RegExp(`\\s*\\|\\s*${INLINE_IMAGE_URL.source}\\s*$`, "i"), "")
+    .replace(new RegExp(`\\s+@\\s*${INLINE_IMAGE_URL.source}\\s*$`, "i"), "")
+    .trim();
+}
+
 /** Replace or append a variant image URL on a matching deck list line. */
 export function deckLineWithVariantImage(
   deckText: string,
   sourceQuery: string,
   imageUrl: string
 ): string {
-  const targetBody = sourceQuery
-    .trim()
-    .replace(new RegExp(`\\s*\\|\\s*${INLINE_IMAGE_URL.source}\\s*$`, "i"), "")
-    .trim();
+  const targetBody = normalizeDeckLineBody(sourceQuery);
   if (!targetBody || !imageUrl) return deckText;
-
-  const normalizeLine = (line: string) =>
-    line
-      .trim()
-      .replace(new RegExp(`\\s*\\|\\s*${INLINE_IMAGE_URL.source}\\s*$`, "i"), "")
-      .trim();
 
   const lines = deckText.replace(/\r\n/g, "\n").split("\n");
   let replaced = false;
 
   const next = lines.map((line) => {
-    if (normalizeLine(line) !== targetBody) return line;
+    if (normalizeDeckLineBody(line) !== targetBody) return line;
     replaced = true;
-    return `${normalizeLine(line)} | ${imageUrl}`;
+    return `${normalizeDeckLineBody(line)} | ${imageUrl}`;
   });
 
   return replaced ? next.join("\n") : deckText;
+}
+
+/** Remove an inline `| image` / `@ image` suffix from a matching deck list line. */
+export function deckLineClearVariantImage(deckText: string, sourceQuery: string): string {
+  const targetBody = normalizeDeckLineBody(sourceQuery);
+  if (!targetBody) return deckText;
+
+  const lines = deckText.replace(/\r\n/g, "\n").split("\n");
+  let replaced = false;
+
+  const next = lines.map((line) => {
+    if (normalizeDeckLineBody(line) !== targetBody) return line;
+    const cleared = normalizeDeckLineBody(line);
+    if (cleared === line.trim()) return line;
+    replaced = true;
+    return cleared;
+  });
+
+  return replaced ? next.join("\n") : deckText;
+}
+
+/** resolveKey with catalog/custom image suffix stripped (4th field empty). */
+export function resolveKeyWithoutCustomImage(resolveKey: string): string {
+  const parts = resolveKey.split("|");
+  return [parts[0] ?? "", parts[1] ?? "", parts[2] ?? "", ""].join("|");
 }

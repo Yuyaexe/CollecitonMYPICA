@@ -48,9 +48,6 @@ export const messages = {
     "settings.restore": "Restore",
     "settings.backupSaved": "Backup saved ({cards} cards, {collections} collections, {anime} anime cards)",
     "settings.backupFailed": "Failed to create backup",
-    "settings.animeAutoBackup": "Automatic Anime Collection backup",
-    "settings.animeAutoBackupHint":
-      "Downloads a JSON file ~20s after you edit the Anime Collection (not for background image sync). Also saves when you leave or hide the tab.",
     "settings.restoreSuccessCloud":
       "Restored: {cards} cards in {collections} collections, {anime} anime cards",
     "settings.restoreSuccessLocal":
@@ -338,9 +335,6 @@ export const messages = {
     "settings.backupSaved":
       "Backup salvo ({cards} cartas, {collections} coleções, {anime} cartas anime)",
     "settings.backupFailed": "Falha ao criar backup",
-    "settings.animeAutoBackup": "Backup automático da Coleção Anime",
-    "settings.animeAutoBackupHint":
-      "Baixa um JSON ~20s após você editar a Coleção Anime (ignora sync de imagens em segundo plano). Também salva ao sair ou ocultar a aba.",
     "settings.restoreSuccessCloud":
       "Restaurado: {cards} cartas em {collections} coleções, {anime} cartas anime",
     "settings.restoreSuccessLocal":

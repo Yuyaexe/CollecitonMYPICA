@@ -18,7 +18,6 @@ import {
 } from "@/features/import/services/backup-export";
 import { reorderIds, reorderIdsToIndex } from "@/lib/collections/card-order";
 import { slugifyAnimeName } from "@/features/anime-collection/utils/slugify-anime-name";
-import { runSilentAnimeMutation } from "@/features/anime-collection/utils/silent-anime-mutation";
 import {
   cardTraderBlueprintFromSearch,
   repairDemoCard,
@@ -442,33 +441,29 @@ export const useDemoStore = create<DemoStore>()(
         })),
 
       restoreFromBackup: (backup) => {
-        runSilentAnimeMutation(() => {
-          const defaultCol =
-            backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
-          const anime = resolveAnimeBackupFields(backup);
-          set({
-            profile: backup.profile,
-            collections: backup.collections.length
-              ? backup.collections
-              : createInitialDemoState().collections,
-            ownedCards: backup.ownedCards,
-            tags: backup.tags ?? [],
-            activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
-            animeSeries: anime.animeSeries,
-            animeCharacters: anime.animeCharacters,
-            animeCharacterCards: anime.animeCharacterCards,
-          });
+        const defaultCol =
+          backup.collections.find((c) => c.isDefault) ?? backup.collections[0];
+        const anime = resolveAnimeBackupFields(backup);
+        set({
+          profile: backup.profile,
+          collections: backup.collections.length
+            ? backup.collections
+            : createInitialDemoState().collections,
+          ownedCards: backup.ownedCards,
+          tags: backup.tags ?? [],
+          activeCollectionId: defaultCol?.id ?? DEFAULT_COLLECTION_ID,
+          animeSeries: anime.animeSeries,
+          animeCharacters: anime.animeCharacters,
+          animeCharacterCards: anime.animeCharacterCards,
         });
       },
 
       restoreAnimeCollectionFromBackup: (backup) => {
-        runSilentAnimeMutation(() => {
-          const anime = resolveAnimeBackupFields(backup);
-          set({
-            animeSeries: anime.animeSeries,
-            animeCharacters: anime.animeCharacters,
-            animeCharacterCards: anime.animeCharacterCards,
-          });
+        const anime = resolveAnimeBackupFields(backup);
+        set({
+          animeSeries: anime.animeSeries,
+          animeCharacters: anime.animeCharacters,
+          animeCharacterCards: anime.animeCharacterCards,
         });
       },
 
