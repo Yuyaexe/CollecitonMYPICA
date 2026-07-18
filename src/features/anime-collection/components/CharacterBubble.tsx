@@ -29,8 +29,8 @@ export function CharacterBubble({
   const initials = getCharacterInitials(name);
   const reduceMotion = useReducedMotion();
   const isWheel = variant === "wheel";
-  const sizeClass = isWheel ? "h-[52px] w-[52px]" : "h-[88px] w-[88px]";
-  const initialsClass = isWheel ? "text-sm" : "text-lg";
+  const sizeClass = isWheel ? "h-[72px] w-[72px]" : "h-[88px] w-[88px]";
+  const initialsClass = isWheel ? "text-base" : "text-lg";
 
   return (
     <motion.button
