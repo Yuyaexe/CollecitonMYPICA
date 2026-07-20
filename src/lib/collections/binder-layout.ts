@@ -1,3 +1,14 @@
+/** Shared 4×3 / 3×3 binder grid presets (TCG collection + anime character binders). */
+export type BinderGridLayoutId = "4x3" | "3x3";
+
+export const BINDER_GRID_LAYOUTS: Record<
+  BinderGridLayoutId,
+  { cols: number; rows: number; label: string; maxWidth: string }
+> = {
+  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-7xl" },
+  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-5xl" },
+};
+
 /** Move a card into a binder slot (null = empty). Swaps when the target is occupied. */
 export function moveCardToBinderSlot(
   layout: (string | null)[],

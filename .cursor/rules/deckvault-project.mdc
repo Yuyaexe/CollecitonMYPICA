@@ -7,14 +7,16 @@ alwaysApply: true
 
 Supported games: Yu-Gi-Oh, Pokemon, Digimon.
 
-Goals: track collection, build decks, track prices, wishlists, market comparison, import/export, statistics, collection value over time.
+Goals: track collection, import/export (including file backup), multi-collection, anime side collection, proxy print, optional cloud sync + live collaboration.
 
-## Roadmap
+## Product scope (current)
 
-**Phase 1:** Auth, Dashboard, Sidebar, Collection, Search, Import CSV, Responsive, Windows launcher (.bat/.exe)
+**In scope:** Auth (optional cloud), Collection views, Search/Quick Add, Import CSV/decklist, Export, Collection manager, Anime collection (local), Proxy print, Settings + **JSON backup/restore**, Share collection + Live presence (Supabase).
 
-**Phase 2:** Deck Builder, Wishlist, Folders, Bulk Edit, Tags
+**Out of scope (removed):** Deck builder product, Wishlist product, in-collection Folders, Tags product, Price history / portfolio graphs, Trading, Notifications feed, community Phase 4 (friends, comments, etc.).
 
-**Phase 3:** Price Tracking, Graphs, Market Comparison, Trading, Statistics
+## Roadmap (slim)
 
-**Phase 4:** Community, Profiles, Sharing, Trades, Comments, Friends, Notifications
+**Now:** Harden Live collab, keep backup-by-file, polish collection UX, API safety.
+
+**Later (optional):** Stats summaries, bulk edit beyond delete, performance (binder virtualization).

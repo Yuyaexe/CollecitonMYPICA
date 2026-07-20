@@ -14,6 +14,7 @@ export function useAnimeCollection() {
   const updateAnimeSeriesCover = useDemoStore((s) => s.updateAnimeSeriesCover);
   const deleteAnimeSeries = useDemoStore((s) => s.deleteAnimeSeries);
   const addAnimeCharacter = useDemoStore((s) => s.addAnimeCharacter);
+  const addAnimeCharactersBatch = useDemoStore((s) => s.addAnimeCharactersBatch);
   const renameAnimeCharacter = useDemoStore((s) => s.renameAnimeCharacter);
   const updateAnimeCharacterImage = useDemoStore((s) => s.updateAnimeCharacterImage);
   const deleteAnimeCharacter = useDemoStore((s) => s.deleteAnimeCharacter);
@@ -80,6 +81,7 @@ export function useAnimeCollection() {
     updateAnimeSeriesCover,
     deleteAnimeSeries,
     addAnimeCharacter,
+    addAnimeCharactersBatch,
     renameAnimeCharacter,
     updateAnimeCharacterImage,
     deleteAnimeCharacter,

@@ -87,6 +87,7 @@ export function ShareCollectionModal({
           autoFocus
         />
         <p className="text-xs text-muted-foreground">{t("share.hint")}</p>
+        <p className="text-xs text-muted-foreground">{t("share.steps")}</p>
       </div>
     </Modal>
   );

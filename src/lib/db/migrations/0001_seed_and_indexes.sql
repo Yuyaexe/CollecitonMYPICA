@@ -5,10 +5,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 INSERT INTO games (id, slug, name) VALUES
   ('a0000000-0000-4000-8000-000000000001', 'yugioh', 'Yu-Gi-Oh!'),
   ('a0000000-0000-4000-8000-000000000002', 'pokemon', 'Pokemon'),
-  ('a0000000-0000-4000-8000-000000000003', 'digimon', 'Digimon'),
-  ('a0000000-0000-4000-8000-000000000004', 'magic', 'Magic: The Gathering'),
-  ('a0000000-0000-4000-8000-000000000005', 'onepiece', 'One Piece'),
-  ('a0000000-0000-4000-8000-000000000006', 'lorcana', 'Disney Lorcana')
+  ('a0000000-0000-4000-8000-000000000003', 'digimon', 'Digimon')
 ON CONFLICT (slug) DO NOTHING;
 
 -- Trigram index for card name search

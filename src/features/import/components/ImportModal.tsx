@@ -268,7 +268,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       }}
       title={t("import.title")}
       description={t("import.description")}
-      className="max-w-2xl"
+      className="max-w-2xl sm:max-w-2xl"
     >
       <div className="relative space-y-4">
         <LoadingOverlay
@@ -276,7 +276,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
           title={importStatus ?? t("import.importing")}
           description={t("import.importingHint")}
         />
-        <div className="inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5">
+        <div className="inline-flex shrink-0 rounded-lg border border-border/60 bg-muted/30 p-0.5">
           {(["decklist", "csv"] as ImportTab[]).map((value) => (
             <Button
               key={value}

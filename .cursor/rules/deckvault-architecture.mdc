@@ -8,16 +8,17 @@ alwaysApply: false
 
 Feature-based structure under `src/features/`:
 
-**Shipped today:** collection, catalog, import, auth, dashboard, **anime-collection**, **proxy-print**, market (thin)
+**Shipped today:** collection, catalog, import, auth, dashboard, **anime-collection**, **proxy-print**, market (thin CardTrader links)
 
-**Schema-ready / planned:** deckbuilder, wishlist, pricing, trade (DB tables exist; UI not started)
+**Not in product:** deckbuilder, wishlist, pricing/graphs, trade, notifications, tags, in-collection folders
 
 Shared: `src/components/shared/`, `src/hooks/`, `src/types/`, `src/lib/`
 
 ## Data modes
 
-- **Demo:** Zustand persist (`deckvault-demo`) — full TCG collection + anime collection
+- **Demo:** Zustand persist (`deckvault-demo`) — full TCG collection + anime collection + JSON backup/restore
 - **Supabase:** React Query + `/api/app/*` for TCG; **anime collection stays local-only** until cloud sync is built
+- **Live:** Realtime on `owned_cards` + presence channel; share via `collection_members` / `collection_invites`
 
 ## Before writing code
 

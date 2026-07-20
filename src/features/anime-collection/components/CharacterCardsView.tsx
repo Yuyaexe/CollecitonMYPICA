@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, LayoutGrid, Minus, Plus, Trash2 } from "lucide-react";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import {
+  BinderEmptySlot,
+  BinderLayoutToggle,
+  BinderPagePanel,
+  BinderSpine,
+  BinderSpreadFrame,
+  BINDER_GRID_LAYOUTS,
+  type BinderGridLayoutId,
+} from "@/components/shared/binder/BinderChrome";
 import { Button } from "@/components/ui/button";
 import { resolveCollectionThumbUrl } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
@@ -13,18 +22,10 @@ import { useDragReorder, dragHandleProps, emptySlotDragProps } from "@/hooks/use
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 
 export type CharacterCardsViewMode = "grid" | "binder";
-type BinderLayout = "4x3" | "3x3";
+type BinderLayout = BinderGridLayoutId;
 
 const VIEW_STORAGE_KEY = "deckvault-anime-character-cards-view";
 const BINDER_LAYOUT_KEY = "deckvault-anime-character-binder-layout";
-
-const BINDER_LAYOUTS: Record<
-  BinderLayout,
-  { cols: number; rows: number; label: string; maxWidth: string }
-> = {
-  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-6xl" },
-  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-4xl" },
-};
 
 function usePersistedViewMode(): [CharacterCardsViewMode, (mode: CharacterCardsViewMode) => void] {
   const [mode, setMode] = useState<CharacterCardsViewMode>("grid");
@@ -236,8 +237,7 @@ function CharacterBinderSlot({
         aria-hidden
         {...emptySlotDragProps(dragHandlers, slotKey, onDropAtIndex)}
       >
-        <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
-        <div className="h-9 rounded-md border border-dashed border-stone-400/20 bg-stone-500/5 dark:border-stone-600/25 dark:bg-stone-950/15" />
+        <BinderEmptySlot />
       </div>
     );
   }
@@ -297,7 +297,7 @@ function CharacterBinderView({
 }) {
   const t = useT();
   const [spreadIndex, setSpreadIndex] = useState(0);
-  const { cols, rows, label, maxWidth } = BINDER_LAYOUTS[layout];
+  const { cols, rows, label, maxWidth } = BINDER_GRID_LAYOUTS[layout];
   const pageSize = cols * rows;
   const spreadSize = pageSize * 2;
 
@@ -325,109 +325,76 @@ function CharacterBinderView({
     side: "left" | "right",
     pageOffset: number
   ) => (
-    <div
-      className={cn(
-        "relative flex min-w-0 flex-1 flex-col p-2 sm:p-4",
-        "bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200/90 dark:from-stone-800 dark:via-stone-900 dark:to-stone-950",
-        side === "left"
-          ? "rounded-t-xl md:rounded-l-2xl md:rounded-tr-none"
-          : "rounded-b-xl md:rounded-r-2xl md:rounded-bl-none"
-      )}
-    >
-      <div
-        className="grid flex-1 gap-1.5 sm:gap-2"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rows}, minmax(0, auto))`,
-        }}
-      >
-        {pageCards.map((item, index) => {
-          const globalIndex = spreadIndex * spreadSize + pageOffset + index;
-          const slotKey = item?.id ?? `${side}-slot-${globalIndex}`;
-          return (
-            <CharacterBinderSlot
-              key={slotKey}
-              item={item}
-              onOpenCard={onOpenCard}
-              dragHandlers={dragHandlers}
-              slotKey={slotKey}
-              onDropAtIndex={(draggedId) => onReorderToIndex(draggedId, globalIndex)}
-            />
-          );
-        })}
-      </div>
-    </div>
+    <BinderPagePanel side={side} cols={cols} rows={rows}>
+      {pageCards.map((item, index) => {
+        const globalIndex = spreadIndex * spreadSize + pageOffset + index;
+        const slotKey = item?.id ?? `${side}-slot-${globalIndex}`;
+        return (
+          <CharacterBinderSlot
+            key={slotKey}
+            item={item}
+            onOpenCard={onOpenCard}
+            dragHandlers={dragHandlers}
+            slotKey={slotKey}
+            onDropAtIndex={(draggedId) => onReorderToIndex(draggedId, globalIndex)}
+          />
+        );
+      })}
+    </BinderPagePanel>
   );
 
   return (
-    <div className="overflow-hidden rounded-xl bg-gradient-to-b from-zinc-950 via-zinc-900/95 to-background">
-      <div className="flex flex-col items-center px-2 py-3 sm:px-4 sm:py-5">
-        <div className={cn("w-full", maxWidth)}>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground/80">Binder · {label}</span>
-              <div className="inline-flex rounded-md border border-border/60 bg-muted/30 p-0.5">
-                {(Object.keys(BINDER_LAYOUTS) as BinderLayout[]).map((id) => (
-                  <Button
-                    key={id}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 px-2.5 text-xs tabular-nums", layout === id && "bg-background shadow-sm")}
-                    onClick={() => onLayoutChange(id)}
-                    aria-pressed={layout === id}
-                  >
-                    {BINDER_LAYOUTS[id].label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            <span className="tabular-nums">
-              {spreadStart}–{spreadEnd} of {cards.length}
-            </span>
-          </div>
-
-          <div className="flex flex-col overflow-hidden rounded-xl shadow-2xl ring-1 ring-black/20 md:flex-row md:rounded-2xl">
-            {renderPage(leftPage, "left", 0)}
-            <div
-              className="relative h-2 w-full shrink-0 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 md:h-auto md:w-3 md:bg-gradient-to-b lg:w-4"
-              aria-hidden
-            />
-            {renderPage(rightPage, "right", pageSize)}
-          </div>
-
-          {totalSpreads > 1 && (
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={spreadIndex === 0}
-                onClick={() => setSpreadIndex(spreadIndex - 1)}
-                aria-label={t("anime.previousSpread")}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {t("anime.spreadOf", { current: spreadIndex + 1, total: totalSpreads })}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={spreadIndex >= totalSpreads - 1}
-                onClick={() => setSpreadIndex(spreadIndex + 1)}
-                aria-label={t("anime.nextSpread")}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+    <BinderSpreadFrame maxWidth={maxWidth}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground sm:mb-3 sm:text-sm">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground/80">Binder · {label}</span>
+          <BinderLayoutToggle
+            layout={layout}
+            onChange={onLayoutChange}
+            ariaLabel={t("collection.binderGridLayout")}
+          />
         </div>
+        <span className="tabular-nums">
+          {spreadStart}–{spreadEnd} of {cards.length}
+        </span>
       </div>
-    </div>
+
+      <div className="flex flex-col overflow-hidden rounded-xl shadow-2xl ring-1 ring-black/20 md:flex-row md:rounded-2xl">
+        {renderPage(leftPage, "left", 0)}
+        <BinderSpine />
+        {renderPage(rightPage, "right", pageSize)}
+      </div>
+
+      {totalSpreads > 1 && (
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={spreadIndex === 0}
+            onClick={() => setSpreadIndex(spreadIndex - 1)}
+            aria-label={t("anime.previousSpread")}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {t("anime.spreadOf", { current: spreadIndex + 1, total: totalSpreads })}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={spreadIndex >= totalSpreads - 1}
+            onClick={() => setSpreadIndex(spreadIndex + 1)}
+            aria-label={t("anime.nextSpread")}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </BinderSpreadFrame>
   );
 }
 

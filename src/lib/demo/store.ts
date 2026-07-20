@@ -113,6 +113,10 @@ interface DemoStore extends DemoState {
     imageUrl?: string | null;
     accentColor?: string | null;
   }) => AnimeCharacter;
+  addAnimeCharactersBatch: (input: {
+    seriesId: string;
+    names: string[];
+  }) => AnimeCharacter[];
   renameAnimeCharacter: (id: string, name: string) => void;
   updateAnimeCharacterImage: (id: string, imageUrl: string | null) => void;
   deleteAnimeCharacter: (id: string) => void;
@@ -537,6 +541,31 @@ export const useDemoStore = create<DemoStore>()(
         };
         set((s) => ({ animeCharacters: [...s.animeCharacters, newCharacter] }));
         return newCharacter;
+      },
+
+      addAnimeCharactersBatch: (input) => {
+        const names = input.names.map((name) => name.trim()).filter(Boolean);
+        if (names.length === 0) return [];
+
+        const state = get();
+        const baseOrder = state.animeCharacters.filter((c) => c.seriesId === input.seriesId)
+          .length;
+
+        const newCharacters: AnimeCharacter[] = names.map((name, index) => ({
+          id: generateId(),
+          seriesId: input.seriesId,
+          name,
+          imageUrl: null,
+          accentColor: null,
+          isSeeded: false,
+          sortOrder: baseOrder + index,
+        }));
+
+        set((s) => ({
+          animeCharacters: [...s.animeCharacters, ...newCharacters],
+        }));
+
+        return newCharacters;
       },
 
       renameAnimeCharacter: (id, name) => {

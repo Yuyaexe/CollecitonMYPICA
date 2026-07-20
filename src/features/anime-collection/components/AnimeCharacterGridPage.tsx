@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -13,10 +13,14 @@ import { AnimeCollectionBreadcrumb } from "@/features/anime-collection/component
 import { CharacterBubbleGrid } from "@/features/anime-collection/components/CharacterBubbleGrid";
 import { EditCharacterModal } from "@/features/anime-collection/components/EditCharacterModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { parseCharacterList } from "@/features/anime-collection/utils/parse-character-list";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { AnimeCharacter } from "@/features/anime-collection/types";
 import { useT } from "@/lib/i18n/context";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+type AddCharacterMode = "single" | "list";
 
 export interface AnimeCharacterGridPageProps {
   seriesSlug: string;
@@ -30,6 +34,7 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
     getSeriesBySlug,
     getCharactersForSeries,
     addAnimeCharacter,
+    addAnimeCharactersBatch,
     renameAnimeCharacter,
     updateAnimeCharacterImage,
     deleteAnimeCharacter,
@@ -39,12 +44,36 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
   const characters = series ? getCharactersForSeries(series.id) : [];
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [addMode, setAddMode] = useState<AddCharacterMode>("single");
   const [newName, setNewName] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [listText, setListText] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AnimeCharacter | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnimeCharacter | null>(null);
+
+  const existingNames = useMemo(
+    () => characters.map((character) => character.name),
+    [characters]
+  );
+
+  const parsedList = useMemo(
+    () => parseCharacterList(listText, existingNames),
+    [listText, existingNames]
+  );
+
+  const resetCreateForm = () => {
+    setAddMode("single");
+    setNewName("");
+    setNewImageUrl("");
+    setListText("");
+  };
+
+  const handleCreateOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open) resetCreateForm();
+  };
 
   if (!series) {
     return (
@@ -67,10 +96,33 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
       name: trimmed,
       imageUrl: newImageUrl.trim() || null,
     });
-    setNewName("");
-    setNewImageUrl("");
+    resetCreateForm();
     setCreateOpen(false);
     toast.success(t("anime.characterAdded", { name: trimmed }));
+  };
+
+  const handleCreateList = () => {
+    const { names, skipped } = parseCharacterList(listText, existingNames);
+    if (names.length === 0) {
+      toast.info(
+        skipped > 0
+          ? t("anime.charactersAllSkipped", { skipped })
+          : t("anime.addListHint")
+      );
+      return;
+    }
+
+    addAnimeCharactersBatch({ seriesId: series.id, names });
+    resetCreateForm();
+    setCreateOpen(false);
+
+    if (skipped > 0) {
+      toast.success(
+        t("anime.charactersAddedWithSkipped", { count: names.length, skipped })
+      );
+    } else {
+      toast.success(t("anime.charactersAdded", { count: names.length }));
+    }
   };
 
   const openEdit = (character: AnimeCharacter) => {
@@ -145,40 +197,91 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
 
       <Modal
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={handleCreateOpenChange}
         title={t("anime.addCharacterTitle")}
         description={t("anime.addCharacterDescription", { series: series.name })}
         footer={
           <>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={handleCreate} disabled={!newName.trim()}>
-              {t("anime.addCharacter")}
-            </Button>
+            {addMode === "single" ? (
+              <Button onClick={handleCreate} disabled={!newName.trim()}>
+                {t("anime.addCharacter")}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleCreateList}
+                disabled={parsedList.names.length === 0}
+              >
+                {parsedList.names.length > 0
+                  ? t("anime.addCharactersCount", { count: parsedList.names.length })
+                  : t("anime.addCharacter")}
+              </Button>
+            )}
           </>
         }
       >
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="char-name">{t("common.name")}</Label>
-            <Input
-              id="char-name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t("anime.characterNamePlaceholder")}
-              autoFocus
-            />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={addMode === "single" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAddMode("single")}
+            >
+              {t("anime.addModeSingle")}
+            </Button>
+            <Button
+              type="button"
+              variant={addMode === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAddMode("list")}
+            >
+              {t("anime.addModeList")}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="char-photo">{t("anime.photoUrl")}</Label>
-            <Input
-              id="char-photo"
-              value={newImageUrl}
-              onChange={(e) => setNewImageUrl(e.target.value)}
-              placeholder={t("common.urlPlaceholder")}
-            />
-          </div>
+
+          {addMode === "single" ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="char-name">{t("common.name")}</Label>
+                <Input
+                  id="char-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder={t("anime.characterNamePlaceholder")}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="char-photo">{t("anime.photoUrl")}</Label>
+                <Input
+                  id="char-photo"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  placeholder={t("common.urlPlaceholder")}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="char-list">{t("anime.addModeList")}</Label>
+              <textarea
+                id="char-list"
+                value={listText}
+                onChange={(e) => setListText(e.target.value)}
+                placeholder={t("anime.addListPlaceholder")}
+                rows={8}
+                autoFocus
+                className={cn(
+                  "flex min-h-[160px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm",
+                  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+              />
+              <p className="text-xs text-muted-foreground">{t("anime.addListHint")}</p>
+            </div>
+          )}
         </div>
       </Modal>
 

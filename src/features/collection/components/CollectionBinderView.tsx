@@ -5,6 +5,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import {
+  BinderEmptySlot,
+  BinderLayoutToggle,
+  BINDER_GRID_LAYOUTS,
+} from "@/components/shared/binder/BinderChrome";
 import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { cn } from "@/lib/utils";
 import { useDragReorder, emptySlotDragProps, binderCardDragProps, pageNavDropProps } from "@/hooks/useDragReorder";
@@ -15,19 +20,10 @@ import {
 } from "@/lib/collections/binder-layout";
 import {
   useCollectionUIStore,
-  type BinderGridLayout,
 } from "@/features/collection/stores/collection-ui.store";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { useT } from "@/lib/i18n/context";
 import type { DemoOwnedCard } from "@/lib/demo/types";
-
-const LAYOUT_CONFIG: Record<
-  BinderGridLayout,
-  { cols: number; rows: number; label: string; maxWidth: string }
-> = {
-  "4x3": { cols: 4, rows: 3, label: "4×3", maxWidth: "max-w-7xl" },
-  "3x3": { cols: 3, rows: 3, label: "3×3", maxWidth: "max-w-5xl" },
-};
 
 /** Matches the comfortable binder density at ~90% browser zoom. */
 const BINDER_DISPLAY_ZOOM = 0.9;
@@ -78,7 +74,7 @@ function BinderSlot({
           moveToSlot(draggedId, globalIndex)
         )}
       >
-        <div className="aspect-[59/86] rounded-md border border-dashed border-stone-400/25 bg-stone-500/5 dark:border-stone-600/30 dark:bg-stone-950/20" />
+        <BinderEmptySlot />
       </div>
     );
   }
@@ -235,40 +231,6 @@ function BinderPage({
   );
 }
 
-function BinderLayoutToggle({
-  layout,
-  onChange,
-}: {
-  layout: BinderGridLayout;
-  onChange: (layout: BinderGridLayout) => void;
-}) {
-  const t = useT();
-  return (
-    <div
-      className="inline-flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5"
-      role="group"
-      aria-label={t("collection.binderGridLayout")}
-    >
-      {(Object.keys(LAYOUT_CONFIG) as BinderGridLayout[]).map((id) => (
-        <Button
-          key={id}
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-7 px-2.5 text-xs tabular-nums",
-            layout === id && "bg-background shadow-sm"
-          )}
-          onClick={() => onChange(id)}
-          aria-pressed={layout === id}
-        >
-          {LAYOUT_CONFIG[id].label}
-        </Button>
-      ))}
-    </div>
-  );
-}
-
 interface BinderSpreadNavProps {
   spreadIndex: number;
   totalSpreads: number;
@@ -365,7 +327,7 @@ export function CollectionBinderView() {
   const [spreadIndex, setSpreadIndex] = useState(0);
   const dragHandlers = useDragReorder(data.reorderCard);
 
-  const { cols, rows, label, maxWidth } = LAYOUT_CONFIG[binderGridLayout];
+  const { cols, rows, label, maxWidth } = BINDER_GRID_LAYOUTS[binderGridLayout];
   const pageSize = cols * rows;
   const spreadSize = pageSize * 2;
 
@@ -443,7 +405,11 @@ export function CollectionBinderView() {
               <span className="font-medium text-foreground/80">
                 {t("binder.label", { layout: label })}
               </span>
-              <BinderLayoutToggle layout={binderGridLayout} onChange={setBinderGridLayout} />
+              <BinderLayoutToggle
+                layout={binderGridLayout}
+                onChange={setBinderGridLayout}
+                ariaLabel={t("collection.binderGridLayout")}
+              />
             </div>
             <span className="tabular-nums">
               {t("binder.cardsOnPageTotal", {

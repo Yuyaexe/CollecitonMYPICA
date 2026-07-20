@@ -1,5 +1,6 @@
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { getCardAdapter, isApiSupported } from "@/features/catalog/services/card-api";
+import { pickExactNameMatch } from "@/features/catalog/services/pick-exact-name-match";
 import { splitDigimonCardId, normalizeDigimonDeckCardId, digimonNamesMatch } from "@/features/catalog/services/card-api/digimon.utils";
 import type { DecklistGameSlug, ParsedDeckEntry, ResolvedDeckEntry } from "@/features/import/types";
 
@@ -56,16 +57,6 @@ async function fetchYugiohPasscodes(passcodes: number[]): Promise<Map<number, Ca
   }
 
   return map;
-}
-
-function pickExactNameMatch(results: CardSearchResult[], name: string): CardSearchResult | null {
-  const lower = name.toLowerCase();
-  return (
-    results.find((result) => result.name.toLowerCase() === lower) ??
-    results.find((result) => result.name.toLowerCase().includes(lower)) ??
-    results[0] ??
-    null
-  );
 }
 
 function pickDigimonPrintFromGroup(

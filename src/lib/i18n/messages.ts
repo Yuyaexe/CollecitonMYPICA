@@ -64,6 +64,12 @@ export const messages = {
     "collection.loadingCards": "Loading cards...",
     "collection.manageCollections": "Manage collections",
     "collection.share": "Share collection",
+    "collection.live": "Live",
+    "collection.liveConnecting": "Connecting…",
+    "collection.liveError": "Sync off",
+    "collection.liveHint":
+      "Live means Realtime sync and presence are connected for this collection.",
+    "collection.remoteSync": "Collection updated by a collaborator",
     "collection.totalCards": "Total cards",
     "collection.sets": "Sets",
     "collection.add": "Add",
@@ -214,14 +220,16 @@ export const messages = {
     "share.emailLabel": "Friend's email",
     "share.emailPlaceholder": "friend@email.com",
     "share.hint":
-      "Don't use your own email — you're already the owner. When they sign in, the collection appears automatically and you see each other's live cursor.",
+      "Don't use your own email — you're already the owner.",
+    "share.steps":
+      "1) Send invite → 2) Friend signs up / logs in with that email → 3) Collection appears for both → 4) Live badge shows when sync is connected.",
     "share.send": "Send invite",
     "share.sending": "Sending...",
-    "share.sent": "Invite sent to {email}",
+    "share.sent": "Invite sent to {email}. They will see this collection after signing in with that email.",
     "share.failed": "Failed to send invite",
 
-    "sidebar.supabaseLive": "Supabase · Live",
-    "sidebar.collector": "Collector",
+    "sidebar.supabaseLive": "Cloud",
+    "sidebar.collector": "Local",
 
     "proxyPrint.title": "Proxy cards",
     "proxyPrint.description":
@@ -351,6 +359,12 @@ export const messages = {
     "collection.loadingCards": "Carregando cartas...",
     "collection.manageCollections": "Gerenciar coleções",
     "collection.share": "Compartilhar coleção",
+    "collection.live": "Live",
+    "collection.liveConnecting": "Conectando…",
+    "collection.liveError": "Sem sync",
+    "collection.liveHint":
+      "Live significa que o sync Realtime e a presença estão ligados nesta coleção.",
+    "collection.remoteSync": "Coleção atualizada por um colaborador",
     "collection.totalCards": "Total de cartas",
     "collection.sets": "Conjuntos",
     "collection.add": "Adicionar",
@@ -501,14 +515,17 @@ export const messages = {
     "share.emailLabel": "Email do amigo",
     "share.emailPlaceholder": "amigo@email.com",
     "share.hint":
-      "Não use seu próprio email — você já é o dono. Quando a pessoa entrar, a coleção aparece automaticamente e vocês veem onde o outro está navegando ao vivo.",
+      "Não use seu próprio email — você já é o dono.",
+    "share.steps":
+      "1) Envie o convite → 2) Amigo cria conta / entra com esse email → 3) A coleção aparece para os dois → 4) O badge Live aparece quando o sync estiver conectado.",
     "share.send": "Enviar convite",
     "share.sending": "Enviando...",
-    "share.sent": "Convite enviado para {email}",
+    "share.sent":
+      "Convite enviado para {email}. A coleção aparece quando a pessoa entrar com esse email.",
     "share.failed": "Falha ao enviar convite",
 
-    "sidebar.supabaseLive": "Supabase · Live",
-    "sidebar.collector": "Colecionador",
+    "sidebar.supabaseLive": "Nuvem",
+    "sidebar.collector": "Local",
 
     "proxyPrint.title": "Cartas proxy",
     "proxyPrint.description":

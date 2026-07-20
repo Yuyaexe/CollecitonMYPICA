@@ -1,6 +1,6 @@
 # DeckVault
 
-Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — collection, decks, imports/exports, and marketplace links.
+Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — collection, imports/exports, anime side collection, proxy print, and optional cloud sharing.
 
 ## Get started (2 minutes)
 
@@ -23,9 +23,12 @@ No account needed. Your data stays in the browser until you set up cloud sync.
 - **Search & add** — Yu-Gi-Oh! cards from **YGOPRODeck** (names, images, sets, passcodes)
 - **Import** — decklists (text with `Monster` / `Spell` / `Trap` sections, YDKE, YDK), DigimonCard.io format, CSV
 - **Export** — TXT decklist, CSV, `.ydk` (EdoPro)
-- **Decks** — build lists and see missing cards; shopping list export
+- **Collections** — multiple collections, share with a collaborator (Supabase)
+- **Live** — when cloud + Realtime are on, see who is viewing which card and sync card changes
 - **Mercado** — external links per card (Yu-Gi-Oh!: TCGPlayer, Liga Yu-Gi-Oh!, MyP Cards, CardTrader)
 - **Anime collection** — optional side collection for character/series cards
+- **Proxy print** — print proxy sheets
+- **Backup** — download/restore a JSON file from Settings (always available; do not skip this)
 
 **Card data sources**
 
@@ -50,18 +53,18 @@ Everything below is optional — only needed for cloud sync, sharing collections
 | Mode | When to use |
 |------|-------------|
 | **Demo** | Try locally, no setup. Data in browser (localStorage). |
-| **Supabase** | Login, cloud backup, share collections with friends. |
+| **Supabase** | Login, cloud backup, share collections with friends, Live presence. |
 
 ### Supabase + Vercel
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy env vars into `.env.local` (Supabase URL, anon key, `DATABASE_URL`)
-3. Run migrations in the SQL Editor — files `0001` through `0008` in `src/lib/db/migrations/`, in order
-4. **Database → Publications** — add `owned_cards` and `collections` to `supabase_realtime`
+3. Run migrations in the SQL Editor — files `0001` through `0010` in `src/lib/db/migrations/`, in order
+4. **Database → Publications** — add `owned_cards` (and optionally `collections`) to `supabase_realtime`
 5. Deploy to [Vercel](https://vercel.com)
 6. Supabase → **Authentication → URL Configuration** — set Site URL to your Vercel domain
 
-**Share a collection:** Collection → Share → friend's email → they sign up with that email.
+**Share a collection:** Collection → Share → friend's email → they sign up / log in with that email → accept invite.
 
 ### Migrations
 
@@ -71,10 +74,12 @@ Run in SQL Editor, in order:
 2. `0002_rls_policies.sql`
 3. `0003_collaboration.sql`
 4. `0004_create_collection_rpc.sql`
-5. `0005_rls_phase3_tables.sql`
+5. `0005_rls_phase3_tables.sql` (legacy; tables dropped in `0010`)
 6. `0006_security_hardening.sql`
 7. `0007_rls_missing_policies.sql`
 8. `0008_private_rls_helpers.sql`
+9. `0009_cards_catalog_immutable.sql` (if present)
+10. `0010_drop_unused_phase_tables.sql`
 
 **Auth tip:** enable **Leaked password protection** under Authentication → Providers → Email.
 
@@ -100,13 +105,8 @@ Output: `src-tauri/target/release/deckvault.exe`
 npm run dev          # local dev server
 npm run build        # production build
 npm run lint         # ESLint
-npm run verify       # project checks
-npm run db:push      # push Drizzle schema to DATABASE_URL
-npm run tauri:dev    # desktop app in dev mode
 ```
 
-### About
+## Out of scope
 
-DeckVault is a web-based TCG collection manager for organizing cards, building decks, tracking owned vs missing cards, and opening marketplace links. Export to multiple formats and generate shopping lists — one platform for players and collectors.
-
-**Stack:** Next.js 15 · TypeScript · Tailwind · Supabase · Drizzle · Tauri 2 · YGOPRODeck API
+Deck builder, wishlist product, price graphs, trading, notifications feed, and community features are **not** part of the current product. Tags and in-collection folders were removed from the schema.

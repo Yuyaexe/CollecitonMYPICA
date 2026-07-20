@@ -167,18 +167,3 @@ export function buildMarketplaceListings(
 
   return listings;
 }
-
-export function getPrimaryMarketplaceUrl(
-  card: DemoOwnedCard["card"],
-  options?: MarketplaceOptions
-): string {
-  return buildMarketplaceListings(card, options)[0]?.url ?? "#";
-}
-
-export function openMarketplaceInNewTab(
-  card: DemoOwnedCard["card"],
-  options?: MarketplaceOptions
-): void {
-  const url = getPrimaryMarketplaceUrl(card, options);
-  if (url !== "#") window.open(url, "_blank", "noopener,noreferrer");
-}
