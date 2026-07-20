@@ -9,6 +9,7 @@ import {
 import { buildProxyPrintSlots } from "@/lib/proxy-print/resolve-slots";
 import type { ProxyGame } from "@/lib/proxy-print/types";
 import { PROXY_GAMES } from "@/lib/proxy-print/types";
+import { PROXY_PRINT_MAX_CHARS } from "@/lib/api/request-limits";
 
 async function resolveDeck(deckText: string, game: ProxyGame) {
   const zones = loadZonesFromText(deckText, game);
@@ -40,6 +41,15 @@ export async function POST(request: NextRequest) {
     const deckText = body.deckText?.trim() ?? "";
     if (!deckText) {
       return NextResponse.json({ error: "Empty deck list" }, { status: 400 });
+    }
+    if (deckText.length > PROXY_PRINT_MAX_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Deck text too long (max ${PROXY_PRINT_MAX_CHARS} characters)`,
+          maxChars: PROXY_PRINT_MAX_CHARS,
+        },
+        { status: 400 }
+      );
     }
 
     const detected = detectGameFromText(deckText);

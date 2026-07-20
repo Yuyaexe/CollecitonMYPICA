@@ -417,7 +417,7 @@ export async function addSupabaseCardFromSearch(
   gameId: string,
   gameSlug: string,
   currency: Currency
-) {
+): Promise<DemoOwnedCard> {
   const cardId = await findOrCreateSupabaseCard(
     supabase,
     gameId,
@@ -425,6 +425,9 @@ export async function addSupabaseCardFromSearch(
     gameSlug,
     currency
   );
+
+  const ownedSelect =
+    "id, collection_id, card_id, quantity, condition, language, is_foil, purchase_price, notes, cards(id, game_id, external_id, name, set_code, set_name, collector_number, rarity, image_url, metadata, games(id, slug, name))";
 
   if (result.externalId) {
     const { data: existingOwned } = await supabase
@@ -438,26 +441,39 @@ export async function addSupabaseCardFromSearch(
     });
 
     if (match) {
+      const nextQty = match.quantity + 1;
       await supabase
         .from("owned_cards")
         .update({
-          quantity: match.quantity + 1,
+          quantity: nextQty,
           updated_at: new Date().toISOString(),
         })
         .eq("id", match.id);
-      return;
+
+      const { data: updated, error: fetchErr } = await supabase
+        .from("owned_cards")
+        .select(ownedSelect)
+        .eq("id", match.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+      return mapOwned(updated as unknown as OwnedJoin);
     }
   }
 
-  const { error } = await supabase.from("owned_cards").insert({
-    collection_id: collectionId,
-    card_id: cardId,
-    quantity: 1,
-    condition: "NM",
-    language: "EN",
-    is_foil: false,
-  });
+  const { data: inserted, error } = await supabase
+    .from("owned_cards")
+    .insert({
+      collection_id: collectionId,
+      card_id: cardId,
+      quantity: 1,
+      condition: "NM",
+      language: "EN",
+      is_foil: false,
+    })
+    .select(ownedSelect)
+    .single();
   if (error) throw error;
+  return mapOwned(inserted as unknown as OwnedJoin);
 }
 
 export async function updateSupabaseOwnedCard(

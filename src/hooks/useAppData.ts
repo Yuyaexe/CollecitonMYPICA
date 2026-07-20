@@ -1,9 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { useDemoStore } from "@/lib/demo/store";
 import { useDataUiStore } from "@/lib/data/ui-store";
 import { DEFAULT_COLLECTION_ID } from "@/lib/demo/types";
@@ -11,12 +9,8 @@ import type { DemoProfile, DemoCollection } from "@/lib/demo/types";
 import { fetchAppState, type AppState } from "@/hooks/app-data/types";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { useOwnedCardsMutations } from "@/hooks/useOwnedCardsMutations";
-import { useT } from "@/lib/i18n/context";
-
-export type CardsRealtimeStatus = "off" | "connecting" | "live" | "error";
 
 export function useAppData() {
-  const t = useT();
   const queryClient = useQueryClient();
   const { mode, isSupabaseMode, configLoading } = useAppConfig();
   const demoOwnedCards = useDemoStore((s) => s.ownedCards);
@@ -27,9 +21,6 @@ export function useAppData() {
 
   const activeCollectionId = useDataUiStore((s) => s.activeCollectionId);
   const setActiveCollectionId = useDataUiStore((s) => s.setActiveCollectionId);
-  const [cardsRealtimeStatus, setCardsRealtimeStatus] =
-    useState<CardsRealtimeStatus>("off");
-  const suppressRemoteToastUntilRef = useRef(0);
 
   const {
     data: serverState,
@@ -53,16 +44,6 @@ export function useAppData() {
       queryClient.invalidateQueries({ queryKey: ["app-state"] });
     }, 400);
   }, [queryClient]);
-
-  /** Call before local writes so Realtime echo does not toast "collaborator updated". */
-  const markLocalCollectionEdit = useCallback(() => {
-    suppressRemoteToastUntilRef.current = Date.now() + 2_000;
-  }, []);
-
-  const invalidateAfterLocalEdit = useCallback(() => {
-    markLocalCollectionEdit();
-    invalidate();
-  }, [invalidate, markLocalCollectionEdit]);
 
   useEffect(
     () => () => {
@@ -108,7 +89,7 @@ export function useAppData() {
   } = useOwnedCardsMutations({
     isSupabaseMode,
     resolvedActiveId,
-    invalidate: invalidateAfterLocalEdit,
+    invalidate,
     refreshAppState,
   });
 
@@ -138,55 +119,6 @@ export function useAppData() {
     setActiveCollectionId,
   ]);
 
-  useEffect(() => {
-    if (!isSupabaseMode || !resolvedActiveId) {
-      setCardsRealtimeStatus("off");
-      return;
-    }
-
-    const supabase = createClient();
-    const topic = `owned_cards:${resolvedActiveId}`;
-
-    for (const existing of supabase.getChannels()) {
-      if (existing.topic === `realtime:${topic}`) {
-        void supabase.removeChannel(existing);
-      }
-    }
-
-    setCardsRealtimeStatus("connecting");
-    const channel = supabase.channel(topic);
-
-    channel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "owned_cards",
-        filter: `collection_id=eq.${resolvedActiveId}`,
-      },
-      () => {
-        invalidate();
-        if (Date.now() > suppressRemoteToastUntilRef.current) {
-          toast.info(t("collection.remoteSync"), { id: "collection-remote-sync" });
-        }
-      }
-    );
-
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") setCardsRealtimeStatus("live");
-      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setCardsRealtimeStatus("error");
-      }
-    });
-
-    return () => {
-      setCardsRealtimeStatus("off");
-      void channel.unsubscribe().then(() => {
-        supabase.removeChannel(channel);
-      });
-    };
-  }, [isSupabaseMode, resolvedActiveId, invalidate, t]);
-
   const setActiveCollection = useCallback(
     (id: string) => {
       setActiveCollectionId(id);
@@ -209,7 +141,7 @@ export function useAppData() {
       if (!res.ok) throw new Error("Failed to update profile");
       useDemoStore.getState().updateProfile(updates);
     },
-    onSuccess: invalidateAfterLocalEdit,
+    onSuccess: invalidate,
   });
 
   const addCollectionMutation = useMutation({
@@ -254,7 +186,7 @@ export function useAppData() {
       });
       if (!res.ok) throw new Error("Failed to update collection");
     },
-    onSuccess: invalidateAfterLocalEdit,
+    onSuccess: invalidate,
   });
 
   const renameCollectionMutation = useMutation({
@@ -271,7 +203,7 @@ export function useAppData() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to rename collection");
     },
-    onSuccess: invalidateAfterLocalEdit,
+    onSuccess: invalidate,
   });
 
   const deleteCollectionMutation = useMutation({
@@ -295,7 +227,6 @@ export function useAppData() {
   return {
     mode,
     isSupabaseMode,
-    cardsRealtimeStatus,
     isLoading: configLoading || (isSupabaseMode && stateLoading),
     isError: isSupabaseMode && stateError,
     profile,

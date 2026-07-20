@@ -4,6 +4,10 @@ import {
   yugiohPasscodeCacheKey,
   type YugiohPasscodeInput,
 } from "@/lib/yugioh/resolve-passcode";
+import {
+  RESOLVE_BATCH_MAX_CARDS,
+  resolveBatchBodySchema,
+} from "@/lib/api/request-limits";
 
 interface BatchCard extends YugiohPasscodeInput {
   id: string;
@@ -11,8 +15,20 @@ interface BatchCard extends YugiohPasscodeInput {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { cards?: BatchCard[] };
-    const cards = body.cards ?? [];
+    const raw = await request.json();
+    const parsed = resolveBatchBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid request",
+          details: parsed.error.flatten(),
+          maxCards: RESOLVE_BATCH_MAX_CARDS,
+        },
+        { status: 400 }
+      );
+    }
+
+    const cards = parsed.data.cards as BatchCard[];
     if (cards.length === 0) {
       return NextResponse.json({ passcodes: {} as Record<string, string | null> });
     }

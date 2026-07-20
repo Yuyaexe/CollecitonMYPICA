@@ -15,7 +15,6 @@ import { CollectionRow } from "@/components/shared/CollectionRow";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useDragReorder, dragHandleProps } from "@/hooks/useDragReorder";
 import { useAppData } from "@/hooks/useAppData";
-import { usePresenceContext } from "@/features/collection/context/presence-context";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +38,6 @@ export function CollectionTable() {
     data;
 
   const dragHandlers = useDragReorder(reorderCard);
-
-  const { peerByCardId } = usePresenceContext();
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -141,14 +138,6 @@ export function CollectionTable() {
                       }
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemove}
-                      peerPresence={
-                        peerByCardId.has(item.id)
-                          ? {
-                              color: peerByCardId.get(item.id)!.color,
-                              name: peerByCardId.get(item.id)!.displayName,
-                            }
-                          : undefined
-                      }
                     />
                   </div>
                 </ContextMenuTrigger>

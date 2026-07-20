@@ -18,7 +18,7 @@ Shared: `src/components/shared/`, `src/hooks/`, `src/types/`, `src/lib/`
 
 - **Demo:** Zustand persist (`deckvault-demo`) — full TCG collection + anime collection + JSON backup/restore
 - **Supabase:** React Query + `/api/app/*` for TCG; **anime collection stays local-only** until cloud sync is built
-- **Live:** Realtime on `owned_cards` + presence channel; share via `collection_members` / `collection_invites`
+- **Share:** invite via `collection_members` / `collection_invites` (no Live realtime UI)
 
 ## Before writing code
 

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
       const currency = (profileRow?.currency as Currency | undefined) ?? "USD";
 
-      await addSupabaseCardFromSearch(
+      const owned = await addSupabaseCardFromSearch(
         supabase,
         collectionId,
         result,
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         gameSlug,
         currency
       );
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, ownedCard: owned });
     }
 
     if (action === "import-deck") {

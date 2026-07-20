@@ -24,7 +24,6 @@ No account needed. Your data stays in the browser until you set up cloud sync.
 - **Import** — decklists (text with `Monster` / `Spell` / `Trap` sections, YDKE, YDK), DigimonCard.io format, CSV
 - **Export** — TXT decklist, CSV, `.ydk` (EdoPro)
 - **Collections** — multiple collections, share with a collaborator (Supabase)
-- **Live** — when cloud + Realtime are on, see who is viewing which card and sync card changes
 - **Mercado** — external links per card (Yu-Gi-Oh!: TCGPlayer, Liga Yu-Gi-Oh!, MyP Cards, CardTrader)
 - **Anime collection** — optional side collection for character/series cards
 - **Proxy print** — print proxy sheets
@@ -53,18 +52,18 @@ Everything below is optional — only needed for cloud sync, sharing collections
 | Mode | When to use |
 |------|-------------|
 | **Demo** | Try locally, no setup. Data in browser (localStorage). |
-| **Supabase** | Login, cloud backup, share collections with friends, Live presence. |
+| **Supabase** | Login, cloud backup, share collections with friends. |
 
 ### Supabase + Vercel
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy env vars into `.env.local` (Supabase URL, anon key, `DATABASE_URL`)
 3. Run migrations in the SQL Editor — files `0001` through `0010` in `src/lib/db/migrations/`, in order
-4. **Database → Publications** — add `owned_cards` (and optionally `collections`) to `supabase_realtime`
+4. **Database → Publications** — optionally add `owned_cards` / `collections` to `supabase_realtime` (not required for current UI)
 5. Deploy to [Vercel](https://vercel.com)
 6. Supabase → **Authentication → URL Configuration** — set Site URL to your Vercel domain
 
-**Share a collection:** Collection → Share → friend's email → they sign up / log in with that email → accept invite.
+**Share a collection:** Collection → Share → friend's email → they sign up / log in with that email.
 
 ### Migrations
 

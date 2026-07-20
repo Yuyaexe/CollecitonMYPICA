@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Loader2, SlidersHorizontal } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
@@ -35,13 +36,27 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n/context";
-import { YugiohAdvancedSearchPanel } from "@/features/catalog/components/YugiohAdvancedSearchPanel";
 import { QuickAddVariantPicker } from "@/features/collection/components/QuickAddVariantPicker";
 import {
   EMPTY_YGO_ADVANCED_FILTERS,
   hasActiveYgoAdvancedFilters,
   type YugiohAdvancedSearchFilters,
 } from "@/lib/yugioh/advanced-search";
+
+const YugiohAdvancedSearchPanel = dynamic(
+  () =>
+    import("@/features/catalog/components/YugiohAdvancedSearchPanel").then(
+      (m) => m.YugiohAdvancedSearchPanel
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[12rem] items-center justify-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    ),
+  }
+);
 
 interface QuickAddModalProps {
   open: boolean;

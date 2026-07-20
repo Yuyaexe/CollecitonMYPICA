@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
@@ -53,7 +53,7 @@ interface BinderSlotProps {
   moveToSlot: (draggedId: string, targetIndex: number) => void;
 }
 
-function BinderSlot({
+const BinderSlot = memo(function BinderSlot({
   card,
   selected,
   onOpen,
@@ -89,9 +89,9 @@ function BinderSlot({
       moveToSlot={moveToSlot}
     />
   );
-}
+});
 
-function BinderSlotFilled({
+const BinderSlotFilled = memo(function BinderSlotFilled({
   card,
   selected,
   onOpen,
@@ -155,7 +155,7 @@ function BinderSlotFilled({
       </button>
     </div>
   );
-}
+});
 
 interface BinderPageProps {
   cards: (DemoOwnedCard | null)[];

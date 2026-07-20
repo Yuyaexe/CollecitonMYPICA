@@ -6,10 +6,8 @@ import Link from "next/link";
 import { Plus, Upload, Download, LayoutGrid, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
-import { CollaboratorPresence } from "@/components/shared/CollaboratorPresence";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
 import { CollectionViewSwitcher } from "@/features/collection/components/CollectionViewSwitcher";
-import { usePresenceContext } from "@/features/collection/context/presence-context";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -41,14 +39,12 @@ export function CollectionTopBar() {
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
   const collectionOrder = useDataUiStore((s) => s.collectionOrder);
-  const { peers, presenceStatus } = usePresenceContext();
 
   const {
     collections,
     activeCollectionId,
     setActiveCollection,
     isSupabaseMode,
-    cardsRealtimeStatus,
   } = useAppData();
   const { collectionCards, filtered } = useCollectionView();
   const sortedCollections = useMemo(
@@ -72,16 +68,6 @@ export function CollectionTopBar() {
   const hasActiveSearch = filters.search.trim().length > 0;
   const visibleCount = filtered.length;
 
-  const isLiveActive =
-    isSupabaseMode &&
-    (cardsRealtimeStatus === "live" || presenceStatus === "live");
-  const liveLabel =
-    cardsRealtimeStatus === "error" || presenceStatus === "error"
-      ? t("collection.liveError")
-      : cardsRealtimeStatus === "connecting" || presenceStatus === "connecting"
-        ? t("collection.liveConnecting")
-        : t("collection.live");
-
   return (
     <>
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -98,20 +84,6 @@ export function CollectionTopBar() {
                 />
               ) : (
                 <span className="text-lg font-semibold text-muted-foreground">{t("common.loading")}</span>
-              )}
-              {isSupabaseMode && (isLiveActive || cardsRealtimeStatus === "connecting" || cardsRealtimeStatus === "error") && (
-                <span
-                  className={
-                    cardsRealtimeStatus === "error" || presenceStatus === "error"
-                      ? "rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-400"
-                      : isLiveActive
-                        ? "rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-emerald-400"
-                        : "rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
-                  }
-                  title={t("collection.liveHint")}
-                >
-                  {liveLabel}
-                </span>
               )}
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
                 <Link href="/collections" aria-label={t("collection.manageCollections")}>
@@ -130,8 +102,6 @@ export function CollectionTopBar() {
                 </Button>
               )}
             </div>
-
-            {isSupabaseMode && <CollaboratorPresence peers={peers} />}
 
             <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
               <div>

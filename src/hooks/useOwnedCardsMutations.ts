@@ -43,7 +43,7 @@ export function useOwnedCardsMutations({
           args.gameName,
           resolvedActiveId ?? undefined
         );
-        return;
+        return null;
       }
       assertCollectionForCloud();
       const res = await fetch("/api/app/owned-cards", {
@@ -59,9 +59,25 @@ export function useOwnedCardsMutations({
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Failed to add card");
       }
-      await refreshAppState();
+      const json = (await res.json()) as { ownedCard?: DemoOwnedCard };
+      return json.ownedCard ?? null;
     },
-    onSuccess: invalidate,
+    onSuccess: (ownedCard) => {
+      if (!isSupabaseMode || !ownedCard) {
+        invalidate();
+        return;
+      }
+      queryClient.setQueryData<AppState>(["app-state"], (prev) => {
+        if (!prev) return prev;
+        const idx = prev.ownedCards.findIndex((oc) => oc.id === ownedCard.id);
+        if (idx >= 0) {
+          const next = [...prev.ownedCards];
+          next[idx] = ownedCard;
+          return { ...prev, ownedCards: next };
+        }
+        return { ...prev, ownedCards: [...prev.ownedCards, ownedCard] };
+      });
+    },
   });
 
   const updateCardMutation = useMutation({
@@ -120,11 +136,6 @@ export function useOwnedCardsMutations({
       if (variables.silent) return;
       if (context?.previous) {
         queryClient.setQueryData(["app-state"], context.previous);
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      if (isSupabaseMode && !variables.silent) {
-        queryClient.invalidateQueries({ queryKey: ["app-state"] });
       }
     },
   });
@@ -210,11 +221,6 @@ export function useOwnedCardsMutations({
         queryClient.setQueryData(["app-state"], context.previous);
       }
     },
-    onSettled: () => {
-      if (isSupabaseMode) {
-        queryClient.invalidateQueries({ queryKey: ["app-state"] });
-      }
-    },
   });
 
   const importMutation = useMutation({
@@ -244,10 +250,11 @@ export function useOwnedCardsMutations({
         throw new Error(body?.error ?? "Failed to import");
       }
       const json = await res.json();
-      await refreshAppState();
       return json.imported as number;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void refreshAppState();
+    },
   });
 
   const importDeckMutation = useMutation({
@@ -277,10 +284,11 @@ export function useOwnedCardsMutations({
         throw new Error(body?.error ?? "Failed to import deck");
       }
       const json = await res.json();
-      await refreshAppState();
       return json.imported as number;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void refreshAppState();
+    },
   });
 
   return {

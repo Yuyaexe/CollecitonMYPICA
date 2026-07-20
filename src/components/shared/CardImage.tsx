@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useCachedCardImage } from "@/hooks/useCachedCardImage";
+import { isTrustedImageUrl } from "@/lib/cache/trusted-image-hosts";
 import { cn } from "@/lib/utils";
 
 interface CardImageProps {
@@ -19,6 +20,12 @@ interface CardImageProps {
   loading?: boolean;
   /** Read thumbnails from local IndexedDB when available. */
   useLocalCache?: boolean;
+}
+
+function canOptimizeRemote(src: string): boolean {
+  if (src.startsWith("data:") || src.startsWith("blob:")) return false;
+  if (src.startsWith("/")) return true;
+  return isTrustedImageUrl(src);
 }
 
 export function CardImage({
@@ -91,15 +98,17 @@ export function CardImage({
     );
   }
 
+  const optimize = canOptimizeRemote(displaySrc);
+
   return (
     <Image
       src={displaySrc}
       alt={alt}
-      width={fill ? undefined : width}
-      height={fill ? undefined : height}
+      width={fill ? undefined : width ?? 120}
+      height={fill ? undefined : height ?? 168}
       fill={fill}
-      sizes={sizes}
-      unoptimized
+      sizes={sizes ?? "(max-width: 768px) 25vw, 120px"}
+      unoptimized={!optimize}
       className={cn("object-contain", className)}
       onError={() => setError(true)}
     />

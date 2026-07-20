@@ -243,7 +243,6 @@ export const extraMessages = {
 
     "collection.selectCard": "Select {name}",
     "collection.foil": "Foil",
-    "collection.peerViewing": "{name} is viewing this card",
 
     "collections.cardCountOne": "1 card",
     "collections.optionsFor": "Options for {name}",
@@ -253,10 +252,6 @@ export const extraMessages = {
     "qty.edit": "Edit quantity",
     "qty.clickToEdit": "Quantity {value}, click to edit",
     "qty.removeFromCollection": "Remove from collection",
-
-    "presence.online": "Online:",
-    "presence.viewingCard": "Viewing a card",
-    "presence.browsingCollection": "Browsing collection",
 
     "auth.signup.supabaseHint": "Configure Supabase in .env.local to enable signup",
 
@@ -505,7 +500,6 @@ export const extraMessages = {
 
     "collection.selectCard": "Selecionar {name}",
     "collection.foil": "Foil",
-    "collection.peerViewing": "{name} está vendo esta carta",
 
     "collections.cardCountOne": "1 carta",
     "collections.optionsFor": "Opções de {name}",
@@ -515,10 +509,6 @@ export const extraMessages = {
     "qty.edit": "Editar quantidade",
     "qty.clickToEdit": "Quantidade {value}, clique para editar",
     "qty.removeFromCollection": "Remover da coleção",
-
-    "presence.online": "Online:",
-    "presence.viewingCard": "Vendo uma carta",
-    "presence.browsingCollection": "Navegando na coleção",
 
     "auth.signup.supabaseHint": "Configure o Supabase em .env.local para habilitar o cadastro",
 
