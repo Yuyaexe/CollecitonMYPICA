@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useEffect } from "react";
+import { memo, useRef, useEffect, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CollectionGridCardItem } from "@/features/collection/components/CollectionGridCardItem";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
@@ -8,8 +8,8 @@ import { useDragReorder } from "@/hooks/useDragReorder";
 import { useGridColumns } from "@/hooks/useGridColumns";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 
-/** Image (~204px @ 140w) + metadata + padding */
-const CARD_ROW_HEIGHT = 310;
+/** Image (~204px @ 140w) + metadata + quantity stepper + padding */
+const CARD_ROW_HEIGHT = 342;
 
 export function CollectionGridView() {
   const data = useCollectionView();
@@ -20,6 +20,18 @@ export function CollectionGridView() {
   const dragHandlers = useDragReorder(data.reorderCard);
   const columns = useGridColumns();
   const rowCount = Math.ceil(data.filtered.length / columns);
+
+  const { handleQuantityChange, handleRemove } = data;
+
+  const onQuantityChange = useCallback(
+    (id: string, quantity: number) => handleQuantityChange(id, quantity),
+    [handleQuantityChange]
+  );
+
+  const onRemove = useCallback(
+    (id: string) => handleRemove(id),
+    [handleRemove]
+  );
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -64,6 +76,8 @@ export function CollectionGridView() {
                     dragHandlers={dragHandlers}
                     onSelect={() => toggleSelect(item.id, false, data.allIds, index)}
                     onOpen={() => openCardInspect(item.id, "details")}
+                    onQuantityChange={(qty) => onQuantityChange(item.id, qty)}
+                    onRemove={() => onRemove(item.id)}
                   />
                 );
               })}

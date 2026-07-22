@@ -5,8 +5,12 @@ import {
   RESOLVE_DECK_MAX_ENTRIES,
   resolveDeckBodySchema,
 } from "@/lib/api/request-limits";
+import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
 
 export async function POST(request: NextRequest) {
+  const limited = enforceCatalogRateLimit(request, "resolve-deck");
+  if (limited) return limited;
+
   try {
     const raw = await request.json();
     const parsed = resolveDeckBodySchema.safeParse(raw);

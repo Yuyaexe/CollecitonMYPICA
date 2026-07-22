@@ -7,6 +7,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/cards/search|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip auth refresh on hot image/search proxies — they fire once per visible card.
+    "/((?!_next/static|_next/image|favicon.ico|api/cards/search|api/proxy-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

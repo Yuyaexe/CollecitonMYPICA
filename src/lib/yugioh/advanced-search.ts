@@ -7,6 +7,7 @@ import {
   type YugiohSearchCategory,
   type YugiohSearchField,
 } from "./advanced-search.constants";
+import { normalizeYugiohSearchQuery } from "./search-query";
 
 export interface YugiohAdvancedSearchFilters {
   keyword: string;
@@ -123,14 +124,15 @@ export function buildYgoAdvancedSearchParams(
 ): string {
   const params = new URLSearchParams();
   const keyword = filters.keyword.trim();
+  const collapsedKeyword = normalizeYugiohSearchQuery(keyword);
 
   if (keyword) {
     if (filters.searchField === "exact") {
       params.set("name", keyword);
     } else if (filters.searchField === "archetype") {
-      params.set("archetype", keyword);
+      params.set("archetype", collapsedKeyword || keyword);
     } else {
-      params.set("fname", keyword);
+      params.set("fname", collapsedKeyword || keyword);
     }
   }
 

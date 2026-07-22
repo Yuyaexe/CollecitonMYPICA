@@ -146,11 +146,12 @@ export function useOwnedCardsMutations({
     ) => {
       if (repairs.length === 0) return;
       if (!isSupabaseMode) {
+        const repairById = new Map(repairs.map((entry) => [entry.id, entry.card]));
         useDemoStore.setState((state) => ({
           ownedCards: state.ownedCards.map((oc) => {
-            const repair = repairs.find((entry) => entry.id === oc.id);
-            if (!repair) return oc;
-            return { ...oc, card: { ...oc.card, ...repair.card } };
+            const cardUpdates = repairById.get(oc.id);
+            if (!cardUpdates) return oc;
+            return { ...oc, card: { ...oc.card, ...cardUpdates } };
           }),
         }));
         return;

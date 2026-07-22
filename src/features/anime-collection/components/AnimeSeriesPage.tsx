@@ -22,6 +22,7 @@ import {
 } from "@/features/anime-collection/components/AnimeSeriesCard";
 import { EditSeriesModal } from "@/features/anime-collection/components/EditSeriesModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { resolveSeriesCoverUrl } from "@/features/anime-collection/utils/resolve-series-cover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { AnimeSeries } from "@/features/anime-collection/types";
 import { useT } from "@/lib/i18n/context";
@@ -93,7 +94,7 @@ export function AnimeSeriesPage() {
   const renderSeriesCard = (series: AnimeSeries, index: number) => (
     <AnimeSeriesCard
       name={series.name}
-      coverImageUrl={series.coverImageUrl}
+      coverImageUrl={resolveSeriesCoverUrl(series.slug, series.name, series.coverImageUrl)}
       coverColor={series.coverColor}
       characterCount={characterCountBySeries.get(series.id) ?? 0}
       index={index}
@@ -202,6 +203,7 @@ export function AnimeSeriesPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
         seriesName={editTarget?.name ?? ""}
+        seriesSlug={editTarget?.slug ?? ""}
         currentCoverUrl={editTarget?.coverImageUrl ?? null}
         coverColor={editTarget?.coverColor ?? null}
         onSave={handleEditSave}

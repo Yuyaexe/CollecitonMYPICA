@@ -6,6 +6,9 @@ export function normalizeSearchText(text: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[''`]/g, "'")
+    // "B. E. S." / "Blue - Eyes" → match card names like "B.E.S." / "Blue-Eyes"
+    .replace(/\s*\.\s*/g, ".")
+    .replace(/\s*-\s*/g, "-")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -12,6 +12,7 @@ export interface CollectionGridCardProps {
   cardCount: number;
   isFavorite?: boolean;
   isActive?: boolean;
+  isShared?: boolean;
   onSelect: () => void;
   onToggleFavorite?: () => void;
   onOpenMenu?: () => void;
@@ -31,6 +32,7 @@ export function CollectionGridCard({
   cardCount,
   isFavorite = false,
   isActive = false,
+  isShared = false,
   onSelect,
   onToggleFavorite,
   onOpenMenu,
@@ -152,7 +154,14 @@ export function CollectionGridCard({
       )}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-background/95 via-background/80 to-transparent px-3 pb-3 pt-10">
-        <p className="truncate text-sm font-semibold tracking-tight">{name}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-semibold tracking-tight">{name}</p>
+          {isShared && (
+            <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              {t("share.sharedBadge")}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {cardCount === 1
             ? t("collections.cardCountOne")

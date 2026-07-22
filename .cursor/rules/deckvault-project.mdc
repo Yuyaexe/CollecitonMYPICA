@@ -7,16 +7,16 @@ alwaysApply: true
 
 Supported games: Yu-Gi-Oh, Pokemon, Digimon.
 
-Goals: track collection, import/export (including file backup), multi-collection, anime side collection, proxy print, optional cloud sync and collection sharing.
+Goals: track collection, import/export (including file backup), multi-collection, anime side collection, proxy print, optional cloud sync (own account), shared collections with activity log.
 
 ## Product scope (current)
 
-**In scope:** Auth (optional cloud), Collection views, Search/Quick Add, Import CSV/decklist, Export, Collection manager, Anime collection (local), Proxy print, Settings + **JSON backup/restore**, Share collection (Supabase invite).
+**In scope:** Auth (optional cloud), Collection views, Search/Quick Add, Import CSV/decklist, Export, Collection manager, Anime collection (local), Proxy print, Settings + **JSON backup/restore**, **Share / collection invites** (editor/viewer), **Activity log + undo** (simple card actions).
 
-**Out of scope (removed):** Deck builder product, Wishlist product, in-collection Folders, Tags product, Price history / portfolio graphs, Trading, Notifications feed, community Phase 4, **Live realtime presence / live card sync**.
+**Out of scope (removed):** Deck builder, Wishlist, Folders, Tags, Price history, Trading, Notifications, Phase 4 community, **Live realtime presence**.
 
 ## Roadmap (slim)
 
-**Now:** Keep backup-by-file, polish collection UX, API safety.
+**Now:** Backup-by-file, polish collection UX, API safety (caps + rate limit), collab + activity.
 
-**Later (optional):** Stats summaries, bulk edit beyond delete, performance (binder virtualization).
+**Later (optional):** Stats summaries, bulk edit beyond delete, binder virtualization, anime cloud sync.

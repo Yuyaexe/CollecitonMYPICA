@@ -125,9 +125,53 @@ export async function getSupabaseAppState(supabase: SupabaseClient, userId: stri
     })
   );
 
+  const memberByCollection = new Map<
+    string,
+    { role: "owner" | "editor" | "viewer"; count: number }
+  >();
+
+  if (collectionIds.length > 0) {
+    const { data: memberRows } = await supabase
+      .from("collection_members")
+      .select("collection_id, user_id, role")
+      .in("collection_id", collectionIds);
+
+    const counts = new Map<string, number>();
+    for (const m of memberRows ?? []) {
+      counts.set(m.collection_id, (counts.get(m.collection_id) ?? 0) + 1);
+      if (m.user_id === userId) {
+        memberByCollection.set(m.collection_id, {
+          role: m.role as "owner" | "editor" | "viewer",
+          count: 0,
+        });
+      }
+    }
+    for (const [cid, count] of counts) {
+      const existing = memberByCollection.get(cid);
+      if (existing) existing.count = count;
+      else memberByCollection.set(cid, { role: "viewer", count });
+    }
+  }
+
+  const enrichedCollections = collections.map((col) => {
+    const row = (collectionRows ?? []).find((c) => c.id === col.id);
+    const ownerUserId = row?.user_id as string | undefined;
+    const isOwner = ownerUserId === userId;
+    const membership = memberByCollection.get(col.id);
+    const memberCount = membership?.count ?? 0;
+    return {
+      ...col,
+      ownerUserId,
+      memberRole: isOwner
+        ? ("owner" as const)
+        : membership?.role ?? ("viewer" as const),
+      isShared: !isOwner || memberCount > 0,
+    };
+  });
+
   return {
     profile,
-    collections,
+    collections: enrichedCollections,
     ownedCards: ownedRows,
     tags: [] as { id: string; name: string; color: string }[],
   };
@@ -147,37 +191,6 @@ export async function updateSupabaseProfile(
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;
-}
-
-export async function acceptCollectionInvites(userId: string, email: string): Promise<void> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) return;
-
-  const { data: invites, error: fetchErr } = await admin
-    .from("collection_invites")
-    .select("collection_id, role")
-    .eq("email", normalized);
-
-  if (fetchErr || !invites?.length) return;
-
-  const { error: insertErr } = await admin.from("collection_members").upsert(
-    invites.map((invite) => ({
-      collection_id: invite.collection_id,
-      user_id: userId,
-      role: invite.role,
-    })),
-    { onConflict: "collection_id,user_id", ignoreDuplicates: true }
-  );
-  if (insertErr) throw insertErr;
-
-  const { error: deleteErr } = await admin
-    .from("collection_invites")
-    .delete()
-    .eq("email", normalized);
-  if (deleteErr) throw deleteErr;
 }
 
 export async function createSupabaseCollection(
@@ -305,43 +318,6 @@ export async function deleteSupabaseCollection(
   const client = admin ?? supabase;
 
   const { error } = await client.from("collections").delete().eq("id", id);
-  if (error) throw error;
-}
-
-export async function inviteToCollection(
-  supabase: SupabaseClient,
-  userId: string,
-  collectionId: string,
-  email: string
-) {
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) throw new Error("Email required");
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const ownEmail = user?.email?.trim().toLowerCase();
-  if (ownEmail && ownEmail === normalized) {
-    throw new Error("Use o email de um amigo — você já é o dono desta coleção");
-  }
-
-  const { data: owned } = await supabase
-    .from("collections")
-    .select("id")
-    .eq("id", collectionId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!owned) throw new Error("Only the collection owner can invite");
-
-  const { error } = await supabase.from("collection_invites").upsert(
-    {
-      collection_id: collectionId,
-      email: normalized,
-      role: "editor",
-      invited_by: userId,
-    },
-    { onConflict: "collection_id,email" }
-  );
   if (error) throw error;
 }
 

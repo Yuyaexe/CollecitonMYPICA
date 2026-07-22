@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Download, Layers, PackageOpen, Pencil, Plus } from "lucide-react";
+import { Download, Layers, PackageOpen, Pencil, Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { CharacterCardsView } from "@/features/anime-collection/components/CharacterCardsView";
+import { AnimeCharacterBulkActionsBar } from "@/features/anime-collection/components/AnimeCharacterBulkActionsBar";
 import { AnimeCollectionBreadcrumb } from "@/features/anime-collection/components/AnimeCollectionBreadcrumb";
 import { CharacterWheel } from "@/features/anime-collection/components/CharacterWheel";
 import {
@@ -16,18 +18,31 @@ import {
 } from "@/features/anime-collection/components/EditCharacterPhotoModal";
 import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
 import { ExportDeckModal } from "@/features/import/components/ExportDeckModal";
+import { ImportModal } from "@/features/import/components/ImportModal";
 import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useAnimeCharacterUIStore } from "@/features/anime-collection/stores/anime-character-ui.store";
 import {
   animeCharacterCardToOwned,
   ownedUpdatesToAnimeCharacter,
 } from "@/features/anime-collection/utils/character-card-inspect";
 import { AnimeYugiohPasscodeSync } from "@/features/anime-collection/hooks/useAnimeYugiohPasscodeSync";
 import { YugiohPasscodeProvider } from "@/features/collection/context/yugioh-passcode-context";
+import {
+  binderSpreadCount,
+  mergeBinderLayout,
+} from "@/lib/collections/binder-layout";
+import { BINDER_GRID_LAYOUTS } from "@/components/shared/binder/BinderChrome";
 import { useAppData } from "@/hooks/useAppData";
 import { useDemoStore } from "@/lib/demo/store";
 import { useT } from "@/lib/i18n/context";
-import { useMemo, useState } from "react";
+import {
+  cardMatchesDeckCategoryFilter,
+  type YugiohDeckCategory,
+  YUGIOH_DECK_CATEGORIES,
+} from "@/lib/yugioh/deck-category";
+import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export interface CharacterDetailPageProps {
@@ -52,10 +67,19 @@ export function CharacterDetailPage({
     addAnimeCharacterCardFromSearch,
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
+    setAnimeCharacterCardsQuantityToOne,
+    sortAnimeCharacterCards,
     updateAnimeCharacterCard,
     reorderAnimeCharacterCard,
-    reorderAnimeCharacterCardToIndex,
+    moveAnimeCharacterCardsToBinderSlot,
+    moveAnimeCharacterCardsToBinderSpread,
+    transferAnimeCharacterCards,
+    animeBinderLayoutByCharacter,
   } = useAnimeCollection();
+
+  const clearSelection = useAnimeCharacterUIStore((s) => s.clearSelection);
+  const draggedCardIds = useAnimeCharacterUIStore((s) => s.draggedCardIds);
+  const setDraggedCardIds = useAnimeCharacterUIStore((s) => s.setDraggedCardIds);
 
   const series = getSeriesBySlug(seriesSlug);
   const character = getCharacterById(characterId);
@@ -71,17 +95,165 @@ export function CharacterDetailPage({
     [character, animeCharacterCards]
   );
 
+  const [deckFilters, setDeckFilters] = useState<Set<YugiohDeckCategory>>(
+    () => new Set()
+  );
+
+  const typedCardCount = useMemo(
+    () => characterCards.filter((card) => !!card.card.type?.trim()).length,
+    [characterCards]
+  );
+  const typesPending = characterCards.length > 0 && typedCardCount < characterCards.length;
+
+  const visibleCards = useMemo(() => {
+    if (deckFilters.size === 0) return characterCards;
+    return characterCards.filter((card) =>
+      cardMatchesDeckCategoryFilter(card.card.type, deckFilters, {
+        includeUnknown: typesPending,
+      })
+    );
+  }, [characterCards, deckFilters, typesPending]);
+
+  const displayBinderLayout = useMemo(() => {
+    if (deckFilters.size > 0) {
+      // Compact filtered view — avoid empty pockets from the full binder.
+      return visibleCards.map((card) => card.id);
+    }
+    return animeBinderLayoutByCharacter[characterId] ?? [];
+  }, [animeBinderLayoutByCharacter, characterId, deckFilters.size, visibleCards]);
+
+  const toggleDeckFilter = useCallback((category: YugiohDeckCategory) => {
+    setDeckFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }, []);
+
   const ownedForPasscodes = useMemo(
     () => characterCards.map(animeCharacterCardToOwned),
     [characterCards]
   );
+
+  const cardQuantitiesById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const card of characterCards) {
+      map.set(card.id, card.quantity);
+    }
+    return map;
+  }, [characterCards]);
+
+  const [binderLayoutId, setBinderLayoutId] = useState<"4x3" | "3x3">("4x3");
+  useEffect(() => {
+    const stored = localStorage.getItem("deckvault-anime-character-binder-layout");
+    if (stored === "3x3" || stored === "4x3") setBinderLayoutId(stored);
+  }, []);
+  const { cols, rows } = BINDER_GRID_LAYOUTS[binderLayoutId];
+  const spreadSize = cols * rows * 2;
+
+  const totalSpreads = useMemo(() => {
+    const ids = characterCards.map((c) => c.id);
+    const saved = animeBinderLayoutByCharacter[characterId] ?? ids;
+    const layout = mergeBinderLayout(saved, ids);
+    return binderSpreadCount(layout, spreadSize);
+  }, [animeBinderLayoutByCharacter, characterCards, characterId, spreadSize]);
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
+  const [spreadIndex, setSpreadIndex] = useState(0);
+  const [sortValue, setSortValue] = useState("name:asc");
+  const lastDeckSortTypedCount = useRef(0);
+
+  const hasQuantityAboveOne = useMemo(
+    () => characterCards.some((card) => card.quantity > 1),
+    [characterCards]
+  );
+
+  const handleSortChange = useCallback(
+    (value: string) => {
+      if (!character) return;
+      const [field, dir] = value.split(":") as [
+        "name" | "quantity" | "set" | "rarity" | "deck",
+        "asc" | "desc",
+      ];
+      setSortValue(value);
+      sortAnimeCharacterCards(character.id, field, dir);
+      if (field === "deck") {
+        lastDeckSortTypedCount.current = typedCardCount;
+      }
+    },
+    [character, sortAnimeCharacterCards, typedCardCount]
+  );
+
+  // Re-apply deck sort once card types finish loading.
+  useEffect(() => {
+    if (!character || sortValue !== "deck:asc") return;
+    if (typedCardCount === 0) return;
+    if (typedCardCount <= lastDeckSortTypedCount.current) return;
+    lastDeckSortTypedCount.current = typedCardCount;
+    sortAnimeCharacterCards(character.id, "deck", "asc");
+  }, [character, sortAnimeCharacterCards, sortValue, typedCardCount]);
+
+  const handleSetAllToOne = useCallback(() => {
+    if (!character || !hasQuantityAboveOne) return;
+    if (!confirm(t("anime.setAllToOneConfirm"))) return;
+    const changed = setAnimeCharacterCardsQuantityToOne(character.id);
+    if (changed > 0) {
+      toast.success(t("anime.setAllToOneDone", { count: changed }));
+    } else {
+      toast.message(t("anime.setAllToOneNone"));
+    }
+  }, [character, hasQuantityAboveOne, setAnimeCharacterCardsQuantityToOne, t]);
+
+  useEffect(() => {
+    clearSelection();
+    setDraggedCardIds([]);
+    setSpreadIndex(0);
+    setSortValue("name:asc");
+    setDeckFilters(new Set());
+    lastDeckSortTypedCount.current = 0;
+  }, [characterId, clearSelection, setDraggedCardIds]);
+
+  useEffect(() => {
+    return () => {
+      clearSelection();
+      setDraggedCardIds([]);
+    };
+  }, [clearSelection, setDraggedCardIds]);
+
+  const handleImportDeck = useCallback(
+    (
+      items: Array<{
+        result: Parameters<typeof addAnimeCharacterCardFromSearch>[1];
+        quantity: number;
+        gameId: string;
+        gameSlug: string;
+        gameName: string;
+      }>
+    ) => {
+      if (!character) return 0;
+      let count = 0;
+      for (const item of items) {
+        addAnimeCharacterCardFromSearch(
+          character.id,
+          item.result,
+          item.gameId,
+          item.gameSlug,
+          item.gameName,
+          item.quantity
+        );
+        count += item.quantity;
+      }
+      return count;
+    },
+    [addAnimeCharacterCardFromSearch, character]
+  );
 
   const exportCards = useMemo(
     () => characterCards.map(animeCharacterCardToOwned),
@@ -91,6 +263,46 @@ export function CharacterDetailPage({
   const inspectEntry = useMemo(
     () => characterCards.find((c) => c.id === inspectCardId) ?? null,
     [characterCards, inspectCardId]
+  );
+
+  const handleDropOnCharacter = useCallback(
+    (targetCharacterId: string, cardIds: string[]) => {
+      if (!character || targetCharacterId === character.id) return;
+      const target = seriesCharacters.find((c) => c.id === targetCharacterId);
+      const result = transferAnimeCharacterCards(
+        character.id,
+        targetCharacterId,
+        cardIds
+      );
+      setDraggedCardIds([]);
+      clearSelection();
+      if (result.moved > 0 && result.merged > 0) {
+        toast.success(
+          t("anime.cardsMovedMerged", {
+            moved: result.moved,
+            merged: result.merged,
+            name: target?.name ?? "",
+          })
+        );
+      } else if (result.merged > 0) {
+        toast.success(t("anime.cardsMerged", { count: result.merged }));
+      } else if (result.moved > 0) {
+        toast.success(
+          t("anime.cardsMoved", {
+            count: result.moved,
+            name: target?.name ?? "",
+          })
+        );
+      }
+    },
+    [
+      character,
+      clearSelection,
+      seriesCharacters,
+      setDraggedCardIds,
+      t,
+      transferAnimeCharacterCards,
+    ]
   );
 
   if (!series || !character || character.seriesId !== series.id) {
@@ -146,12 +358,17 @@ export function CharacterDetailPage({
         characters={seriesCharacters}
         activeCharacterId={character.id}
         seriesSlug={seriesSlug}
+        seriesName={series.name}
+        draggedCardIds={draggedCardIds}
+        onDropCardsOnCharacter={handleDropOnCharacter}
       />
 
       <div className="mx-auto flex max-w-lg flex-col items-center pt-4">
         <CharacterAvatar
           name={character.name}
           imageUrl={character.imageUrl}
+          seriesSlug={seriesSlug}
+          seriesName={series.name}
           accentColor={character.accentColor}
           editable
           onEdit={() => setPhotoOpen(true)}
@@ -192,12 +409,49 @@ export function CharacterDetailPage({
             <p className="text-sm text-muted-foreground">
               {characterCards.length === 0
                 ? t("anime.noCardsLinked")
-                : characterCards.length === 1
-                  ? `1 ${t("common.cards").replace(/s$/, "")}`
-                  : `${characterCards.length} ${t("common.cards")}`}
+                : deckFilters.size > 0
+                  ? t("anime.filteredCardsCount", {
+                      shown: visibleCards.length,
+                      total: characterCards.length,
+                    })
+                  : characterCards.length === 1
+                    ? `1 ${t("common.cards").replace(/s$/, "")}`
+                    : `${characterCards.length} ${t("common.cards")}`}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {characterCards.length > 0 ? (
+              <>
+                <div className="w-[min(100%,14rem)]">
+                  <ResponsiveSelect
+                    value={sortValue}
+                    onValueChange={handleSortChange}
+                    placeholder={t("collection.sortBy")}
+                    triggerClassName="h-9"
+                    options={[
+                      { value: "deck:asc", label: t("anime.sortDeckSections") },
+                      { value: "name:asc", label: t("collection.sortNameAsc") },
+                      { value: "name:desc", label: t("collection.sortNameDesc") },
+                      { value: "quantity:desc", label: t("collection.sortQtyDesc") },
+                      { value: "quantity:asc", label: t("collection.sortQtyAsc") },
+                      { value: "set:asc", label: t("collection.sortSetAsc") },
+                      { value: "rarity:asc", label: t("collection.sortRarityAsc") },
+                    ]}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleSetAllToOne}
+                  disabled={!hasQuantityAboveOne}
+                >
+                  {t("anime.setAllToOne")}
+                </Button>
+              </>
+            ) : null}
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-1.5 h-4 w-4" />
+              {t("anime.importCharacterDeck")}
+            </Button>
             <Button
               variant="outline"
               onClick={() => setExportOpen(true)}
@@ -213,6 +467,39 @@ export function CharacterDetailPage({
           </div>
         </div>
 
+        {characterCards.length > 0 ? (
+          <div
+            className="mb-4 flex flex-wrap items-center gap-2"
+            role="group"
+            aria-label={t("anime.filterTypeLabel")}
+          >
+            {YUGIOH_DECK_CATEGORIES.map((category) => {
+              const active = deckFilters.has(category);
+              const label =
+                category === "monster"
+                  ? t("anime.filterMonster")
+                  : category === "spell"
+                    ? t("anime.filterSpell")
+                    : category === "trap"
+                      ? t("anime.filterTrap")
+                      : t("anime.filterExtra");
+              return (
+                <Button
+                  key={category}
+                  type="button"
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  aria-pressed={active}
+                  className={cn("h-8", active && "shadow-sm")}
+                  onClick={() => toggleDeckFilter(category)}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+        ) : null}
+
         {characterCards.length === 0 ? (
           <div className="rounded-xl border border-border/70 bg-card/50">
             <EmptyState
@@ -223,21 +510,71 @@ export function CharacterDetailPage({
               onAction={() => setAddCardOpen(true)}
             />
           </div>
+        ) : visibleCards.length === 0 ? (
+          <div className="rounded-xl border border-border/70 bg-card/50 px-6 py-12 text-center text-sm text-muted-foreground">
+            {t("anime.filteredCardsCount", {
+              shown: 0,
+              total: characterCards.length,
+            })}
+          </div>
         ) : (
           <CharacterCardsView
-            cards={characterCards}
+            cards={visibleCards}
+            binderSlotLayout={displayBinderLayout}
             onRemove={handleRemoveCard}
             onQuantityChange={updateAnimeCharacterCardQuantity}
             onOpenCard={(item) => setInspectCardId(item.id)}
-            onReorder={(draggedId, targetId) =>
-              reorderAnimeCharacterCard(character.id, draggedId, targetId)
-            }
-            onReorderToIndex={(draggedId, targetIndex) =>
-              reorderAnimeCharacterCardToIndex(character.id, draggedId, targetIndex)
-            }
+            onReorder={(draggedId, targetId) => {
+              if (deckFilters.size > 0) return;
+              reorderAnimeCharacterCard(character.id, draggedId, targetId);
+            }}
+            onMoveToBinderSlot={(cardIds, targetIndex) => {
+              if (deckFilters.size > 0) return;
+              moveAnimeCharacterCardsToBinderSlot(character.id, cardIds, targetIndex);
+            }}
+            onMoveToBinderSpread={(cardIds, targetSpreadIndex, size) => {
+              if (deckFilters.size > 0) return;
+              moveAnimeCharacterCardsToBinderSpread(
+                character.id,
+                cardIds,
+                targetSpreadIndex,
+                size
+              );
+              setSpreadIndex(targetSpreadIndex);
+            }}
+            spreadIndex={spreadIndex}
+            onSpreadIndexChange={setSpreadIndex}
           />
         )}
       </div>
+
+      <AnimeCharacterBulkActionsBar
+        characterId={character.id}
+        characterName={character.name}
+        seriesSlug={seriesSlug}
+        seriesName={series.name}
+        seriesCharacters={seriesCharacters}
+        totalSpreads={totalSpreads}
+        spreadSize={spreadSize}
+        binderSlotLayout={animeBinderLayoutByCharacter[character.id] ?? []}
+        cardIds={visibleCards.map((c) => c.id)}
+        cardQuantitiesById={cardQuantitiesById}
+        onMoveToSpread={(cardIds, targetSpread) => {
+          moveAnimeCharacterCardsToBinderSpread(
+            character.id,
+            cardIds,
+            targetSpread,
+            spreadSize
+          );
+          setSpreadIndex(targetSpread);
+        }}
+        onTransferToCharacter={(cardIds, targetId) =>
+          transferAnimeCharacterCards(character.id, targetId, cardIds)
+        }
+        onDelete={(ids) => {
+          ids.forEach((id) => removeAnimeCharacterCard(id));
+        }}
+      />
 
       <CardInspectDialog
         card={inspectEntry ? animeCharacterCardToOwned(inspectEntry) : null}
@@ -262,6 +599,15 @@ export function CharacterDetailPage({
         description={t("anime.exportCharacterDeckDescription")}
       />
 
+      <ImportModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title={t("anime.importCharacterDeckTitle")}
+        description={t("anime.importCharacterDeckDescription")}
+        decklistOnly
+        onImportDeck={handleImportDeck}
+      />
+
       <QuickAddModal
         open={addCardOpen}
         onOpenChange={setAddCardOpen}
@@ -284,6 +630,8 @@ export function CharacterDetailPage({
         onOpenChange={setPhotoOpen}
         characterName={character.name}
         currentImageUrl={character.imageUrl}
+        seriesSlug={seriesSlug}
+        seriesName={series.name}
         accentColor={character.accentColor}
         onSave={(url) => updateAnimeCharacterImage(character.id, url)}
       />

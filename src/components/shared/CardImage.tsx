@@ -18,7 +18,10 @@ interface CardImageProps {
   fallbackSrc?: string | null;
   /** Show pulse skeleton while passcode/image is resolving. */
   loading?: boolean;
-  /** Read thumbnails from local IndexedDB when available. */
+  /**
+   * Read thumbnails from IndexedDB / proxy when available.
+   * Default off for list thumbs (avoids IDB+proxy storm); enable for inspect/offline.
+   */
   useLocalCache?: boolean;
 }
 
@@ -38,7 +41,7 @@ export function CardImage({
   sizes,
   fallbackSrc,
   loading = false,
-  useLocalCache = true,
+  useLocalCache = false,
 }: CardImageProps) {
   const [error, setError] = useState(false);
   const [activeSrc, setActiveSrc] = useState(src);

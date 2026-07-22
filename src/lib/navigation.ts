@@ -1,6 +1,7 @@
 import {
   Layers,
   LayoutGrid,
+  History,
   Printer,
   Settings,
   Sparkles,
@@ -27,6 +28,12 @@ export const appNavItems: AppNavItem[] = [
     labelKey: "nav.collection",
     shortLabelKey: "nav.collectionShort",
     icon: Layers,
+  },
+  {
+    href: "/activity",
+    labelKey: "nav.activity",
+    shortLabelKey: "nav.activityShort",
+    icon: History,
   },
   {
     href: "/anime-collection",

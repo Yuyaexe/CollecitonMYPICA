@@ -116,6 +116,7 @@ export function CardHoverPreview({
                 alt={alt}
                 width={PREVIEW_WIDTH}
                 height={PREVIEW_HEIGHT}
+                useLocalCache
                 className="object-contain bg-zinc-950"
               />
             </div>

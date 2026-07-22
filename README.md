@@ -1,6 +1,6 @@
 # DeckVault
 
-Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — collection, imports/exports, anime side collection, proxy print, and optional cloud sharing.
+Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — collection, imports/exports, anime side collection, proxy print, and optional cloud sync.
 
 ## Get started (2 minutes)
 
@@ -23,11 +23,12 @@ No account needed. Your data stays in the browser until you set up cloud sync.
 - **Search & add** — Yu-Gi-Oh! cards from **YGOPRODeck** (names, images, sets, passcodes)
 - **Import** — decklists (text with `Monster` / `Spell` / `Trap` sections, YDKE, YDK), DigimonCard.io format, CSV
 - **Export** — TXT decklist, CSV, `.ydk` (EdoPro)
-- **Collections** — multiple collections, share with a collaborator (Supabase)
+- **Collections** — multiple collections (cloud optional); **share** with editors/viewers by email invite
+- **Activity** — log of who changed which cards, with undo for simple edits
 - **Mercado** — external links per card (Yu-Gi-Oh!: TCGPlayer, Liga Yu-Gi-Oh!, MyP Cards, CardTrader)
 - **Anime collection** — optional side collection for character/series cards
 - **Proxy print** — print proxy sheets
-- **Backup** — download/restore a JSON file from Settings (always available; do not skip this)
+- **Backup** — download/restore a JSON file from Settings (always available; do not skip this). In local mode a banner reminds you to download.
 
 **Card data sources**
 
@@ -45,25 +46,22 @@ CardTrader is **not** used for search or live prices — only product/search URL
 
 ## Advanced setup
 
-Everything below is optional — only needed for cloud sync, sharing collections, or building a desktop app.
+Everything below is optional — only needed for cloud sync or building a desktop app.
 
 ### Demo vs Supabase
 
 | Mode | When to use |
 |------|-------------|
-| **Demo** | Try locally, no setup. Data in browser (localStorage). |
-| **Supabase** | Login, cloud backup, share collections with friends. |
+| **Demo / Local** | Try locally, no setup. Data in browser (localStorage). |
+| **Supabase** | Login + cloud backup of your own collections. |
 
 ### Supabase + Vercel
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy env vars into `.env.local` (Supabase URL, anon key, `DATABASE_URL`)
-3. Run migrations in the SQL Editor — files `0001` through `0010` in `src/lib/db/migrations/`, in order
-4. **Database → Publications** — optionally add `owned_cards` / `collections` to `supabase_realtime` (not required for current UI)
-5. Deploy to [Vercel](https://vercel.com)
-6. Supabase → **Authentication → URL Configuration** — set Site URL to your Vercel domain
-
-**Share a collection:** Collection → Share → friend's email → they sign up / log in with that email.
+3. Run migrations in the SQL Editor — files `0001` through `0012` in `src/lib/db/migrations/`, in order
+4. Deploy to [Vercel](https://vercel.com)
+5. Supabase → **Authentication → URL Configuration** — set Site URL to your Vercel domain
 
 ### Migrations
 
@@ -71,7 +69,7 @@ Run in SQL Editor, in order:
 
 1. `0001_seed_and_indexes.sql`
 2. `0002_rls_policies.sql`
-3. `0003_collaboration.sql`
+3. `0003_collaboration.sql` (legacy; tables dropped in `0011`)
 4. `0004_create_collection_rpc.sql`
 5. `0005_rls_phase3_tables.sql` (legacy; tables dropped in `0010`)
 6. `0006_security_hardening.sql`
@@ -79,6 +77,8 @@ Run in SQL Editor, in order:
 8. `0008_private_rls_helpers.sql`
 9. `0009_cards_catalog_immutable.sql` (if present)
 10. `0010_drop_unused_phase_tables.sql`
+11. `0011_drop_collaboration.sql`
+12. `0012_collaboration_and_activity.sql` (reintroduces members/invites + activity log)
 
 **Auth tip:** enable **Leaked password protection** under Authentication → Providers → Email.
 
@@ -108,4 +108,4 @@ npm run lint         # ESLint
 
 ## Out of scope
 
-Deck builder, wishlist product, price graphs, trading, notifications feed, and community features are **not** part of the current product. Tags and in-collection folders were removed from the schema.
+Deck builder, wishlist, price graphs, trading, notifications, community features, and **Live realtime presence** are **not** part of the current product. Share/collab and Activity log **are** supported in cloud mode.

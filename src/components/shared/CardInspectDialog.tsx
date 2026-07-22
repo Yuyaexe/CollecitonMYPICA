@@ -224,6 +224,7 @@ export function CardInspectDialog({
                     fill
                     sizes="(max-width: 768px) 120px, 160px"
                     fallbackSrc={ygoImageFallback}
+                    useLocalCache
                     className="object-contain p-0.5"
                   />
                 )}

@@ -59,3 +59,9 @@ CollecitonMYPICA/
 # editor
 .vscode/
 .env*
+
+# audit ephemeral browser profile (Lighthouse / screenshots)
+docs/audit-artifacts/chrome-profile/
+
+# local-only tooling / imports (not shipped with the app)
+/local/

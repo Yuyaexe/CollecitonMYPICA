@@ -12,6 +12,7 @@ import {
   isValidImageUrl,
   readImageFileAsDataUrl,
 } from "@/features/anime-collection/utils/image";
+import { resolveCharacterPortraitUrl } from "@/features/anime-collection/utils/resolve-character-portrait";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ interface EditCharacterModalProps {
   onOpenChange: (open: boolean) => void;
   characterName: string;
   currentImageUrl: string | null;
+  seriesSlug?: string;
+  seriesName?: string;
   accentColor: string | null;
   onSave: (input: { name: string; imageUrl: string | null }) => void;
 }
@@ -30,6 +33,8 @@ export function EditCharacterModal({
   onOpenChange,
   characterName,
   currentImageUrl,
+  seriesSlug,
+  seriesName,
   accentColor,
   onSave,
 }: EditCharacterModalProps) {
@@ -40,7 +45,9 @@ export function EditCharacterModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl);
   const [loadingFile, setLoadingFile] = useState(false);
 
-  const displayPreview = previewUrl?.trim() || null;
+  const displayPreview =
+    previewUrl?.trim() ||
+    resolveCharacterPortraitUrl(seriesSlug, seriesName, name, currentImageUrl);
   const initials = getCharacterInitials(name);
 
   const resetForm = () => {

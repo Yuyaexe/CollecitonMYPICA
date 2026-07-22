@@ -109,6 +109,23 @@ function isSectionHeader(line: string): boolean {
   return YGO_SECTIONS.has(line.trim().toLowerCase());
 }
 
+/** Non-empty lines that should parse as card rows (excludes comments / section headers). */
+export function countDecklistCandidateLines(content: string): number {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line || line.startsWith("//")) return false;
+      if (isSectionHeader(line)) return false;
+      if (/^#created/i.test(line)) return false;
+      if (/^#(main|extra|side)|^!(main|extra|side)/i.test(line)) return false;
+      if (/^(main|egg|side|tamer|option|digimon|digi-?egg)s?(\s+deck)?$/i.test(line)) {
+        return false;
+      }
+      return true;
+    }).length;
+}
+
 function pushPasscodes(
   entries: ParsedDeckEntry[],
   passcodes: number[],

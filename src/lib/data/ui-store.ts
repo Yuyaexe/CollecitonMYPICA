@@ -53,10 +53,7 @@ export const useDataUiStore = create<DataUiStore>()(
             ...s.cardOrderByCollection,
             [collectionId]: next,
           },
-          binderLayoutByCollection: {
-            ...s.binderLayoutByCollection,
-            [collectionId]: next,
-          },
+          // Keep sparse binder pockets intact; binder drag uses moveCardToBinderSlot.
         }));
       },
       reorderCardToIndex: (collectionId, draggedId, targetIndex) => {
@@ -65,10 +62,6 @@ export const useDataUiStore = create<DataUiStore>()(
         set((s) => ({
           cardOrderByCollection: {
             ...s.cardOrderByCollection,
-            [collectionId]: next,
-          },
-          binderLayoutByCollection: {
-            ...s.binderLayoutByCollection,
             [collectionId]: next,
           },
         }));

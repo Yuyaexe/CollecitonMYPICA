@@ -12,6 +12,7 @@ import {
   isValidImageUrl,
   readImageFileAsDataUrl,
 } from "@/features/anime-collection/utils/image";
+import { resolveCharacterPortraitUrl } from "@/features/anime-collection/utils/resolve-character-portrait";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ interface EditCharacterPhotoModalProps {
   onOpenChange: (open: boolean) => void;
   characterName: string;
   currentImageUrl: string | null;
+  seriesSlug?: string;
+  seriesName?: string;
   accentColor: string | null;
   onSave: (imageUrl: string | null) => void;
 }
@@ -30,6 +33,8 @@ export function EditCharacterPhotoModal({
   onOpenChange,
   characterName,
   currentImageUrl,
+  seriesSlug,
+  seriesName,
   accentColor,
   onSave,
 }: EditCharacterPhotoModalProps) {
@@ -40,7 +45,9 @@ export function EditCharacterPhotoModal({
   const [loadingFile, setLoadingFile] = useState(false);
 
   const initials = getCharacterInitials(characterName);
-  const displayPreview = previewUrl?.trim() || null;
+  const displayPreview =
+    previewUrl?.trim() ||
+    resolveCharacterPortraitUrl(seriesSlug, seriesName, characterName, currentImageUrl);
 
   const resetForm = () => {
     setImageUrl(currentImageUrl ?? "");
@@ -191,6 +198,8 @@ export function EditCharacterPhotoModal({
 interface CharacterAvatarProps {
   name: string;
   imageUrl: string | null;
+  seriesSlug?: string;
+  seriesName?: string;
   accentColor: string | null;
   size?: "md" | "lg";
   editable?: boolean;
@@ -200,21 +209,29 @@ interface CharacterAvatarProps {
 export function CharacterAvatar({
   name,
   imageUrl,
+  seriesSlug,
+  seriesName,
   accentColor,
   size = "lg",
   editable = false,
   onEdit,
 }: CharacterAvatarProps) {
   const t = useT();
+  const displayImageUrl = resolveCharacterPortraitUrl(
+    seriesSlug,
+    seriesName,
+    name,
+    imageUrl
+  );
   const initials = getCharacterInitials(name);
   const sizeClass = size === "lg" ? "h-40 w-40" : "h-[88px] w-[88px]";
   const textClass = size === "lg" ? "text-4xl" : "text-lg";
 
   const inner = (
     <>
-      {imageUrl ? (
+      {displayImageUrl ? (
         <CardImage
-          src={imageUrl}
+          src={displayImageUrl}
           alt={name}
           fill
           sizes={size === "lg" ? "160px" : "88px"}
@@ -244,7 +261,7 @@ export function CharacterAvatar({
   );
 
   const style =
-    !imageUrl && accentColor
+    !displayImageUrl && accentColor
       ? { background: `linear-gradient(135deg, ${accentColor}, hsl(0 0% 16%))` }
       : undefined;
 

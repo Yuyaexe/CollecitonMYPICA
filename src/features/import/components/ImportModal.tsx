@@ -19,10 +19,12 @@ import {
 } from "@/features/import/services/csv-parser";
 import {
   aggregateDeckEntries,
+  countDecklistCandidateLines,
   inferDecklistGame,
   parseDecklist,
 } from "@/features/import/services/decklist-parser";
 import type { DecklistGameSlug, ResolvedDeckEntry } from "@/features/import/types";
+import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { DEMO_GAMES } from "@/lib/demo/types";
 import { useAppData } from "@/hooks/useAppData";
 import {
@@ -35,15 +37,34 @@ import { useT } from "@/lib/i18n/context";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { RESOLVE_DECK_MAX_ENTRIES } from "@/lib/api/request-limits";
+
+export interface ImportDeckItem {
+  result: CardSearchResult;
+  quantity: number;
+  gameId: string;
+  gameSlug: string;
+  gameName: string;
+}
 
 interface ImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  title?: string;
+  description?: string;
+  /** When set, only the decklist tab is shown (e.g. character deck import). */
+  decklistOnly?: boolean;
+  /** Custom destination for resolved deck rows (defaults to TCG collection). */
+  onImportDeck?: (
+    items: ImportDeckItem[],
+    mergeDuplicates: boolean
+  ) => number | Promise<number>;
 }
 
 type ImportTab = "decklist" | "csv";
 
 const RESOLVE_FAILED = "RESOLVE_FAILED";
+const RESOLVE_TOO_MANY = "RESOLVE_TOO_MANY";
 
 const FORMAT_KEYS: Record<string, MessageKey> = {
   ydke: "import.formatYdke",
@@ -53,7 +74,7 @@ const FORMAT_KEYS: Record<string, MessageKey> = {
   unknown: "import.formatUnknown",
 };
 
-async function resolveDeckEntries(
+async function resolveDeckEntriesChunk(
   entries: ReturnType<typeof aggregateDeckEntries>,
   gameSlug: DecklistGameSlug
 ): Promise<ResolvedDeckEntry[]> {
@@ -62,12 +83,43 @@ async function resolveDeckEntries(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ gameSlug, entries }),
   });
-  if (!res.ok) throw new Error(RESOLVE_FAILED);
+  if (!res.ok) {
+    if (res.status === 400) {
+      const body = (await res.json().catch(() => null)) as {
+        maxEntries?: number;
+      } | null;
+      if (body?.maxEntries != null) throw new Error(RESOLVE_TOO_MANY);
+    }
+    throw new Error(RESOLVE_FAILED);
+  }
   const json = (await res.json()) as { resolved: ResolvedDeckEntry[] };
   return json.resolved;
 }
 
-export function ImportModal({ open, onOpenChange }: ImportModalProps) {
+/** Resolve in batches so decks larger than the API cap still import. */
+async function resolveDeckEntries(
+  entries: ReturnType<typeof aggregateDeckEntries>,
+  gameSlug: DecklistGameSlug
+): Promise<ResolvedDeckEntry[]> {
+  if (entries.length === 0) return [];
+
+  const resolved: ResolvedDeckEntry[] = [];
+  for (let i = 0; i < entries.length; i += RESOLVE_DECK_MAX_ENTRIES) {
+    const chunk = entries.slice(i, i + RESOLVE_DECK_MAX_ENTRIES);
+    const chunkResolved = await resolveDeckEntriesChunk(chunk, gameSlug);
+    resolved.push(...chunkResolved);
+  }
+  return resolved;
+}
+
+export function ImportModal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  decklistOnly = false,
+  onImportDeck,
+}: ImportModalProps) {
   const t = useT();
   const [tab, setTab] = useState<ImportTab>("decklist");
   const [deckText, setDeckText] = useState("");
@@ -83,6 +135,7 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
   const [fullData, setFullData] = useState<Record<string, string>[]>([]);
 
   const { importRows, importDeckFromSearch } = useAppData();
+  const activeTab = decklistOnly ? "decklist" : tab;
 
   const gameOptions = useMemo(
     () => [
@@ -97,13 +150,11 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
     if (!deckText.trim()) return null;
     const preferred = gamePreference === "auto" ? undefined : gamePreference;
     const parsed = parseDecklist(deckText, preferred);
+    const rawParsedCount = parsed.entries.length;
     const entries = aggregateDeckEntries(parsed.entries);
     const inferredGame = inferDecklistGame(entries, { ...parsed, entries });
-    const nonCommentLines = deckText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("//")).length;
-    const unparsedLines = Math.max(0, nonCommentLines - entries.length);
+    const candidateLines = countDecklistCandidateLines(deckText);
+    const unparsedLines = Math.max(0, candidateLines - rawParsedCount);
     return { ...parsed, entries, inferredGame, unparsedLines };
   }, [deckText, gamePreference]);
 
@@ -187,16 +238,16 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       }
 
       setImportStatus(t("import.savingCollection"));
-      const count = await importDeckFromSearch(
-        withResults.map((row) => ({
-          result: row.result!,
-          quantity: row.entry.quantity,
-          gameId: game.id,
-          gameSlug: game.slug,
-          gameName: game.name,
-        })),
-        mergeDuplicates
-      );
+      const items: ImportDeckItem[] = withResults.map((row) => ({
+        result: row.result!,
+        quantity: row.entry.quantity,
+        gameId: game.id,
+        gameSlug: game.slug,
+        gameName: game.name,
+      }));
+      const count = onImportDeck
+        ? await onImportDeck(items, mergeDuplicates)
+        : await importDeckFromSearch(items, mergeDuplicates);
 
       toast.success(
         failed > 0
@@ -206,12 +257,14 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
       onOpenChange(false);
       resetState();
     } catch (err) {
-      if (err instanceof Error && err.message === RESOLVE_FAILED) {
+      if (err instanceof Error && err.message === RESOLVE_TOO_MANY) {
+        toast.error(t("import.resolveTooMany", { max: RESOLVE_DECK_MAX_ENTRIES }));
+      } else if (err instanceof Error && err.message === RESOLVE_FAILED) {
         toast.error(t("import.resolveFailed"));
       } else if (err instanceof Error && err.message === NO_ACTIVE_COLLECTION) {
         toast.error(t("collection.noActiveCollection"));
       } else {
-        toast.error(err instanceof Error ? err.message : t("import.failed"));
+        toast.error(err instanceof Error && err.message ? err.message : t("import.failed"));
       }
     } finally {
       setImporting(false);
@@ -266,8 +319,8 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
         if (!next) resetState();
         onOpenChange(next);
       }}
-      title={t("import.title")}
-      description={t("import.description")}
+      title={title ?? t("import.title")}
+      description={description ?? t("import.description")}
       className="max-w-2xl sm:max-w-2xl"
     >
       <div className="relative space-y-4">
@@ -276,22 +329,24 @@ export function ImportModal({ open, onOpenChange }: ImportModalProps) {
           title={importStatus ?? t("import.importing")}
           description={t("import.importingHint")}
         />
-        <div className="inline-flex shrink-0 rounded-lg border border-border/60 bg-muted/30 p-0.5">
-          {(["decklist", "csv"] as ImportTab[]).map((value) => (
-            <Button
-              key={value}
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn("h-8 px-3 text-xs", tab === value && "bg-background shadow-sm")}
-              onClick={() => setTab(value)}
-            >
-              {value === "decklist" ? t("import.tabDecklist") : t("import.tabCsv")}
-            </Button>
-          ))}
-        </div>
+        {!decklistOnly && (
+          <div className="inline-flex shrink-0 rounded-lg border border-border/60 bg-muted/30 p-0.5">
+            {(["decklist", "csv"] as ImportTab[]).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn("h-8 px-3 text-xs", tab === value && "bg-background shadow-sm")}
+                onClick={() => setTab(value)}
+              >
+                {value === "decklist" ? t("import.tabDecklist") : t("import.tabCsv")}
+              </Button>
+            ))}
+          </div>
+        )}
 
-        {tab === "decklist" ? (
+        {activeTab === "decklist" ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">

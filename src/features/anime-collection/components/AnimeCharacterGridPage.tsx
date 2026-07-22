@@ -184,6 +184,8 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         ) : (
           <CharacterBubbleGrid
             characters={characters}
+            seriesSlug={seriesSlug}
+            seriesName={series.name}
             isTouchDevice={isTouchDevice}
             onSelect={(character) =>
               router.push(`/anime-collection/${seriesSlug}/${character.id}`)
@@ -290,6 +292,8 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         onOpenChange={setEditOpen}
         characterName={editTarget?.name ?? ""}
         currentImageUrl={editTarget?.imageUrl ?? null}
+        seriesSlug={seriesSlug}
+        seriesName={series.name}
         accentColor={editTarget?.accentColor ?? null}
         onSave={handleEditSave}
       />

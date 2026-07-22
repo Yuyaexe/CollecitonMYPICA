@@ -3,7 +3,6 @@ import { createRouteHandlerClient } from "@/lib/supabase/route-handler";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
-import { acceptCollectionInvites } from "@/lib/data/server/supabase-service";
 
 export type DataMode = "supabase" | "demo";
 
@@ -24,13 +23,6 @@ export async function getDataContext(request?: NextRequest): Promise<DataContext
     } = await supabase.auth.getUser();
 
     if (user) {
-      try {
-        if (user.email) {
-          await acceptCollectionInvites(user.id, user.email);
-        }
-      } catch {
-        // Non-fatal if service role is unavailable
-      }
       return {
         mode: "supabase",
         userId: user.id,

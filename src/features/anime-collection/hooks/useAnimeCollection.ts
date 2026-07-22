@@ -25,14 +25,30 @@ export function useAnimeCollection() {
   const updateAnimeCharacterCardQuantity = useDemoStore(
     (s) => s.updateAnimeCharacterCardQuantity
   );
+  const setAnimeCharacterCardsQuantityToOne = useDemoStore(
+    (s) => s.setAnimeCharacterCardsQuantityToOne
+  );
+  const sortAnimeCharacterCards = useDemoStore((s) => s.sortAnimeCharacterCards);
   const updateAnimeCharacterCardSetName = useDemoStore(
     (s) => s.updateAnimeCharacterCardSetName
   );
   const updateAnimeCharacterCard = useDemoStore((s) => s.updateAnimeCharacterCard);
+  const patchAnimeCharacterCardTypes = useDemoStore((s) => s.patchAnimeCharacterCardTypes);
   const reorderAnimeCharacterCard = useDemoStore((s) => s.reorderAnimeCharacterCard);
   const reorderAnimeCharacterCardToIndex = useDemoStore(
     (s) => s.reorderAnimeCharacterCardToIndex
   );
+  const moveAnimeCharacterCardToBinderSlot = useDemoStore(
+    (s) => s.moveAnimeCharacterCardToBinderSlot
+  );
+  const moveAnimeCharacterCardsToBinderSlot = useDemoStore(
+    (s) => s.moveAnimeCharacterCardsToBinderSlot
+  );
+  const moveAnimeCharacterCardsToBinderSpread = useDemoStore(
+    (s) => s.moveAnimeCharacterCardsToBinderSpread
+  );
+  const transferAnimeCharacterCards = useDemoStore((s) => s.transferAnimeCharacterCards);
+  const animeBinderLayoutByCharacter = useDemoStore((s) => s.animeBinderLayoutByCharacter);
 
   const sortedSeries = useMemo(
     () => [...animeSeries].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -88,9 +104,17 @@ export function useAnimeCollection() {
     addAnimeCharacterCardFromSearch,
     removeAnimeCharacterCard,
     updateAnimeCharacterCardQuantity,
+    setAnimeCharacterCardsQuantityToOne,
+    sortAnimeCharacterCards,
     updateAnimeCharacterCardSetName,
     updateAnimeCharacterCard,
+    patchAnimeCharacterCardTypes,
     reorderAnimeCharacterCard,
     reorderAnimeCharacterCardToIndex,
+    moveAnimeCharacterCardToBinderSlot,
+    moveAnimeCharacterCardsToBinderSlot,
+    moveAnimeCharacterCardsToBinderSpread,
+    transferAnimeCharacterCards,
+    animeBinderLayoutByCharacter,
   };
 }

@@ -7,6 +7,10 @@ import {
   type YgoRawCard,
   type YugiohAdvancedSearchFilters,
 } from "@/lib/yugioh/advanced-search";
+import {
+  buildYugiohSearchQueries,
+  normalizeYugiohSearchQuery,
+} from "@/lib/yugioh/search-query";
 
 const API = "https://db.ygoprodeck.com/api/v7";
 const HEADERS = { Accept: "application/json", "User-Agent": "DeckVault/0.2" };
@@ -116,15 +120,34 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
-    const params = new URLSearchParams();
-    params.set("fname", trimmed);
-    if (options?.locale === "pt") {
-      params.set("language", "pt");
+    const localePt = options?.locale === "pt";
+
+    for (const fname of buildYugiohSearchQueries(trimmed)) {
+      const params = new URLSearchParams();
+      params.set("fname", fname);
+      if (localePt) params.set("language", "pt");
+
+      const cards = await fetchYgoCards(params.toString());
+      if (cards.length === 0) continue;
+
+      const mapped = cards.map((card) => mapYgoCard(card));
+      return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
     }
 
-    const cards = await fetchYgoCards(params.toString());
-    const mapped = cards.map((card) => mapYgoCard(card));
-    return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
+    // Archetype fallback (e.g. "B.E.S." cards that share the archetype name)
+    const archetype = normalizeYugiohSearchQuery(trimmed);
+    if (archetype) {
+      const params = new URLSearchParams();
+      params.set("archetype", archetype);
+      if (localePt) params.set("language", "pt");
+      const cards = await fetchYgoCards(params.toString());
+      if (cards.length > 0) {
+        const mapped = cards.map((card) => mapYgoCard(card));
+        return rankSearchResults(trimmed, mapped).slice(0, YGO_RESULT_CAP);
+      }
+    }
+
+    return [];
   },
 
   async advancedSearch(

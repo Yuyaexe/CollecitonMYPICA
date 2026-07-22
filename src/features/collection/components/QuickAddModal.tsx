@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Loader2, SlidersHorizontal } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CardImage } from "@/components/shared/CardImage";
-import { RarityBadge } from "@/components/shared/RarityBadge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_FULL } from "@/lib/ui/mobile-dialog";
@@ -42,6 +40,10 @@ import {
   hasActiveYgoAdvancedFilters,
   type YugiohAdvancedSearchFilters,
 } from "@/lib/yugioh/advanced-search";
+
+function searchResultKey(result: CardSearchResult): string {
+  return `${result.externalId}-${result.name}`;
+}
 
 const YugiohAdvancedSearchPanel = dynamic(
   () =>
@@ -91,6 +93,7 @@ export function QuickAddModal({
   const [pendingCard, setPendingCard] = useState<CardSearchResult | null>(null);
   const [rarityFilter, setRarityFilter] = useState("all");
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
   const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
     defaultGameSlug ?? QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
   );
@@ -102,6 +105,7 @@ export function QuickAddModal({
   const [advancedSearchNonce, setAdvancedSearchNonce] = useState(0);
   const [mobileAdvancedTab, setMobileAdvancedTab] = useState<"filters" | "results">("filters");
   const [adding, setAdding] = useState(false);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { addCardFromSearch, profile } = useAppData();
   const game = getQuickAddGame(selectedGameSlug);
@@ -122,6 +126,7 @@ export function QuickAddModal({
       setPendingCard(null);
       setRarityFilter("all");
       setPreviewKey(null);
+      setLastSelectedKey(null);
       setQuery("");
     }
   }, [open]);
@@ -138,11 +143,23 @@ export function QuickAddModal({
     setDebouncedQuery("");
     setRarityFilter("all");
     setPreviewKey(null);
+    setLastSelectedKey(null);
     setYgoSearchMode("simple");
     setYgoAdvancedFilters(EMPTY_YGO_ADVANCED_FILTERS);
     setAdvancedSearchNonce(0);
     setMobileAdvancedTab("filters");
   }, [selectedGameSlug]);
+
+  /** Restore scroll to the last selected card when returning from the print picker. */
+  useLayoutEffect(() => {
+    if (pendingCard || !lastSelectedKey || !open) return;
+    const root = searchPanelRef.current;
+    if (!root) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-quick-add-card="${CSS.escape(lastSelectedKey)}"]`
+    );
+    el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pendingCard, lastSelectedKey, open]);
 
   const triggerAdvancedSearch = useCallback(() => {
     if (!hasActiveYgoAdvancedFilters(ygoAdvancedFilters)) return;
@@ -367,6 +384,8 @@ export function QuickAddModal({
   };
 
   const handleCardClick = (result: CardSearchResult) => {
+    setLastSelectedKey(searchResultKey(result));
+
     const siblings =
       searchResults.filter(
         (r) =>
@@ -435,8 +454,13 @@ export function QuickAddModal({
             : "sm:max-w-3xl max-sm:max-h-[96dvh] max-sm:overflow-y-auto"
       )}
     >
-      <div className={cn("flex flex-col", isAdvancedMode && !pendingCard ? "min-h-0 flex-1 gap-4" : "space-y-4")}>
-        {pendingCard ? (
+      <div
+        className={cn(
+          "flex flex-col",
+          !pendingCard && isAdvancedMode ? "min-h-0 flex-1 gap-4" : "space-y-4"
+        )}
+      >
+        {pendingCard && (
           <QuickAddVariantPicker
             pendingCard={pendingCard}
             gameSlug={game.slug}
@@ -455,7 +479,17 @@ export function QuickAddModal({
             onPreviewKeyChange={setPreviewKey}
             onVariantPick={handleVariantPick}
           />
-        ) : isAdvancedMode ? (
+        )}
+
+        <div
+          ref={searchPanelRef}
+          className={cn(
+            pendingCard && "hidden",
+            isAdvancedMode ? "flex min-h-0 flex-1 flex-col gap-4" : "contents"
+          )}
+          aria-hidden={pendingCard ? true : undefined}
+        >
+        {isAdvancedMode ? (
           <>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
               <ResponsiveSelect
@@ -609,15 +643,27 @@ export function QuickAddModal({
                           showRefetchIndicator && "opacity-80"
                         )}
                       >
-                        {searchResults.map((result) => (
+                        {searchResults.map((result) => {
+                          const key = searchResultKey(result);
+                          const isLastSelected = lastSelectedKey === key;
+                          return (
                           <button
-                            key={`${result.externalId}-${result.name}`}
+                            key={key}
                             type="button"
+                            data-quick-add-card={key}
                             onClick={() => handleCardClick(result)}
-                            className="group flex flex-col rounded-lg p-1 text-left transition-all hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className={cn(
+                              "group flex flex-col rounded-lg p-1 text-left transition-all hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                              isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
+                            )}
                             title={result.name}
                           >
-                            <div className="relative aspect-[59/86] w-full overflow-hidden rounded-lg bg-muted/80 shadow-sm ring-1 ring-border/40 transition-all group-hover:ring-primary/40">
+                            <div
+                              className={cn(
+                                "relative aspect-[59/86] w-full overflow-hidden rounded-lg bg-muted/80 shadow-sm ring-1 transition-all group-hover:ring-primary/40",
+                                isLastSelected ? "ring-2 ring-primary" : "ring-border/40"
+                              )}
+                            >
                               <CardImage
                                 src={result.imageUrl}
                                 alt={result.name}
@@ -638,7 +684,8 @@ export function QuickAddModal({
                               {result.name}
                             </p>
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -751,15 +798,27 @@ export function QuickAddModal({
                     showRefetchIndicator && "opacity-80"
                   )}
                 >
-                  {searchResults.map((result) => (
+                  {searchResults.map((result) => {
+                    const key = searchResultKey(result);
+                    const isLastSelected = lastSelectedKey === key;
+                    return (
                     <button
-                      key={`${result.externalId}-${result.name}`}
+                      key={key}
                       type="button"
+                      data-quick-add-card={key}
                       onClick={() => handleCardClick(result)}
-                      className="group flex flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className={cn(
+                        "group flex flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
+                      )}
                       title={result.name}
                     >
-                      <div className="relative aspect-[59/86] w-full overflow-hidden rounded-md bg-muted shadow-sm ring-1 ring-border/50 transition-transform duration-150 group-hover:scale-[1.03] group-hover:ring-primary/40">
+                      <div
+                        className={cn(
+                          "relative aspect-[59/86] w-full overflow-hidden rounded-md bg-muted shadow-sm ring-1 transition-transform duration-150 group-hover:scale-[1.03] group-hover:ring-primary/40",
+                          isLastSelected ? "ring-2 ring-primary scale-[1.02]" : "ring-border/50"
+                        )}
+                      >
                         <CardImage
                           src={result.imageUrl}
                           alt={result.name}
@@ -780,7 +839,8 @@ export function QuickAddModal({
                         {result.name}
                       </p>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -802,6 +862,7 @@ export function QuickAddModal({
             </ScrollArea>
           </>
         )}
+        </div>
       </div>
     </Modal>
   );

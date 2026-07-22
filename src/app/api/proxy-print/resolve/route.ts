@@ -10,6 +10,7 @@ import { buildProxyPrintSlots } from "@/lib/proxy-print/resolve-slots";
 import type { ProxyGame } from "@/lib/proxy-print/types";
 import { PROXY_GAMES } from "@/lib/proxy-print/types";
 import { PROXY_PRINT_MAX_CHARS } from "@/lib/api/request-limits";
+import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
 
 async function resolveDeck(deckText: string, game: ProxyGame) {
   const zones = loadZonesFromText(deckText, game);
@@ -32,6 +33,9 @@ async function resolveDeck(deckText: string, game: ProxyGame) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceCatalogRateLimit(request, "proxy-print-resolve");
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as {
       deckText?: string;

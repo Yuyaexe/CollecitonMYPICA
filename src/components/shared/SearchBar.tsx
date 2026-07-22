@@ -44,6 +44,7 @@ export function SearchBar({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholder={placeholder}
+        aria-label={placeholder}
         className={cn("pl-9 transition-all duration-150", focused && "ring-2 ring-ring")}
       />
       {enableShortcut && (

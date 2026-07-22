@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, memo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback, memo, type MouseEvent } from "react";
+import { Check, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
@@ -35,18 +35,12 @@ function resolvePageCards(
   return slotIds.map((id) => (id ? (cardById.get(id) ?? null) : null));
 }
 
-function BinderCardName({ name }: { name: string }) {
-  return (
-    <p className="min-w-0 flex-1 truncate text-[8px] font-medium leading-tight text-white/80">
-      {name}
-    </p>
-  );
-}
-
 interface BinderSlotProps {
   card: DemoOwnedCard | null;
   selected: boolean;
   onOpen: () => void;
+  onSelect: (event: MouseEvent) => void;
+  onQuantityChange: (quantity: number) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   slotKey: string;
   globalIndex: number;
@@ -57,6 +51,8 @@ const BinderSlot = memo(function BinderSlot({
   card,
   selected,
   onOpen,
+  onSelect,
+  onQuantityChange,
   dragHandlers,
   slotKey,
   globalIndex,
@@ -84,6 +80,8 @@ const BinderSlot = memo(function BinderSlot({
       card={card}
       selected={selected}
       onOpen={onOpen}
+      onSelect={onSelect}
+      onQuantityChange={onQuantityChange}
       dragHandlers={dragHandlers}
       globalIndex={globalIndex}
       moveToSlot={moveToSlot}
@@ -95,6 +93,8 @@ const BinderSlotFilled = memo(function BinderSlotFilled({
   card,
   selected,
   onOpen,
+  onSelect,
+  onQuantityChange,
   dragHandlers,
   globalIndex,
   moveToSlot,
@@ -102,56 +102,148 @@ const BinderSlotFilled = memo(function BinderSlotFilled({
   card: DemoOwnedCard;
   selected: boolean;
   onOpen: () => void;
+  onSelect: (event: MouseEvent) => void;
+  onQuantityChange: (quantity: number) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   globalIndex: number;
   moveToSlot: (draggedId: string, targetIndex: number) => void;
 }) {
+  const t = useT();
   const { thumbSrc, fallbackSrc, loading } = useCollectionCardImage(card);
   const setLine = [card.card.setName, card.card.collectorNumber].filter(Boolean).join(" · ") || "—";
   const dragOver = dragHandlers.isDragOver(card.id);
 
+  const handleCardClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      onSelect(event);
+      return;
+    }
+    onOpen();
+  };
+
   return (
     <div
       {...binderCardDragProps(dragHandlers, card.id, globalIndex, moveToSlot)}
+      aria-selected={selected}
       className={cn(
-        "group flex min-h-0 flex-col gap-0.5 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
-        selected && "ring-2 ring-primary ring-offset-1 ring-offset-stone-200 dark:ring-offset-stone-900",
-        dragOver && "ring-2 ring-primary/40"
+        "group relative flex min-h-0 flex-col gap-0.5 rounded-lg transition-all duration-150 cursor-grab active:cursor-grabbing",
+        selected
+          ? "z-[1] -translate-y-0.5 shadow-lg shadow-primary/25 ring-2 ring-primary"
+          : "ring-0",
+        dragOver && !selected && "ring-2 ring-primary/40"
       )}
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        title={`${card.card.name} · ${setLine}`}
-        className={cn(
-          "relative aspect-[59/86] w-full shrink-0 overflow-hidden rounded-md bg-stone-900/10 shadow-sm ring-1 ring-stone-900/10",
-          "transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-primary/40",
-          "dark:bg-stone-950/40 dark:ring-stone-100/10"
-        )}
-      >
-        <CardImage
-          src={thumbSrc}
-          fallbackSrc={fallbackSrc}
-          loading={loading}
-          alt={card.card.name}
-          fill
-          sizes="(max-width: 768px) 20vw, 100px"
-          className="object-contain p-0.5 transition-transform duration-150 group-hover:scale-[1.02]"
-        />
-      </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={handleCardClick}
+          title={`${card.card.name} · ${setLine}`}
+          className={cn(
+            "relative aspect-[59/86] w-full shrink-0 overflow-hidden rounded-md bg-stone-900/10 shadow-sm",
+            "transition-all hover:-translate-y-0.5 hover:shadow-md",
+            "dark:bg-stone-950/40",
+            selected
+              ? "ring-2 ring-inset ring-primary/80"
+              : "ring-1 ring-stone-900/10 hover:ring-primary/40 dark:ring-stone-100/10"
+          )}
+        >
+          <CardImage
+            src={thumbSrc}
+            fallbackSrc={fallbackSrc}
+            loading={loading}
+            alt={card.card.name}
+            fill
+            sizes="(max-width: 768px) 20vw, 100px"
+            className={cn(
+              "object-contain p-0.5 transition-transform duration-150 group-hover:scale-[1.02]",
+              selected && "scale-[1.02]"
+            )}
+          />
+
+          {selected && (
+            <span className="pointer-events-none absolute inset-0 bg-primary/15" aria-hidden />
+          )}
+        </button>
+
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-label={t("collection.selectCard", { name: card.card.name })}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSelect(event);
+          }}
+          className={cn(
+            "absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-md border shadow-sm backdrop-blur-sm transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            selected
+              ? "border-primary bg-primary text-primary-foreground opacity-100"
+              : "border-white/40 bg-black/45 text-transparent opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          )}
+        >
+          <Check className="h-3 w-3 stroke-[3]" />
+        </button>
+
+        <div
+          className="absolute right-1 top-1 z-10 flex items-center overflow-hidden rounded-md bg-black/75 text-white shadow-sm ring-1 ring-white/15"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label={t("qty.decrease")}
+            onClick={() => onQuantityChange(card.quantity - 1)}
+            className="flex h-5 w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+          >
+            <Minus className="h-2.5 w-2.5" />
+          </button>
+          <span className="min-w-[1.35rem] px-0.5 text-center text-[10px] font-bold tabular-nums">
+            {card.quantity}
+          </span>
+          <button
+            type="button"
+            aria-label={t("qty.increase")}
+            onClick={() => onQuantityChange(card.quantity + 1)}
+            className="flex h-5 w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+          >
+            <Plus className="h-2.5 w-2.5" />
+          </button>
+        </div>
+      </div>
 
       <button
         type="button"
-        onClick={onOpen}
-        className="flex w-full shrink-0 flex-col gap-0 rounded-md bg-zinc-900/90 px-1 py-0.5 text-left ring-1 ring-white/5 transition-colors hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
+        onClick={handleCardClick}
+        className={cn(
+          "flex w-full shrink-0 flex-col gap-0 rounded-md px-1 py-0.5 text-left ring-1 transition-colors",
+          selected
+            ? "bg-primary text-primary-foreground ring-primary/60"
+            : "bg-zinc-900/90 ring-white/5 hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
+        )}
       >
         <div className="flex items-center gap-1">
           <RarityBadge rarity={card.card.rarity} gameSlug={card.card.gameSlug} size="sm" />
-          <BinderCardName name={card.card.name} />
-          <span className="shrink-0 text-[9px] font-bold tabular-nums text-white/80">
-            ×{card.quantity}
-          </span>
+          <p
+            className={cn(
+              "min-w-0 flex-1 truncate text-[8px] font-medium leading-tight",
+              selected ? "text-primary-foreground" : "text-white/80"
+            )}
+          >
+            {card.card.name}
+          </p>
         </div>
+        {card.card.setName && (
+          <p
+            className={cn(
+              "truncate text-[8px] leading-tight",
+              selected ? "text-primary-foreground/75" : "text-white/50"
+            )}
+          >
+            {card.card.setName}
+          </p>
+        )}
       </button>
     </div>
   );
@@ -166,7 +258,10 @@ interface BinderPageProps {
   spreadIndex: number;
   spreadSize: number;
   selectedIds: Set<string>;
+  allIds: string[];
   onOpen: (id: string) => void;
+  onSelect: (id: string, event: MouseEvent, rowIndex: number) => void;
+  onQuantityChange: (id: string, quantity: number) => void;
   dragHandlers: ReturnType<typeof useDragReorder>;
   moveToSlot: (draggedId: string, targetIndex: number) => void;
 }
@@ -180,7 +275,10 @@ function BinderPage({
   spreadIndex,
   spreadSize,
   selectedIds,
+  allIds,
   onOpen,
+  onSelect,
+  onQuantityChange,
   dragHandlers,
   moveToSlot,
 }: BinderPageProps) {
@@ -213,12 +311,21 @@ function BinderPage({
         {cards.map((card, index) => {
           const globalIndex = spreadIndex * spreadSize + pageOffset + index;
           const slotKey = card?.id ?? `${side}-slot-${globalIndex}`;
+          const rowIndex = card ? allIds.indexOf(card.id) : -1;
           return (
             <BinderSlot
               key={slotKey}
               card={card}
               selected={card ? selectedIds.has(card.id) : false}
               onOpen={() => card && onOpen(card.id)}
+              onSelect={(event) => {
+                if (!card || rowIndex < 0) return;
+                onSelect(card.id, event, rowIndex);
+              }}
+              onQuantityChange={(quantity) => {
+                if (!card) return;
+                onQuantityChange(card.id, quantity);
+              }}
               dragHandlers={dragHandlers}
               slotKey={slotKey}
               globalIndex={globalIndex}
@@ -321,11 +428,33 @@ export function CollectionBinderView() {
   const t = useT();
   const data = useCollectionView();
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
+  const selectRow = useCollectionUIStore((s) => s.selectRow);
+  const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
   const openCardInspect = useCollectionUIStore((s) => s.openCardInspect);
   const binderGridLayout = useCollectionUIStore((s) => s.binderGridLayout);
   const setBinderGridLayout = useCollectionUIStore((s) => s.setBinderGridLayout);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const dragHandlers = useDragReorder(data.reorderCard);
+
+  const handleSelect = useCallback(
+    (id: string, event: MouseEvent, rowIndex: number) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        selectRow(
+          id,
+          {
+            shiftKey: event.shiftKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+          },
+          data.allIds,
+          rowIndex
+        );
+        return;
+      }
+      toggleSelect(id, false, data.allIds, rowIndex);
+    },
+    [data.allIds, selectRow, toggleSelect]
+  );
 
   const { cols, rows, label, maxWidth } = BINDER_GRID_LAYOUTS[binderGridLayout];
   const pageSize = cols * rows;
@@ -429,7 +558,10 @@ export function CollectionBinderView() {
               spreadIndex={spreadIndex}
               spreadSize={spreadSize}
               selectedIds={selectedIds}
+              allIds={data.allIds}
               onOpen={(id) => openCardInspect(id, "details")}
+              onSelect={handleSelect}
+              onQuantityChange={data.handleQuantityChange}
               dragHandlers={dragHandlers}
               moveToSlot={data.moveCardToBinderSlot}
             />
@@ -450,7 +582,10 @@ export function CollectionBinderView() {
               spreadIndex={spreadIndex}
               spreadSize={spreadSize}
               selectedIds={selectedIds}
+              allIds={data.allIds}
               onOpen={(id) => openCardInspect(id, "details")}
+              onSelect={handleSelect}
+              onQuantityChange={data.handleQuantityChange}
               dragHandlers={dragHandlers}
               moveToSlot={data.moveCardToBinderSlot}
             />

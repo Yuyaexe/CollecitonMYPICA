@@ -40,6 +40,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           size="icon"
           className={cn("ml-auto h-7 w-7", collapsed && "ml-0")}
           onClick={onToggle}
+          aria-label={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>

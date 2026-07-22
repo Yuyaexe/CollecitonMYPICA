@@ -5,10 +5,14 @@ import { rankSearchResults, dedupeSearchResults } from "@/features/catalog/servi
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
+import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
 
 const SEARCH_RESULT_LIMIT = 24;
 
 export async function GET(request: NextRequest) {
+  const limited = enforceCatalogRateLimit(request, "cards-search");
+  if (limited) return limited;
+
   const { searchParams } = new URL(request.url);
   const rawQuery = searchParams.get("q") ?? "";
   const query = rawQuery.replace(/:+\s*$/, "").trim() || rawQuery.trim();

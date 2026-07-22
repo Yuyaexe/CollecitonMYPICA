@@ -14,6 +14,8 @@ import { useT } from "@/lib/i18n/context";
 
 export interface CharacterBubbleGridProps {
   characters: AnimeCharacter[];
+  seriesSlug: string;
+  seriesName: string;
   onSelect: (character: AnimeCharacter) => void;
   onEdit: (character: AnimeCharacter) => void;
   onDelete: (character: AnimeCharacter) => void;
@@ -23,6 +25,8 @@ export interface CharacterBubbleGridProps {
 
 export function CharacterBubbleGrid({
   characters,
+  seriesSlug,
+  seriesName,
   onSelect,
   onEdit,
   onDelete,
@@ -35,6 +39,8 @@ export function CharacterBubbleGrid({
     <CharacterBubble
       name={character.name}
       imageUrl={character.imageUrl}
+      seriesSlug={seriesSlug}
+      seriesName={seriesName}
       accentColor={character.accentColor}
       index={index}
       onClick={() => onSelect(character)}

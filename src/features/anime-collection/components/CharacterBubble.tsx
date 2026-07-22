@@ -4,10 +4,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getCharacterInitials } from "@/features/anime-collection/types";
 import { AnimeImage } from "@/features/anime-collection/components/AnimeImage";
+import { resolveCharacterPortraitUrl } from "@/features/anime-collection/utils/resolve-character-portrait";
 
 export interface CharacterBubbleProps {
   name: string;
   imageUrl?: string | null;
+  seriesSlug?: string;
+  seriesName?: string;
   accentColor?: string | null;
   onClick: () => void;
   index?: number;
@@ -19,6 +22,8 @@ export interface CharacterBubbleProps {
 export function CharacterBubble({
   name,
   imageUrl,
+  seriesSlug,
+  seriesName,
   accentColor,
   onClick,
   index = 0,
@@ -26,6 +31,12 @@ export function CharacterBubble({
   selected = false,
   showName = true,
 }: CharacterBubbleProps) {
+  const displayImageUrl = resolveCharacterPortraitUrl(
+    seriesSlug,
+    seriesName,
+    name,
+    imageUrl
+  );
   const initials = getCharacterInitials(name);
   const reduceMotion = useReducedMotion();
   const isWheel = variant === "wheel";
@@ -57,14 +68,14 @@ export function CharacterBubble({
             : "border-border/80 group-hover:border-primary group-hover:shadow-[0_0_16px_hsla(221,83%,53%,0.25)]"
         )}
         style={
-          !imageUrl && accentColor
+          !displayImageUrl && accentColor
             ? { background: `linear-gradient(135deg, ${accentColor}, hsl(0 0% 16%))` }
             : undefined
         }
       >
-        {imageUrl ? (
+        {displayImageUrl ? (
           <AnimeImage
-            src={imageUrl}
+            src={displayImageUrl}
             alt={name}
             fill
             className="object-cover"

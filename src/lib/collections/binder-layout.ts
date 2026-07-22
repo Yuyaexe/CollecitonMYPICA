@@ -104,3 +104,85 @@ export function firstAvailableSlotInSpread(
   }
   return start;
 }
+
+/** How many empty pockets a spread has. */
+export function countEmptySlotsInSpread(
+  layout: (string | null)[],
+  spreadIndex: number,
+  spreadSize: number
+): number {
+  return binderSpreadSlots(layout, spreadIndex, spreadSize).filter((id) => id == null).length;
+}
+
+/** True when the spread has no empty pockets. */
+export function isBinderSpreadFull(
+  layout: (string | null)[],
+  spreadIndex: number,
+  spreadSize: number
+): boolean {
+  return countEmptySlotsInSpread(layout, spreadIndex, spreadSize) === 0;
+}
+
+/** Remove card ids from layout (preserve other null pockets). */
+export function removeIdsFromBinderLayout(
+  layout: (string | null)[],
+  cardIds: string[]
+): (string | null)[] {
+  const removeSet = new Set(cardIds);
+  const next = layout.map((id) => (id && removeSet.has(id) ? null : id));
+  return trimBinderLayout(next);
+}
+
+/**
+ * Place cards into consecutive empty slots starting at `startIndex`.
+ * Extends the layout when needed. Existing occupied slots are skipped.
+ */
+export function placeCardsAtBinderIndex(
+  layout: (string | null)[],
+  cardIds: string[],
+  startIndex: number
+): (string | null)[] {
+  if (cardIds.length === 0) return layout;
+  const next = [...layout];
+  let cursor = Math.max(0, startIndex);
+
+  for (const id of cardIds) {
+    while (cursor < next.length && next[cursor] != null) {
+      cursor++;
+    }
+    while (next.length <= cursor) {
+      next.push(null);
+    }
+    next[cursor] = id;
+    cursor++;
+  }
+
+  return trimBinderLayout(next);
+}
+
+/** Move multiple cards into a spread, packing into empty slots from the first available. */
+export function moveCardsToBinderSpread(
+  layout: (string | null)[],
+  cardIds: string[],
+  targetSpreadIndex: number,
+  spreadSize: number
+): (string | null)[] {
+  if (cardIds.length === 0 || targetSpreadIndex < 0) return layout;
+  const without = removeIdsFromBinderLayout(layout, cardIds);
+  const start = firstAvailableSlotInSpread(without, targetSpreadIndex, spreadSize);
+  return placeCardsAtBinderIndex(without, cardIds, start);
+}
+
+/** Move multiple cards starting at a target slot index (stable order). */
+export function moveCardsToBinderSlotBatch(
+  layout: (string | null)[],
+  cardIds: string[],
+  targetIndex: number
+): (string | null)[] {
+  if (cardIds.length === 0) return layout;
+  if (cardIds.length === 1) {
+    return moveCardToBinderSlot(layout, cardIds[0]!, targetIndex);
+  }
+  const without = removeIdsFromBinderLayout(layout, cardIds);
+  return placeCardsAtBinderIndex(without, cardIds, targetIndex);
+}

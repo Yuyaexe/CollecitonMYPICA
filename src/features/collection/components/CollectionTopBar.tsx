@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, UserPlus, X } from "lucide-react";
+import { Plus, Upload, Download, LayoutGrid, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
@@ -17,14 +17,6 @@ import { mergeCollectionOrder, sortCollectionsByOrder } from "@/lib/collections/
 import { formatNumber } from "@/lib/utils";
 import { useT } from "@/lib/i18n/context";
 
-const ShareCollectionModal = dynamic(
-  () =>
-    import("@/features/collection/components/ShareCollectionModal").then(
-      (m) => m.ShareCollectionModal
-    ),
-  { ssr: false }
-);
-
 const ExportDeckModal = dynamic(
   () => import("@/features/import/components/ExportDeckModal").then((m) => m.ExportDeckModal),
   { ssr: false }
@@ -32,7 +24,6 @@ const ExportDeckModal = dynamic(
 
 export function CollectionTopBar() {
   const t = useT();
-  const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
@@ -44,7 +35,6 @@ export function CollectionTopBar() {
     collections,
     activeCollectionId,
     setActiveCollection,
-    isSupabaseMode,
   } = useAppData();
   const { collectionCards, filtered } = useCollectionView();
   const sortedCollections = useMemo(
@@ -90,17 +80,6 @@ export function CollectionTopBar() {
                   <LayoutGrid className="h-4 w-4" />
                 </Link>
               </Button>
-              {isSupabaseMode && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => setShareOpen(true)}
-                  aria-label={t("collection.share")}
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
@@ -171,15 +150,6 @@ export function CollectionTopBar() {
           </div>
         )}
       </div>
-
-      {activeCollectionId && (
-        <ShareCollectionModal
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          collectionId={activeCollectionId}
-          collectionName={activeCollection?.name ?? "Collection"}
-        />
-      )}
 
       <ExportDeckModal
         open={exportOpen}

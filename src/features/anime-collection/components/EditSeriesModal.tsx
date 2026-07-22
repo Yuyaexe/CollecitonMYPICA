@@ -11,6 +11,7 @@ import {
   isValidImageUrl,
   readImageFileAsDataUrl,
 } from "@/features/anime-collection/utils/image";
+import { resolveSeriesCoverUrl } from "@/features/anime-collection/utils/resolve-series-cover";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ interface EditSeriesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   seriesName: string;
+  seriesSlug?: string;
   currentCoverUrl: string | null;
   coverColor: string | null;
   onSave: (input: { name: string; coverImageUrl: string | null }) => void;
@@ -28,6 +30,7 @@ export function EditSeriesModal({
   open,
   onOpenChange,
   seriesName,
+  seriesSlug,
   currentCoverUrl,
   coverColor,
   onSave,
@@ -39,7 +42,9 @@ export function EditSeriesModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentCoverUrl);
   const [loadingFile, setLoadingFile] = useState(false);
 
-  const displayPreview = previewUrl?.trim() || null;
+  const displayPreview =
+    previewUrl?.trim() ||
+    resolveSeriesCoverUrl(seriesSlug ?? "", seriesName, currentCoverUrl);
 
   const resetForm = () => {
     setName(seriesName);
@@ -130,7 +135,8 @@ export function EditSeriesModal({
         <div className="flex justify-center">
           <div
             className={cn(
-              "relative aspect-square h-36 w-36 overflow-hidden rounded-xl border-4 border-border/80"
+              "relative flex aspect-square h-36 w-36 items-center justify-center overflow-hidden rounded-xl border-4 border-border/80",
+              displayPreview && "bg-muted/20"
             )}
             style={
               !displayPreview && coverColor
@@ -142,8 +148,7 @@ export function EditSeriesModal({
               <AnimeImage
                 src={displayPreview}
                 alt={name}
-                fill
-                className="object-cover"
+                className="max-h-full max-w-full object-contain p-2"
               />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-2xl font-bold text-white/90">

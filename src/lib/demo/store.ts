@@ -1,14 +1,66 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+
+/** Avoid main-thread stalls: large collections stringify slowly on every edit. */
+function createDebouncedLocalStorage(delayMs = 400): StateStorage {
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const pending = new Map<string, string>();
+  let unloadBound = false;
+
+  const flushPending = () => {
+    for (const [name, value] of pending) {
+      localStorage.setItem(name, value);
+    }
+    pending.clear();
+  };
+
+  const bindUnload = () => {
+    if (unloadBound || typeof window === "undefined") return;
+    unloadBound = true;
+    window.addEventListener("beforeunload", flushPending);
+  };
+
+  return {
+    getItem: (name) => {
+      if (typeof localStorage === "undefined") return null;
+      return localStorage.getItem(name);
+    },
+    setItem: (name, value) => {
+      if (typeof localStorage === "undefined") return;
+      bindUnload();
+      pending.set(name, value);
+      const prev = timers.get(name);
+      if (prev) clearTimeout(prev);
+      timers.set(
+        name,
+        setTimeout(() => {
+          timers.delete(name);
+          pending.delete(name);
+          localStorage.setItem(name, value);
+        }, delayMs)
+      );
+    },
+    removeItem: (name) => {
+      if (typeof localStorage === "undefined") return;
+      const prev = timers.get(name);
+      if (prev) clearTimeout(prev);
+      timers.delete(name);
+      pending.delete(name);
+      localStorage.removeItem(name);
+    },
+  };
+}
 import {
   createInitialDemoState,
   DEFAULT_COLLECTION_ID,
   type AnimeCharacterCard,
+  type DemoActivityEvent,
   type DemoCard,
   type DemoCollection,
   type DemoOwnedCard,
   type DemoState,
 } from "./types";
+import { snapshotOwnedCard, ownedSnapshotsEqual, type OwnedCardSnapshot } from "@/lib/activity/types";
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -17,11 +69,61 @@ import {
   type DeckVaultBackup,
 } from "@/features/import/services/backup-export";
 import { reorderIds, reorderIdsToIndex } from "@/lib/collections/card-order";
+import {
+  compactBinderLayout,
+  mergeBinderLayout,
+  moveCardToBinderSlot,
+  moveCardsToBinderSlotBatch,
+  moveCardsToBinderSpread,
+  removeIdsFromBinderLayout,
+} from "@/lib/collections/binder-layout";
 import { slugifyAnimeName } from "@/features/anime-collection/utils/slugify-anime-name";
+import {
+  classifyYugiohDeckCategory,
+  deckCategorySortRank,
+  yugiohTypeFromSearchMetadata,
+} from "@/lib/yugioh/deck-category";
 import {
   cardTraderBlueprintFromSearch,
   repairDemoCard,
 } from "./repair-card";
+
+function characterCardIds(state: DemoState, characterId: string): string[] {
+  return state.animeCharacterCards
+    .filter((card) => card.characterId === characterId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((card) => card.id);
+}
+
+function resolveAnimeBinderLayout(
+  state: DemoState,
+  characterId: string
+): (string | null)[] {
+  const ids = characterCardIds(state, characterId);
+  const saved = state.animeBinderLayoutByCharacter?.[characterId] ?? ids;
+  return mergeBinderLayout(saved, ids);
+}
+
+function withSyncedAnimeBinderOrder(
+  state: DemoState,
+  characterId: string,
+  layout: (string | null)[]
+): Pick<DemoState, "animeCharacterCards" | "animeBinderLayoutByCharacter"> {
+  const orderMap = new Map(
+    compactBinderLayout(layout).map((id, index) => [id, index] as const)
+  );
+  return {
+    animeBinderLayoutByCharacter: {
+      ...(state.animeBinderLayoutByCharacter ?? {}),
+      [characterId]: layout,
+    },
+    animeCharacterCards: state.animeCharacterCards.map((entry) =>
+      entry.characterId === characterId && orderMap.has(entry.id)
+        ? { ...entry, sortOrder: orderMap.get(entry.id)! }
+        : entry
+    ),
+  };
+}
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -36,6 +138,11 @@ function stripSeededAnime(state: DemoState): DemoState {
     (character) => !character.isSeeded && !seededSeriesIds.has(character.seriesId)
   );
   const characterIds = new Set(animeCharacters.map((character) => character.id));
+  const animeBinderLayoutByCharacter = Object.fromEntries(
+    Object.entries(state.animeBinderLayoutByCharacter ?? {}).filter(([characterId]) =>
+      characterIds.has(characterId)
+    )
+  );
   return {
     ...state,
     animeSeries,
@@ -43,12 +150,44 @@ function stripSeededAnime(state: DemoState): DemoState {
     animeCharacterCards: (state.animeCharacterCards ?? []).filter((entry) =>
       characterIds.has(entry.characterId)
     ),
+    animeBinderLayoutByCharacter,
+  };
+}
+
+function makeDemoActivity(
+  partial: {
+    collectionId: string;
+    action: string;
+    ownedCardId: string | null;
+    cardName: string | null;
+    beforeState: unknown;
+    afterState: unknown;
+    actorDisplayName?: string;
+    meta?: Record<string, unknown>;
+  },
+  displayName: string
+): DemoActivityEvent {
+  return {
+    id: generateId(),
+    collectionId: partial.collectionId,
+    actorUserId: "demo-local",
+    actorDisplayName: partial.actorDisplayName ?? displayName,
+    action: partial.action,
+    ownedCardId: partial.ownedCardId,
+    cardName: partial.cardName,
+    beforeState: partial.beforeState,
+    afterState: partial.afterState,
+    meta: partial.meta ?? {},
+    createdAt: new Date().toISOString(),
+    undoneAt: null,
+    undoneBy: null,
   };
 }
 
 interface DemoStore extends DemoState {
   activeCollectionId: string;
   setActiveCollection: (id: string) => void;
+  undoActivityEvent: (eventId: string) => { ok: true } | { error: string; status: number };
   addCardFromSearch: (
     result: CardSearchResult,
     gameId: string,
@@ -125,15 +264,23 @@ interface DemoStore extends DemoState {
     result: CardSearchResult,
     gameId: string,
     gameSlug: string,
-    gameName: string
+    gameName: string,
+    quantity?: number
   ) => void;
   removeAnimeCharacterCard: (id: string) => void;
   updateAnimeCharacterCardQuantity: (id: string, quantity: number) => void;
+  setAnimeCharacterCardsQuantityToOne: (characterId: string) => number;
+  sortAnimeCharacterCards: (
+    characterId: string,
+    field: "name" | "quantity" | "set" | "rarity" | "deck",
+    dir: "asc" | "desc"
+  ) => void;
   updateAnimeCharacterCardSetName: (id: string, setName: string | null) => void;
   updateAnimeCharacterCard: (
     id: string,
     updates: Partial<Omit<AnimeCharacterCard, "card">> & { card?: Partial<DemoCard> }
   ) => void;
+  patchAnimeCharacterCardTypes: (updates: Array<{ id: string; type: string }>) => void;
   reorderAnimeCharacterCard: (
     characterId: string,
     draggedId: string,
@@ -144,6 +291,27 @@ interface DemoStore extends DemoState {
     draggedId: string,
     targetIndex: number
   ) => void;
+  moveAnimeCharacterCardToBinderSlot: (
+    characterId: string,
+    draggedId: string,
+    targetIndex: number
+  ) => void;
+  moveAnimeCharacterCardsToBinderSlot: (
+    characterId: string,
+    cardIds: string[],
+    targetIndex: number
+  ) => void;
+  moveAnimeCharacterCardsToBinderSpread: (
+    characterId: string,
+    cardIds: string[],
+    targetSpreadIndex: number,
+    spreadSize: number
+  ) => void;
+  transferAnimeCharacterCards: (
+    fromCharacterId: string,
+    toCharacterId: string,
+    cardIds: string[]
+  ) => { moved: number; merged: number };
 }
 
 export const useDemoStore = create<DemoStore>()(
@@ -154,9 +322,218 @@ export const useDemoStore = create<DemoStore>()(
 
       setActiveCollection: (id) => set({ activeCollectionId: id }),
 
+      undoActivityEvent: (eventId) => {
+        const state = get();
+        const event = (state.activityEvents ?? []).find((e) => e.id === eventId);
+        if (!event) return { error: "Activity event not found", status: 404 };
+        if (event.undoneAt) return { error: "Event already undone", status: 400 };
+
+        if (event.action === "card_added") {
+          const after = event.afterState as OwnedCardSnapshot | null;
+          if (!after) return { error: "This event cannot be undone", status: 400 };
+          const current = state.ownedCards.find((oc) => oc.id === after.id);
+          if (current && !ownedSnapshotsEqual(after, current)) {
+            return { error: "Card was changed after this event", status: 409 };
+          }
+          set((s) => ({
+            ownedCards: s.ownedCards.filter((oc) => oc.id !== after.id),
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: event.collectionId,
+                  action: "undo",
+                  ownedCardId: event.ownedCardId,
+                  cardName: event.cardName,
+                  beforeState: event.afterState,
+                  afterState: event.beforeState,
+                  meta: { undoneEventId: eventId, originalAction: event.action },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []).map((e) =>
+                e.id === eventId
+                  ? { ...e, undoneAt: new Date().toISOString(), undoneBy: "demo-local" }
+                  : e
+              ),
+            ],
+          }));
+          return { ok: true as const };
+        }
+
+        if (event.action === "card_updated") {
+          const before = event.beforeState as OwnedCardSnapshot | null;
+          const after = event.afterState as OwnedCardSnapshot | null;
+          if (!before || !after) return { error: "This event cannot be undone", status: 400 };
+          const current = state.ownedCards.find((oc) => oc.id === after.id);
+          if (!current) return { error: "Card was changed after this event", status: 409 };
+          if (!ownedSnapshotsEqual(after, current)) {
+            return { error: "Card was changed after this event", status: 409 };
+          }
+          set((s) => ({
+            ownedCards: s.ownedCards.map((oc) =>
+              oc.id === before.id
+                ? {
+                    ...oc,
+                    quantity: before.quantity,
+                    condition: before.condition,
+                    language: before.language,
+                    isFoil: before.isFoil,
+                    purchasePrice: before.purchasePrice,
+                    notes: before.notes,
+                  }
+                : oc
+            ),
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: event.collectionId,
+                  action: "undo",
+                  ownedCardId: event.ownedCardId,
+                  cardName: event.cardName,
+                  beforeState: event.afterState,
+                  afterState: event.beforeState,
+                  meta: { undoneEventId: eventId, originalAction: event.action },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []).map((e) =>
+                e.id === eventId
+                  ? { ...e, undoneAt: new Date().toISOString(), undoneBy: "demo-local" }
+                  : e
+              ),
+            ],
+          }));
+          return { ok: true as const };
+        }
+
+        if (event.action === "card_deleted") {
+          const before = event.beforeState as OwnedCardSnapshot | null;
+          if (!before) return { error: "This event cannot be undone", status: 400 };
+          if (state.ownedCards.some((oc) => oc.id === before.id)) {
+            return { error: "Card already exists again", status: 409 };
+          }
+          const card: DemoCard = {
+            id: before.cardId,
+            gameId: "",
+            gameSlug: "yugioh",
+            gameName: "Yu-Gi-Oh!",
+            externalId: before.cardExternalId ?? null,
+            name: before.cardName,
+            setCode: before.cardSetCode ?? null,
+            setName: null,
+            collectorNumber: null,
+            rarity: before.cardRarity ?? null,
+            imageUrl: before.cardImageUrl ?? null,
+            marketPrice: null,
+          };
+          set((s) => ({
+            ownedCards: [
+              ...s.ownedCards,
+              {
+                id: before.id,
+                collectionId: before.collectionId,
+                cardId: before.cardId,
+                card,
+                quantity: before.quantity,
+                condition: before.condition,
+                language: before.language,
+                isFoil: before.isFoil,
+                purchasePrice: before.purchasePrice,
+                notes: before.notes,
+                tagIds: [],
+              },
+            ],
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: event.collectionId,
+                  action: "undo",
+                  ownedCardId: event.ownedCardId,
+                  cardName: event.cardName,
+                  beforeState: event.afterState,
+                  afterState: event.beforeState,
+                  meta: { undoneEventId: eventId, originalAction: event.action },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []).map((e) =>
+                e.id === eventId
+                  ? { ...e, undoneAt: new Date().toISOString(), undoneBy: "demo-local" }
+                  : e
+              ),
+            ],
+          }));
+          return { ok: true as const };
+        }
+
+        if (event.action === "cards_bulk_deleted") {
+          const before = event.beforeState as OwnedCardSnapshot[] | null;
+          if (!Array.isArray(before) || before.length === 0) {
+            return { error: "This event cannot be undone", status: 400 };
+          }
+          if (before.some((snap) => state.ownedCards.some((oc) => oc.id === snap.id))) {
+            return { error: "Some cards already exist again", status: 409 };
+          }
+          set((s) => ({
+            ownedCards: [
+              ...s.ownedCards,
+              ...before.map((snap) => ({
+                id: snap.id,
+                collectionId: snap.collectionId,
+                cardId: snap.cardId,
+                card: {
+                  id: snap.cardId,
+                  gameId: "",
+                  gameSlug: "yugioh",
+                  gameName: "Yu-Gi-Oh!",
+                  externalId: snap.cardExternalId ?? null,
+                  name: snap.cardName,
+                  setCode: snap.cardSetCode ?? null,
+                  setName: null,
+                  collectorNumber: null,
+                  rarity: snap.cardRarity ?? null,
+                  imageUrl: snap.cardImageUrl ?? null,
+                  marketPrice: null,
+                } satisfies DemoCard,
+                quantity: snap.quantity,
+                condition: snap.condition,
+                language: snap.language,
+                isFoil: snap.isFoil,
+                purchasePrice: snap.purchasePrice,
+                notes: snap.notes,
+                tagIds: [],
+              })),
+            ],
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: event.collectionId,
+                  action: "undo",
+                  ownedCardId: event.ownedCardId,
+                  cardName: event.cardName,
+                  beforeState: event.afterState,
+                  afterState: event.beforeState,
+                  meta: { undoneEventId: eventId, originalAction: event.action },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []).map((e) =>
+                e.id === eventId
+                  ? { ...e, undoneAt: new Date().toISOString(), undoneBy: "demo-local" }
+                  : e
+              ),
+            ],
+          }));
+          return { ok: true as const };
+        }
+
+        return { error: "This event cannot be undone", status: 400 };
+      },
+
       addCardFromSearch: (result, gameId, gameSlug, gameName, collectionId) => {
         const state = get();
         const targetCollectionId = collectionId ?? state.activeCollectionId;
+        const actor = state.profile.displayName;
         const existing = state.ownedCards.find(
           (oc) =>
             oc.collectionId === targetCollectionId &&
@@ -165,8 +542,9 @@ export const useDemoStore = create<DemoStore>()(
         );
 
         if (existing) {
-          set((s) => ({
-            ownedCards: s.ownedCards.map((oc) =>
+          const before = snapshotOwnedCard(existing);
+          set((s) => {
+            const nextOwned = s.ownedCards.map((oc) =>
               oc.id === existing.id
                 ? {
                     ...oc,
@@ -177,6 +555,8 @@ export const useDemoStore = create<DemoStore>()(
                       imageUrl: result.imageUrl ?? oc.card.imageUrl,
                       rarity: result.rarity ?? oc.card.rarity,
                       setName: result.setName ?? oc.card.setName,
+                      type:
+                        yugiohTypeFromSearchMetadata(result.metadata) ?? oc.card.type ?? null,
                       cardTraderBlueprintId:
                         cardTraderBlueprintFromSearch(
                           result.externalId,
@@ -188,8 +568,26 @@ export const useDemoStore = create<DemoStore>()(
                     },
                   }
                 : oc
-            ),
-          }));
+            );
+            const updated = nextOwned.find((oc) => oc.id === existing.id)!;
+            return {
+              ownedCards: nextOwned,
+              activityEvents: [
+                makeDemoActivity(
+                  {
+                    collectionId: targetCollectionId,
+                    action: "card_updated",
+                    ownedCardId: existing.id,
+                    cardName: existing.card.name,
+                    beforeState: before,
+                    afterState: snapshotOwnedCard(updated),
+                  },
+                  actor
+                ),
+                ...(s.activityEvents ?? []),
+              ],
+            };
+          });
           return;
         }
 
@@ -207,6 +605,7 @@ export const useDemoStore = create<DemoStore>()(
           rarity: result.rarity,
           imageUrl: result.imageUrl,
           marketPrice: result.price,
+          type: yugiohTypeFromSearchMetadata(result.metadata),
           cardTraderBlueprintId: cardTraderBlueprintFromSearch(
             result.externalId,
             result.imageUrl,
@@ -228,12 +627,29 @@ export const useDemoStore = create<DemoStore>()(
           notes: null,
           tagIds: [],
         };
-        set((s) => ({ ownedCards: [...s.ownedCards, owned] }));
+        set((s) => ({
+          ownedCards: [...s.ownedCards, owned],
+          activityEvents: [
+            makeDemoActivity(
+              {
+                collectionId: targetCollectionId,
+                action: "card_added",
+                ownedCardId: owned.id,
+                cardName: owned.card.name,
+                beforeState: null,
+                afterState: snapshotOwnedCard(owned),
+              },
+              actor
+            ),
+            ...(s.activityEvents ?? []),
+          ],
+        }));
       },
 
       updateOwnedCard: (id, updates) =>
-        set((s) => ({
-          ownedCards: s.ownedCards.map((oc) => {
+        set((s) => {
+          const beforeOc = s.ownedCards.find((oc) => oc.id === id);
+          const ownedCards = s.ownedCards.map((oc) => {
             if (oc.id !== id) return oc;
             const { card: cardUpdates, ...ownedUpdates } = updates;
             const next: DemoOwnedCard = { ...oc, ...ownedUpdates };
@@ -241,13 +657,65 @@ export const useDemoStore = create<DemoStore>()(
               next.card = { ...oc.card, ...cardUpdates };
             }
             return next;
-          }),
-        })),
+          });
+          const afterOc = ownedCards.find((oc) => oc.id === id);
+          if (!beforeOc || !afterOc) return { ownedCards };
+          return {
+            ownedCards,
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: afterOc.collectionId,
+                  action: "card_updated",
+                  ownedCardId: afterOc.id,
+                  cardName: afterOc.card.name,
+                  beforeState: snapshotOwnedCard(beforeOc),
+                  afterState: snapshotOwnedCard(afterOc),
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []),
+            ],
+          };
+        }),
 
       deleteOwnedCards: (ids) =>
-        set((s) => ({
-          ownedCards: s.ownedCards.filter((oc) => !ids.includes(oc.id)),
-        })),
+        set((s) => {
+          const removed = s.ownedCards.filter((oc) => ids.includes(oc.id));
+          if (removed.length === 0) {
+            return { ownedCards: s.ownedCards.filter((oc) => !ids.includes(oc.id)) };
+          }
+          const snapshots = removed.map(snapshotOwnedCard);
+          const event =
+            snapshots.length === 1
+              ? makeDemoActivity(
+                  {
+                    collectionId: snapshots[0]!.collectionId,
+                    action: "card_deleted",
+                    ownedCardId: snapshots[0]!.id,
+                    cardName: snapshots[0]!.cardName,
+                    beforeState: snapshots[0],
+                    afterState: null,
+                  },
+                  s.profile.displayName
+                )
+              : makeDemoActivity(
+                  {
+                    collectionId: snapshots[0]!.collectionId,
+                    action: "cards_bulk_deleted",
+                    ownedCardId: null,
+                    cardName: `${snapshots.length} cards`,
+                    beforeState: snapshots,
+                    afterState: null,
+                    meta: { count: snapshots.length },
+                  },
+                  s.profile.displayName
+                );
+          return {
+            ownedCards: s.ownedCards.filter((oc) => !ids.includes(oc.id)),
+            activityEvents: [event, ...(s.activityEvents ?? [])],
+          };
+        }),
 
       importRows: (rows, mergeDuplicates) => {
         let imported = 0;
@@ -301,7 +769,24 @@ export const useDemoStore = create<DemoStore>()(
           imported++;
         }
 
-        set({ ownedCards: newOwned });
+        set((s) => ({
+          ownedCards: newOwned,
+          activityEvents: [
+            makeDemoActivity(
+              {
+                collectionId: state.activeCollectionId,
+                action: "import",
+                ownedCardId: null,
+                cardName: null,
+                beforeState: null,
+                afterState: null,
+                meta: { imported, source: "csv" },
+              },
+              s.profile.displayName
+            ),
+            ...(s.activityEvents ?? []),
+          ],
+        }));
         return imported;
       },
 
@@ -337,6 +822,8 @@ export const useDemoStore = create<DemoStore>()(
               setCode: result.setCode ?? existing.card.setCode,
               collectorNumber: result.collectorNumber ?? existing.card.collectorNumber,
               externalId: result.externalId ?? existing.card.externalId,
+              type:
+                yugiohTypeFromSearchMetadata(result.metadata) ?? existing.card.type ?? null,
               cardTraderBlueprintId:
                 cardTraderBlueprintFromSearch(
                   result.externalId,
@@ -364,6 +851,7 @@ export const useDemoStore = create<DemoStore>()(
             rarity: result.rarity,
             imageUrl: result.imageUrl,
             marketPrice: result.price,
+            type: yugiohTypeFromSearchMetadata(result.metadata),
             cardTraderBlueprintId: cardTraderBlueprintFromSearch(
               result.externalId,
               result.imageUrl,
@@ -388,7 +876,24 @@ export const useDemoStore = create<DemoStore>()(
           imported += quantity;
         }
 
-        set({ ownedCards: newOwned });
+        set((s) => ({
+          ownedCards: newOwned,
+          activityEvents: [
+            makeDemoActivity(
+              {
+                collectionId: state.activeCollectionId,
+                action: "import",
+                ownedCardId: null,
+                cardName: null,
+                beforeState: null,
+                afterState: null,
+                meta: { imported, source: "deck" },
+              },
+              s.profile.displayName
+            ),
+            ...(s.activityEvents ?? []),
+          ],
+        }));
         return imported;
       },
 
@@ -587,13 +1092,26 @@ export const useDemoStore = create<DemoStore>()(
       },
 
       deleteAnimeCharacter: (id) => {
-        set((s) => ({
-          animeCharacters: s.animeCharacters.filter((c) => c.id !== id),
-          animeCharacterCards: s.animeCharacterCards.filter((c) => c.characterId !== id),
-        }));
+        set((s) => {
+          const { [id]: _removed, ...animeBinderLayoutByCharacter } =
+            s.animeBinderLayoutByCharacter ?? {};
+          return {
+            animeCharacters: s.animeCharacters.filter((c) => c.id !== id),
+            animeCharacterCards: s.animeCharacterCards.filter((c) => c.characterId !== id),
+            animeBinderLayoutByCharacter,
+          };
+        });
       },
 
-      addAnimeCharacterCardFromSearch: (characterId, result, gameId, gameSlug, gameName) => {
+      addAnimeCharacterCardFromSearch: (
+        characterId,
+        result,
+        gameId,
+        gameSlug,
+        gameName,
+        quantity = 1
+      ) => {
+        const addQty = Math.max(1, Math.floor(quantity));
         const state = get();
         const existing = state.animeCharacterCards.find(
           (entry) =>
@@ -608,13 +1126,17 @@ export const useDemoStore = create<DemoStore>()(
               entry.id === existing.id
                 ? {
                     ...entry,
-                    quantity: entry.quantity + 1,
+                    quantity: entry.quantity + addQty,
                     card: {
                       ...entry.card,
                       marketPrice: result.price ?? entry.card.marketPrice,
                       imageUrl: result.imageUrl ?? entry.card.imageUrl,
                       rarity: result.rarity ?? entry.card.rarity,
                       setName: result.setName ?? entry.card.setName,
+                      type:
+                        yugiohTypeFromSearchMetadata(result.metadata) ??
+                        entry.card.type ??
+                        null,
                       cardTraderBlueprintId:
                         cardTraderBlueprintFromSearch(
                           result.externalId,
@@ -645,6 +1167,7 @@ export const useDemoStore = create<DemoStore>()(
           rarity: result.rarity,
           imageUrl: result.imageUrl,
           marketPrice: result.price,
+          type: yugiohTypeFromSearchMetadata(result.metadata),
           cardTraderBlueprintId: cardTraderBlueprintFromSearch(
             result.externalId,
             result.imageUrl,
@@ -657,20 +1180,40 @@ export const useDemoStore = create<DemoStore>()(
           id: generateId(),
           characterId,
           card,
-          quantity: 1,
+          quantity: addQty,
           condition: "NM",
           language: "EN",
           isFoil: false,
           sortOrder: state.animeCharacterCards.filter((c) => c.characterId === characterId)
             .length,
         };
-        set((s) => ({ animeCharacterCards: [...s.animeCharacterCards, entry] }));
+        const layout = [...resolveAnimeBinderLayout(state, characterId), entry.id];
+        const nextCards = [...state.animeCharacterCards, entry];
+        set((s) => ({
+          ...withSyncedAnimeBinderOrder(
+            { ...s, animeCharacterCards: nextCards },
+            characterId,
+            layout
+          ),
+        }));
       },
 
       removeAnimeCharacterCard: (id) => {
-        set((s) => ({
-          animeCharacterCards: s.animeCharacterCards.filter((entry) => entry.id !== id),
-        }));
+        set((s) => {
+          const entry = s.animeCharacterCards.find((card) => card.id === id);
+          const animeCharacterCards = s.animeCharacterCards.filter((card) => card.id !== id);
+          if (!entry) return { animeCharacterCards };
+
+          const nextState = { ...s, animeCharacterCards };
+          const layout = resolveAnimeBinderLayout(nextState, entry.characterId);
+          return {
+            animeCharacterCards,
+            animeBinderLayoutByCharacter: {
+              ...(s.animeBinderLayoutByCharacter ?? {}),
+              [entry.characterId]: layout,
+            },
+          };
+        });
       },
 
       updateAnimeCharacterCardQuantity: (id, quantity) => {
@@ -682,6 +1225,62 @@ export const useDemoStore = create<DemoStore>()(
           animeCharacterCards: s.animeCharacterCards.map((entry) =>
             entry.id === id ? { ...entry, quantity } : entry
           ),
+        }));
+      },
+
+      setAnimeCharacterCardsQuantityToOne: (characterId) => {
+        const state = get();
+        let changed = 0;
+        const animeCharacterCards = state.animeCharacterCards.map((entry) => {
+          if (entry.characterId !== characterId || entry.quantity === 1) return entry;
+          changed++;
+          return { ...entry, quantity: 1 };
+        });
+        if (changed > 0) set({ animeCharacterCards });
+        return changed;
+      },
+
+      sortAnimeCharacterCards: (characterId, field, dir) => {
+        const state = get();
+        const cards = state.animeCharacterCards
+          .filter((entry) => entry.characterId === characterId)
+          .sort((a, b) => {
+            if (field === "deck") {
+              const ar = deckCategorySortRank(classifyYugiohDeckCategory(a.card.type));
+              const br = deckCategorySortRank(classifyYugiohDeckCategory(b.card.type));
+              if (ar !== br) return ar - br;
+              return a.card.name.localeCompare(b.card.name);
+            }
+            let av: string | number = "";
+            let bv: string | number = "";
+            switch (field) {
+              case "quantity":
+                av = a.quantity;
+                bv = b.quantity;
+                break;
+              case "set":
+                av = a.card.setCode ?? a.card.setName ?? "";
+                bv = b.card.setCode ?? b.card.setName ?? "";
+                break;
+              case "rarity":
+                av = a.card.rarity ?? "";
+                bv = b.card.rarity ?? "";
+                break;
+              case "name":
+              default:
+                av = a.card.name;
+                bv = b.card.name;
+                break;
+            }
+            if (typeof av === "string" && typeof bv === "string") {
+              return av.localeCompare(bv);
+            }
+            return (av as number) - (bv as number);
+          });
+        const ordered = dir === "desc" ? [...cards].reverse() : cards;
+        const nextIds = ordered.map((entry) => entry.id);
+        set((s) => ({
+          ...withSyncedAnimeBinderOrder(s, characterId, nextIds),
         }));
       },
 
@@ -710,43 +1309,178 @@ export const useDemoStore = create<DemoStore>()(
         }));
       },
 
+      patchAnimeCharacterCardTypes: (updates) => {
+        if (updates.length === 0) return;
+        const byId = new Map(updates.map((row) => [row.id, row.type] as const));
+        set((s) => ({
+          animeCharacterCards: s.animeCharacterCards.map((entry) => {
+            const type = byId.get(entry.id);
+            if (!type || entry.card.type === type) return entry;
+            return { ...entry, card: { ...entry.card, type } };
+          }),
+        }));
+      },
+
       reorderAnimeCharacterCard: (characterId, draggedId, targetId) => {
         const state = get();
-        const characterCards = state.animeCharacterCards
-          .filter((c) => c.characterId === characterId)
-          .sort((a, b) => a.sortOrder - b.sortOrder);
-        const ids = characterCards.map((c) => c.id);
+        const ids = characterCardIds(state, characterId);
         const nextIds = reorderIds(ids, draggedId, targetId);
-        const orderMap = new Map(nextIds.map((id, index) => [id, index]));
         set((s) => ({
-          animeCharacterCards: s.animeCharacterCards.map((entry) =>
-            entry.characterId === characterId && orderMap.has(entry.id)
-              ? { ...entry, sortOrder: orderMap.get(entry.id)! }
-              : entry
-          ),
+          ...withSyncedAnimeBinderOrder(s, characterId, nextIds),
         }));
       },
 
       reorderAnimeCharacterCardToIndex: (characterId, draggedId, targetIndex) => {
         const state = get();
-        const characterCards = state.animeCharacterCards
-          .filter((c) => c.characterId === characterId)
-          .sort((a, b) => a.sortOrder - b.sortOrder);
-        const ids = characterCards.map((c) => c.id);
+        const ids = characterCardIds(state, characterId);
         const nextIds = reorderIdsToIndex(ids, draggedId, targetIndex);
-        const orderMap = new Map(nextIds.map((id, index) => [id, index]));
         set((s) => ({
-          animeCharacterCards: s.animeCharacterCards.map((entry) =>
-            entry.characterId === characterId && orderMap.has(entry.id)
-              ? { ...entry, sortOrder: orderMap.get(entry.id)! }
-              : entry
-          ),
+          ...withSyncedAnimeBinderOrder(s, characterId, nextIds),
         }));
+      },
+
+      moveAnimeCharacterCardToBinderSlot: (characterId, draggedId, targetIndex) => {
+        const state = get();
+        const layout = resolveAnimeBinderLayout(state, characterId);
+        const next = moveCardToBinderSlot(layout, draggedId, targetIndex);
+        set((s) => ({
+          ...withSyncedAnimeBinderOrder(s, characterId, next),
+        }));
+      },
+
+      moveAnimeCharacterCardsToBinderSlot: (characterId, cardIds, targetIndex) => {
+        if (cardIds.length === 0) return;
+        const state = get();
+        const layout = resolveAnimeBinderLayout(state, characterId);
+        const ordered = characterCardIds(state, characterId).filter((id) =>
+          cardIds.includes(id)
+        );
+        const next = moveCardsToBinderSlotBatch(layout, ordered, targetIndex);
+        set((s) => ({
+          ...withSyncedAnimeBinderOrder(s, characterId, next),
+        }));
+      },
+
+      moveAnimeCharacterCardsToBinderSpread: (
+        characterId,
+        cardIds,
+        targetSpreadIndex,
+        spreadSize
+      ) => {
+        if (cardIds.length === 0 || targetSpreadIndex < 0) return;
+        const state = get();
+        const layout = resolveAnimeBinderLayout(state, characterId);
+        const ordered = characterCardIds(state, characterId).filter((id) =>
+          cardIds.includes(id)
+        );
+        const next = moveCardsToBinderSpread(
+          layout,
+          ordered,
+          targetSpreadIndex,
+          spreadSize
+        );
+        set((s) => ({
+          ...withSyncedAnimeBinderOrder(s, characterId, next),
+        }));
+      },
+
+      transferAnimeCharacterCards: (fromCharacterId, toCharacterId, cardIds) => {
+        if (fromCharacterId === toCharacterId || cardIds.length === 0) {
+          return { moved: 0, merged: 0 };
+        }
+
+        const state = get();
+        const idSet = new Set(cardIds);
+        const toMove = state.animeCharacterCards
+          .filter((c) => c.characterId === fromCharacterId && idSet.has(c.id))
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+
+        if (toMove.length === 0) return { moved: 0, merged: 0 };
+
+        let cards = [...state.animeCharacterCards];
+        let moved = 0;
+        let merged = 0;
+        const transferredIds: string[] = [];
+
+        for (const source of toMove) {
+          const duplicate = cards.find(
+            (entry) =>
+              entry.characterId === toCharacterId &&
+              entry.card.externalId === source.card.externalId &&
+              entry.card.gameSlug === source.card.gameSlug
+          );
+
+          if (duplicate) {
+            cards = cards.map((entry) =>
+              entry.id === duplicate.id
+                ? { ...entry, quantity: entry.quantity + source.quantity }
+                : entry
+            );
+            cards = cards.filter((entry) => entry.id !== source.id);
+            merged++;
+          } else {
+            cards = cards.map((entry) =>
+              entry.id === source.id
+                ? { ...entry, characterId: toCharacterId }
+                : entry
+            );
+            transferredIds.push(source.id);
+            moved++;
+          }
+        }
+
+        const sourceLayout = removeIdsFromBinderLayout(
+          mergeBinderLayout(
+            state.animeBinderLayoutByCharacter?.[fromCharacterId] ??
+              characterCardIds(state, fromCharacterId),
+            cards
+              .filter((c) => c.characterId === fromCharacterId)
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((c) => c.id)
+          ),
+          cardIds
+        );
+
+        const targetIds = cards
+          .filter((c) => c.characterId === toCharacterId)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((c) => c.id);
+        const targetSaved =
+          state.animeBinderLayoutByCharacter?.[toCharacterId] ??
+          targetIds.filter((id) => !transferredIds.includes(id));
+        let targetLayout = mergeBinderLayout(targetSaved, targetIds);
+        for (const id of transferredIds) {
+          if (!targetLayout.includes(id)) {
+            targetLayout = [...targetLayout, id];
+          }
+        }
+
+        set((s) => {
+          let mergedState = {
+            ...s,
+            animeCharacterCards: cards,
+          };
+          const fromSynced = withSyncedAnimeBinderOrder(
+            mergedState,
+            fromCharacterId,
+            sourceLayout
+          );
+          mergedState = { ...mergedState, ...fromSynced };
+          const toSynced = withSyncedAnimeBinderOrder(
+            mergedState,
+            toCharacterId,
+            targetLayout
+          );
+          return { ...mergedState, ...toSynced };
+        });
+
+        return { moved, merged };
       },
     }),
     {
       name: "deckvault-demo",
-      version: 9,
+      version: 11,
+      storage: createJSONStorage(() => createDebouncedLocalStorage()),
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
         if (version < 2 && state.ownedCards) {
@@ -795,6 +1529,18 @@ export const useDemoStore = create<DemoStore>()(
         }
         if (version < 9) {
           state = stripSeededAnime(state);
+        }
+        if (version < 10) {
+          state = {
+            ...state,
+            animeBinderLayoutByCharacter: state.animeBinderLayoutByCharacter ?? {},
+          };
+        }
+        if (version < 11) {
+          state = {
+            ...state,
+            activityEvents: state.activityEvents ?? [],
+          };
         }
         return state;
       },

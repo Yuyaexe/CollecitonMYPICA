@@ -8,12 +8,16 @@ import {
   RESOLVE_BATCH_MAX_CARDS,
   resolveBatchBodySchema,
 } from "@/lib/api/request-limits";
+import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
 
 interface BatchCard extends YugiohPasscodeInput {
   id: string;
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceCatalogRateLimit(request, "resolve-batch");
+  if (limited) return limited;
+
   try {
     const raw = await request.json();
     const parsed = resolveBatchBodySchema.safeParse(raw);

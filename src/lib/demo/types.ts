@@ -17,6 +17,8 @@ export interface DemoCard {
   rarity: string | null;
   imageUrl: string | null;
   marketPrice: number | null;
+  /** YGOPRODeck card type string (e.g. "Effect Monster", "Spell Card"). */
+  type?: string | null;
   /** CardTrader catalog blueprint id — separate from Yu-Gi-Oh passcode in externalId */
   cardTraderBlueprintId?: string | null;
 }
@@ -41,6 +43,12 @@ export interface DemoCollection {
   isDefault: boolean;
   isFavorite: boolean;
   coverImageUrl: string | null;
+  /** Cloud only: true when others are members or this user is a guest member. */
+  isShared?: boolean;
+  /** Cloud only: role of the current user on this collection. */
+  memberRole?: "owner" | "editor" | "viewer";
+  /** Cloud only: owning account user id. */
+  ownerUserId?: string;
 }
 
 export interface DemoProfile {
@@ -67,6 +75,22 @@ export interface AnimeCharacterCard {
   sortOrder: number;
 }
 
+export interface DemoActivityEvent {
+  id: string;
+  collectionId: string;
+  actorUserId: string;
+  actorDisplayName: string;
+  action: string;
+  ownedCardId: string | null;
+  cardName: string | null;
+  beforeState: unknown;
+  afterState: unknown;
+  meta: Record<string, unknown>;
+  createdAt: string;
+  undoneAt: string | null;
+  undoneBy: string | null;
+}
+
 export interface DemoState {
   profile: DemoProfile;
   collections: DemoCollection[];
@@ -75,6 +99,9 @@ export interface DemoState {
   animeSeries: AnimeSeries[];
   animeCharacters: AnimeCharacter[];
   animeCharacterCards: AnimeCharacterCard[];
+  /** Sparse binder slot layouts keyed by character id (null = empty pocket). */
+  animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
+  activityEvents: DemoActivityEvent[];
 }
 
 export const DEMO_GAMES = [
@@ -107,5 +134,7 @@ export function createInitialDemoState(): DemoState {
     animeSeries: [],
     animeCharacters: [],
     animeCharacterCards: [],
+    animeBinderLayoutByCharacter: {},
+    activityEvents: [],
   };
 }

@@ -47,7 +47,10 @@ export function AnimeSeriesCard({
         aria-label={`Open ${name}`}
       >
         <div
-          className="absolute inset-0 flex items-center justify-center pb-12"
+          className={cn(
+            "absolute inset-x-0 top-0 bottom-12 flex items-center justify-center p-3",
+            coverImageUrl && "bg-muted/20"
+          )}
           style={
             !coverImageUrl && coverColor
               ? { background: `linear-gradient(135deg, ${coverColor}, hsl(0 0% 14%))` }
@@ -58,8 +61,7 @@ export function AnimeSeriesCard({
             <AnimeImage
               src={coverImageUrl}
               alt={name}
-              fill
-              className="object-cover"
+              className="max-h-full max-w-full object-contain"
               onErrorFallback={
                 <span className="text-3xl font-bold text-white/90">{initials}</span>
               }

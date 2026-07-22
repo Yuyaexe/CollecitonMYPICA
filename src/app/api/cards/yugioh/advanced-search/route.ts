@@ -9,6 +9,7 @@ import {
 } from "@/lib/yugioh/advanced-search";
 import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
+import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
 
 function parseFilters(body: Record<string, unknown>): YugiohAdvancedSearchFilters {
   const base = { ...EMPTY_YGO_ADVANCED_FILTERS };
@@ -57,6 +58,9 @@ function parseFilters(body: Record<string, unknown>): YugiohAdvancedSearchFilter
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceCatalogRateLimit(request, "ygo-advanced-search");
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const locale = body.locale === "pt" ? ("pt" as const) : ("en" as const);

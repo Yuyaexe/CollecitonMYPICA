@@ -2,6 +2,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
 import { RarityBadge } from "@/components/shared/RarityBadge";
+import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,8 @@ interface CollectionGridCardItemProps {
   dragHandlers: ReturnType<typeof useDragReorder>;
   onSelect: () => void;
   onOpen: () => void;
+  onQuantityChange: (quantity: number) => void;
+  onRemove: () => void;
 }
 
 export function CollectionGridCardItem({
@@ -22,6 +25,8 @@ export function CollectionGridCardItem({
   dragHandlers,
   onSelect,
   onOpen,
+  onQuantityChange,
+  onRemove,
 }: CollectionGridCardItemProps) {
   const t = useT();
   const { thumbSrc, fallbackSrc, loading } = useCollectionCardImage(item);
@@ -62,18 +67,25 @@ export function CollectionGridCardItem({
       </button>
 
       <div className="mt-2 space-y-1.5 px-1">
-        <div className="flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-center">
           <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
-          {item.quantity > 1 && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-              ×{item.quantity}
-            </span>
-          )}
         </div>
         <button type="button" onClick={onOpen} className="w-full text-center">
           <p className="line-clamp-2 text-xs font-semibold leading-tight">{item.card.name}</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.card.setName ?? "—"}</p>
         </button>
+        <div className="flex justify-center pt-0.5">
+          <QuantityStepper
+            value={item.quantity}
+            onChange={(quantity) => {
+              if (quantity < 1) {
+                onRemove();
+                return;
+              }
+              onQuantityChange(quantity);
+            }}
+          />
+        </div>
       </div>
     </div>
   );

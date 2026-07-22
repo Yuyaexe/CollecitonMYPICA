@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n/context";
 import type { DemoCollection, DemoOwnedCard } from "@/lib/demo/types";
+import { ShareCollectionModal } from "@/features/collection/components/ShareCollectionModal";
 
 function getCollectionCover(
   collection: DemoCollection,
@@ -61,6 +62,8 @@ export function CollectionManager() {
   const [deleteTarget, setDeleteTarget] = useState<DemoCollection | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuTarget, setMenuTarget] = useState<DemoCollection | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<DemoCollection | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -115,6 +118,12 @@ export function CollectionManager() {
     setMenuOpen(true);
   };
 
+  const openShare = (collection: DemoCollection) => {
+    setShareTarget(collection);
+    setShareOpen(true);
+    setMenuOpen(false);
+  };
+
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
@@ -163,6 +172,7 @@ export function CollectionManager() {
       cardCount={cardCounts.get(collection.id) ?? 0}
       isFavorite={collection.isFavorite ?? false}
       isActive={collection.id === activeCollectionId}
+      isShared={collection.isShared === true}
       index={index}
       draggable
       isDragOver={dragOverId === collection.id && draggedId !== collection.id}
@@ -209,6 +219,9 @@ export function CollectionManager() {
               <ContextMenuContent>
                 <ContextMenuItem onClick={() => handleSelect(collection.id)}>
                   {t("common.open")}
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => openShare(collection)}>
+                  {t("share.menuShare")}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => openRename(collection)}>
                   {t("common.rename")}
@@ -275,6 +288,9 @@ export function CollectionManager() {
             </Button>
             {menuTarget && (
               <>
+                <Button variant="outline" onClick={() => openShare(menuTarget)}>
+                  {t("share.menuShare")}
+                </Button>
                 <Button variant="outline" onClick={() => openRename(menuTarget)}>
                   {t("common.rename")}
                 </Button>
@@ -348,6 +364,12 @@ export function CollectionManager() {
       >
         <div />
       </Modal>
+
+      <ShareCollectionModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        collection={shareTarget}
+      />
     </>
   );
 }

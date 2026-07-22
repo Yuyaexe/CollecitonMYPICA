@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
+import { LocalModeBanner } from "@/components/shared/LocalModeBanner";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0"
         )}
       >
+        <LocalModeBanner />
         {children}
       </main>
       <MobileBottomNav />

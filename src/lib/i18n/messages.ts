@@ -33,7 +33,7 @@ export const messages = {
     "settings.saving": "Saving...",
     "settings.saved": "Settings saved",
     "settings.saveFailed": "Failed to save settings",
-    "settings.cloudSync": "Data syncs via Supabase cloud. Invite friends from the Share button on Collection.",
+    "settings.cloudSync": "Data syncs via Supabase cloud when you are signed in.",
     "settings.offlineMode": "Offline mode — data is stored in this browser. Use Backup to save a copy.",
     "settings.backup": "Backup",
     "settings.backupHint":
@@ -63,7 +63,6 @@ export const messages = {
     "collection.loading": "Loading collection...",
     "collection.loadingCards": "Loading cards...",
     "collection.manageCollections": "Manage collections",
-    "collection.share": "Share collection",
     "collection.totalCards": "Total cards",
     "collection.sets": "Sets",
     "collection.add": "Add",
@@ -163,7 +162,7 @@ export const messages = {
       "Paste YDKE, YDK, or card list:\n\n// DigimonCard.io Deck List\n4 Gigimon BT21-001\n1 Cyclonemon BT24-011\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring",
     "import.previewSummary": "{cards} cards · {prints} prints · {format}",
     "import.morePrints": "… and {count} more prints",
-    "import.unparsedLines": "{count} unrecognized line(s) — check DigimonCard.io format",
+    "import.unparsedLines": "{count} unrecognized line(s) — check quantity + card name format",
     "import.mergeDuplicates": "Merge duplicates (sum quantities)",
     "import.import": "Import",
     "import.importingBtn": "Importing...",
@@ -185,7 +184,8 @@ export const messages = {
     "import.csvSuccess": "Imported {count} cards",
     "import.failed": "Import failed",
     "import.csvFailed": "Failed to import CSV",
-    "import.resolveFailed": "Could not parse the list. Check the format.",
+    "import.resolveFailed": "Could not resolve cards from the catalog. Try again.",
+    "import.resolveTooMany": "Too many unique cards to resolve at once (max {max}).",
     "import.formatYdke": "YDKE",
     "import.formatYdk": "YDK",
     "import.formatYugiohText": "Yu-Gi-Oh! (text)",
@@ -208,22 +208,15 @@ export const messages = {
     "export.copied": "Copied — paste in EDOPro or CardTrader",
     "export.copyFailed": "Failed to copy",
 
-    "share.title": "Share collection",
-    "share.description":
-      'Invite someone to edit "{name}" with you. They must sign up with the same email as the invite.',
-    "share.emailLabel": "Friend's email",
-    "share.emailPlaceholder": "friend@email.com",
-    "share.hint":
-      "Don't use your own email — you're already the owner.",
-    "share.steps":
-      "1) Send invite → 2) Friend signs up / logs in with that email → 3) Collection appears for both.",
-    "share.send": "Send invite",
-    "share.sending": "Sending...",
-    "share.sent": "Invite sent to {email}. They will see this collection after signing in with that email.",
-    "share.failed": "Failed to send invite",
+    "banner.localMode":
+      "Local mode — data stays in this browser. Download a JSON backup so you don’t lose it.",
+    "banner.downloadBackup": "Download backup",
+    "banner.openSettings": "Settings",
 
     "sidebar.supabaseLive": "Cloud",
     "sidebar.collector": "Local",
+    "sidebar.expand": "Expand sidebar",
+    "sidebar.collapse": "Collapse sidebar",
 
     "proxyPrint.title": "Proxy cards",
     "proxyPrint.description":
@@ -320,7 +313,7 @@ export const messages = {
     "settings.saved": "Configurações salvas",
     "settings.saveFailed": "Falha ao salvar configurações",
     "settings.cloudSync":
-      "Os dados sincronizam pela nuvem (Supabase). Convide amigos pelo botão Compartilhar na Coleção.",
+      "Os dados sincronizam pela nuvem (Supabase) quando você está autenticado.",
     "settings.offlineMode":
       "Modo offline — os dados ficam neste navegador. Use Backup para guardar uma cópia.",
     "settings.backup": "Backup",
@@ -352,7 +345,6 @@ export const messages = {
     "collection.loading": "Carregando coleção...",
     "collection.loadingCards": "Carregando cartas...",
     "collection.manageCollections": "Gerenciar coleções",
-    "collection.share": "Compartilhar coleção",
     "collection.totalCards": "Total de cartas",
     "collection.sets": "Conjuntos",
     "collection.add": "Adicionar",
@@ -452,7 +444,7 @@ export const messages = {
       "Cole YDKE, YDK ou lista de cartas:\n\n// DigimonCard.io Deck List\n4 Gigimon BT21-001\n1 Cyclonemon BT24-011\n\n// Yu-Gi-Oh!\n1 Ash Blossom & Joyous Spring",
     "import.previewSummary": "{cards} cartas · {prints} prints · {format}",
     "import.morePrints": "… e mais {count} prints",
-    "import.unparsedLines": "{count} linha(s) não reconhecidas — confira o formato DigimonCard.io",
+    "import.unparsedLines": "{count} linha(s) não reconhecidas — confira quantidade + nome da carta",
     "import.mergeDuplicates": "Mesclar duplicatas (somar quantidades)",
     "import.import": "Importar",
     "import.importingBtn": "Importando...",
@@ -474,7 +466,8 @@ export const messages = {
     "import.csvSuccess": "Importadas {count} cartas",
     "import.failed": "Falha ao importar",
     "import.csvFailed": "Falha ao importar CSV",
-    "import.resolveFailed": "Não foi possível reconhecer a lista. Verifique o formato.",
+    "import.resolveFailed": "Não foi possível resolver as cartas no catálogo. Tente de novo.",
+    "import.resolveTooMany": "Muitas cartas únicas para resolver de uma vez (máx. {max}).",
     "import.formatYdke": "YDKE",
     "import.formatYdk": "YDK",
     "import.formatYugiohText": "Yu-Gi-Oh! (texto)",
@@ -497,23 +490,15 @@ export const messages = {
     "export.copied": "Copiado — cole no EDOPro ou CardTrader",
     "export.copyFailed": "Falha ao copiar",
 
-    "share.title": "Compartilhar coleção",
-    "share.description":
-      'Convide alguém para editar "{name}" com você. A pessoa precisa criar conta com o mesmo email do convite.',
-    "share.emailLabel": "Email do amigo",
-    "share.emailPlaceholder": "amigo@email.com",
-    "share.hint":
-      "Não use seu próprio email — você já é o dono.",
-    "share.steps":
-      "1) Envie o convite → 2) Amigo cria conta / entra com esse email → 3) A coleção aparece para os dois.",
-    "share.send": "Enviar convite",
-    "share.sending": "Enviando...",
-    "share.sent":
-      "Convite enviado para {email}. A coleção aparece quando a pessoa entrar com esse email.",
-    "share.failed": "Falha ao enviar convite",
+    "banner.localMode":
+      "Modo local — os dados ficam neste navegador. Baixe um backup JSON para não perder.",
+    "banner.downloadBackup": "Baixar backup",
+    "banner.openSettings": "Configurações",
 
     "sidebar.supabaseLive": "Nuvem",
     "sidebar.collector": "Local",
+    "sidebar.expand": "Expandir barra lateral",
+    "sidebar.collapse": "Recolher barra lateral",
 
     "proxyPrint.title": "Cartas proxy",
     "proxyPrint.description":

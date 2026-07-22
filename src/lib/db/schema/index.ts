@@ -69,43 +69,6 @@ export const collections = pgTable(
   (table) => [index("idx_collections_user").on(table.userId)]
 );
 
-/** Collaborators on a shared collection (from migration 0003). */
-export const collectionMembers = pgTable(
-  "collection_members",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    collectionId: uuid("collection_id")
-      .notNull()
-      .references(() => collections.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull(),
-    role: text("role").notNull().default("editor"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("idx_collection_members_user").on(table.userId),
-    index("idx_collection_members_collection").on(table.collectionId),
-    uniqueIndex("idx_collection_members_unique").on(table.collectionId, table.userId),
-  ]
-);
-
-export const collectionInvites = pgTable(
-  "collection_invites",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    collectionId: uuid("collection_id")
-      .notNull()
-      .references(() => collections.id, { onDelete: "cascade" }),
-    email: text("email").notNull(),
-    role: text("role").notNull().default("editor"),
-    invitedBy: uuid("invited_by").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("idx_collection_invites_email").on(table.email),
-    uniqueIndex("idx_collection_invites_unique").on(table.collectionId, table.email),
-  ]
-);
-
 export const ownedCards = pgTable(
   "owned_cards",
   {
@@ -140,10 +103,85 @@ export const cardsRelations = relations(cards, ({ one, many }) => ({
   ownedCards: many(ownedCards),
 }));
 
+export const collectionMembers = pgTable(
+  "collection_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    role: text("role").notNull().default("editor"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_collection_members_user").on(table.userId),
+    index("idx_collection_members_collection").on(table.collectionId),
+    uniqueIndex("collection_members_collection_id_user_id_unique").on(
+      table.collectionId,
+      table.userId
+    ),
+  ]
+);
+
+export const collectionInvites = pgTable(
+  "collection_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("editor"),
+    invitedBy: uuid("invited_by").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_collection_invites_email").on(table.email),
+    uniqueIndex("collection_invites_collection_id_email_unique").on(
+      table.collectionId,
+      table.email
+    ),
+  ]
+);
+
+export const collectionActivity = pgTable(
+  "collection_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").notNull(),
+    actorDisplayName: text("actor_display_name").notNull().default(""),
+    action: text("action").notNull(),
+    ownedCardId: uuid("owned_card_id"),
+    cardName: text("card_name"),
+    beforeState: jsonb("before_state").$type<Record<string, unknown> | null>(),
+    afterState: jsonb("after_state").$type<Record<string, unknown> | null>(),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    undoneAt: timestamp("undone_at"),
+    undoneBy: uuid("undone_by"),
+  },
+  (table) => [
+    index("idx_collection_activity_collection_created").on(
+      table.collectionId,
+      table.createdAt
+    ),
+  ]
+);
+
 export const collectionsRelations = relations(collections, ({ many }) => ({
   ownedCards: many(ownedCards),
   members: many(collectionMembers),
   invites: many(collectionInvites),
+  activity: many(collectionActivity),
+}));
+
+export const ownedCardsRelations = relations(ownedCards, ({ one }) => ({
+  collection: one(collections, { fields: [ownedCards.collectionId], references: [collections.id] }),
+  card: one(cards, { fields: [ownedCards.cardId], references: [cards.id] }),
 }));
 
 export const collectionMembersRelations = relations(collectionMembers, ({ one }) => ({
@@ -160,7 +198,9 @@ export const collectionInvitesRelations = relations(collectionInvites, ({ one })
   }),
 }));
 
-export const ownedCardsRelations = relations(ownedCards, ({ one }) => ({
-  collection: one(collections, { fields: [ownedCards.collectionId], references: [collections.id] }),
-  card: one(cards, { fields: [ownedCards.cardId], references: [cards.id] }),
+export const collectionActivityRelations = relations(collectionActivity, ({ one }) => ({
+  collection: one(collections, {
+    fields: [collectionActivity.collectionId],
+    references: [collections.id],
+  }),
 }));

@@ -11,6 +11,12 @@ import {
   importSupabaseRows,
   updateSupabaseOwnedCard,
 } from "@/lib/data/server/supabase-service";
+import { appendActivityEvent, resolveActorDisplayName } from "@/lib/data/server/activity-service";
+import {
+  fetchOwnedById,
+  toSnapshot,
+} from "@/lib/data/server/activity-undo";
+import { snapshotOwnedCard } from "@/lib/activity/types";
 import {
   CollectionRequiredError,
   requireCollectionId,
@@ -37,7 +43,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const action = body.action as string;
     const supabase = requireSupabase(ctx);
-    requireUserId(ctx);
+    const userId = requireUserId(ctx);
+    const actorName = await resolveActorDisplayName(supabase, userId);
 
     if (action === "add-from-search") {
       const collectionId = requireCollectionId(body.collectionId);
@@ -50,10 +57,30 @@ export async function POST(request: NextRequest) {
       const { data: profileRow } = await supabase
         .from("profiles")
         .select("currency")
-        .eq("user_id", requireUserId(ctx))
+        .eq("user_id", userId)
         .maybeSingle();
 
       const currency = (profileRow?.currency as Currency | undefined) ?? "USD";
+
+      let beforeQty: number | null = null;
+      let beforeId: string | null = null;
+      if (result.externalId) {
+        const { data: existingOwned } = await supabase
+          .from("owned_cards")
+          .select("id, quantity, cards!inner(external_id, game_id)")
+          .eq("collection_id", collectionId);
+        const match = (existingOwned ?? []).find((row) => {
+          const card = row.cards as unknown as {
+            external_id: string | null;
+            game_id: string;
+          };
+          return card.external_id === result.externalId && card.game_id === gameId;
+        });
+        if (match) {
+          beforeQty = match.quantity;
+          beforeId = match.id;
+        }
+      }
 
       const owned = await addSupabaseCardFromSearch(
         supabase,
@@ -63,6 +90,45 @@ export async function POST(request: NextRequest) {
         gameSlug,
         currency
       );
+
+      if (beforeId && beforeQty != null) {
+        const before = await fetchOwnedById(supabase, beforeId);
+        await appendActivityEvent(supabase, {
+          collectionId,
+          actorUserId: userId,
+          actorDisplayName: actorName,
+          action: "card_updated",
+          ownedCardId: owned.id,
+          cardName: owned.card.name,
+          beforeState: before
+            ? { ...toSnapshot(before), quantity: beforeQty }
+            : {
+                id: owned.id,
+                collectionId,
+                cardId: owned.cardId,
+                quantity: beforeQty,
+                condition: owned.condition,
+                language: owned.language,
+                isFoil: owned.isFoil,
+                purchasePrice: owned.purchasePrice,
+                notes: owned.notes,
+                cardName: owned.card.name,
+              },
+          afterState: snapshotOwnedCard(owned),
+        });
+      } else {
+        await appendActivityEvent(supabase, {
+          collectionId,
+          actorUserId: userId,
+          actorDisplayName: actorName,
+          action: "card_added",
+          ownedCardId: owned.id,
+          cardName: owned.card.name,
+          beforeState: null,
+          afterState: snapshotOwnedCard(owned),
+        });
+      }
+
       return NextResponse.json({ ok: true, ownedCard: owned });
     }
 
@@ -81,7 +147,7 @@ export async function POST(request: NextRequest) {
       const { data: profileRow } = await supabase
         .from("profiles")
         .select("currency")
-        .eq("user_id", requireUserId(ctx))
+        .eq("user_id", userId)
         .maybeSingle();
 
       const currency = (profileRow?.currency as Currency | undefined) ?? "USD";
@@ -93,6 +159,15 @@ export async function POST(request: NextRequest) {
         mergeDuplicates,
         currency
       );
+
+      await appendActivityEvent(supabase, {
+        collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "import",
+        meta: { imported: count, source: "deck" },
+      });
+
       return NextResponse.json({ imported: count });
     }
 
@@ -119,6 +194,15 @@ export async function POST(request: NextRequest) {
         rows,
         mergeDuplicates
       );
+
+      await appendActivityEvent(supabase, {
+        collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "import",
+        meta: { imported: count, source: "csv" },
+      });
+
       return NextResponse.json({ imported: count });
     }
 
@@ -145,7 +229,30 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Card id required" }, { status: 400 });
     }
     const supabase = requireSupabase(ctx);
+    const userId = requireUserId(ctx);
+    const actorName = await resolveActorDisplayName(supabase, userId);
+
+    const before = await fetchOwnedById(supabase, id);
+    if (!before) {
+      return NextResponse.json({ error: "Owned card not found" }, { status: 404 });
+    }
+
     await updateSupabaseOwnedCard(supabase, id, updates);
+    const after = await fetchOwnedById(supabase, id);
+
+    if (after) {
+      await appendActivityEvent(supabase, {
+        collectionId: after.collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "card_updated",
+        ownedCardId: after.id,
+        cardName: after.card.name,
+        beforeState: toSnapshot(before),
+        afterState: toSnapshot(after),
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PATCH /api/app/owned-cards", error);
@@ -166,7 +273,42 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Card ids required" }, { status: 400 });
     }
     const supabase = requireSupabase(ctx);
+    const userId = requireUserId(ctx);
+    const actorName = await resolveActorDisplayName(supabase, userId);
+
+    const snapshots = [];
+    for (const id of ids) {
+      const oc = await fetchOwnedById(supabase, id);
+      if (oc) snapshots.push(toSnapshot(oc));
+    }
+
     await deleteSupabaseOwnedCards(supabase, ids);
+
+    if (snapshots.length === 1) {
+      const snap = snapshots[0]!;
+      await appendActivityEvent(supabase, {
+        collectionId: snap.collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "card_deleted",
+        ownedCardId: snap.id,
+        cardName: snap.cardName,
+        beforeState: snap,
+        afterState: null,
+      });
+    } else if (snapshots.length > 1) {
+      await appendActivityEvent(supabase, {
+        collectionId: snapshots[0]!.collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "cards_bulk_deleted",
+        cardName: `${snapshots.length} cards`,
+        beforeState: snapshots,
+        afterState: null,
+        meta: { count: snapshots.length },
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/app/owned-cards", error);

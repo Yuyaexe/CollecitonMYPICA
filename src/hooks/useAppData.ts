@@ -94,6 +94,28 @@ export function useAppData() {
   });
 
   useEffect(() => {
+    if (!isSupabaseMode) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/app/collections/invites/accept", {
+          method: "POST",
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { accepted?: number };
+        if ((json.accepted ?? 0) > 0) {
+          await queryClient.invalidateQueries({ queryKey: ["app-state"] });
+        }
+      } catch {
+        // ignore — invites accept is best-effort on boot
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupabaseMode, queryClient]);
+
+  useEffect(() => {
     if (!isSupabaseMode && !activeCollectionId && demoActiveCollectionId) {
       setActiveCollectionId(demoActiveCollectionId);
     }
