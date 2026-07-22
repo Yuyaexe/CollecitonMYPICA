@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { useAppData } from "@/hooks/useAppData";
+import { useDemoStore } from "@/lib/demo/store";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -110,6 +111,7 @@ export function ShareHubModal({
       }
 
       if (includeAnime) {
+        const anime = useDemoStore.getState();
         const res = await fetch("/api/app/anime/share", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -117,6 +119,12 @@ export function ShareHubModal({
             action: "invite",
             email: email.trim(),
             role,
+            state: {
+              animeSeries: anime.animeSeries ?? [],
+              animeCharacters: anime.animeCharacters ?? [],
+              animeCharacterCards: anime.animeCharacterCards ?? [],
+              animeBinderLayoutByCharacter: anime.animeBinderLayoutByCharacter ?? {},
+            },
           }),
         });
         const json = await res.json().catch(() => ({}));

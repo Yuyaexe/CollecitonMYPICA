@@ -56,26 +56,24 @@ export async function resolveAnimeWorkspace(
   supabase: SupabaseClient,
   userId: string
 ): Promise<AnimeWorkspaceInfo> {
-  // Prefer a workspace where user is a member (shared), else own.
-  const { data: membership } = await supabase
+  // Prefer a workspace owned by someone else where this user is a member.
+  const { data: memberships } = await supabase
     .from("anime_workspace_members")
     .select("workspace_id, role")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
+    .eq("user_id", userId);
 
-  if (membership) {
+  for (const membership of memberships ?? []) {
     const { data: ws } = await supabase
       .from("anime_workspaces")
       .select("id, owner_user_id")
       .eq("id", membership.workspace_id)
       .maybeSingle();
-    if (ws) {
+    if (ws && ws.owner_user_id !== userId) {
       return {
         workspaceId: ws.id,
         ownerUserId: ws.owner_user_id,
         role: membership.role as AnimeWorkspaceRole,
-        isOwner: ws.owner_user_id === userId,
+        isOwner: false,
       };
     }
   }
@@ -131,7 +129,8 @@ export async function inviteToAnimeWorkspace(
   supabase: SupabaseClient,
   userId: string,
   email: string,
-  role: "editor" | "viewer"
+  role: "editor" | "viewer",
+  state?: AnimeWorkspaceSnapshotState
 ) {
   const own = await ensureOwnWorkspace(supabase, userId);
   if (own.owner_user_id !== userId) {
@@ -139,6 +138,10 @@ export async function inviteToAnimeWorkspace(
   }
   const normalized = email.trim().toLowerCase();
   if (!normalized.includes("@")) throw new Error("Valid email required");
+
+  if (state) {
+    await putAnimeSnapshot(supabase, userId, own.id, state);
+  }
 
   const { data, error } = await supabase
     .from("anime_workspace_invites")

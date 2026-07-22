@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
         supabase,
         userId,
         body.email,
-        body.role === "viewer" ? "viewer" : "editor"
+        body.role === "viewer" ? "viewer" : "editor",
+        body.state
       );
       return NextResponse.json({ invite });
     }
