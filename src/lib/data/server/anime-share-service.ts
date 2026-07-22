@@ -24,11 +24,18 @@ export interface AnimeWorkspaceInfo {
   isOwner: boolean;
 }
 
+/** Prefer service role for anime workspace I/O — anon JWT often lacks auth.uid() in route handlers. */
+function dbClient(supabase: SupabaseClient): SupabaseClient {
+  return getSupabaseAdmin() ?? supabase;
+}
+
 async function ensureOwnWorkspace(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ id: string; owner_user_id: string }> {
-  const { data: existing, error: findErr } = await supabase
+  const db = dbClient(supabase);
+
+  const { data: existing, error: findErr } = await db
     .from("anime_workspaces")
     .select("id, owner_user_id")
     .eq("owner_user_id", userId)
@@ -36,14 +43,21 @@ async function ensureOwnWorkspace(
   if (findErr) throw toError(findErr);
   if (existing) return existing as { id: string; owner_user_id: string };
 
-  const { data: created, error } = await supabase
+  const { data: created, error } = await db
     .from("anime_workspaces")
     .insert({ owner_user_id: userId })
     .select("id, owner_user_id")
     .single();
-  if (error) throw toError(error);
+  if (error) {
+    if (error.message.includes("row-level security") && !getSupabaseAdmin()) {
+      throw new Error(
+        "Sem permissão para criar workspace anime. Adicione SUPABASE_SERVICE_ROLE_KEY no Vercel."
+      );
+    }
+    throw toError(error);
+  }
 
-  const { error: snapErr } = await supabase.from("anime_workspace_snapshots").upsert({
+  const { error: snapErr } = await db.from("anime_workspace_snapshots").upsert({
     workspace_id: created.id,
     state: {
       animeSeries: [],
@@ -63,14 +77,16 @@ export async function resolveAnimeWorkspace(
   supabase: SupabaseClient,
   userId: string
 ): Promise<AnimeWorkspaceInfo> {
+  const db = dbClient(supabase);
+
   // Prefer a workspace owned by someone else where this user is a member.
-  const { data: memberships } = await supabase
+  const { data: memberships } = await db
     .from("anime_workspace_members")
     .select("workspace_id, role")
     .eq("user_id", userId);
 
   for (const membership of memberships ?? []) {
-    const { data: ws } = await supabase
+    const { data: ws } = await db
       .from("anime_workspaces")
       .select("id, owner_user_id")
       .eq("id", membership.workspace_id)
@@ -98,7 +114,8 @@ export async function getAnimeSnapshot(
   supabase: SupabaseClient,
   workspaceId: string
 ): Promise<{ state: AnimeWorkspaceSnapshotState; updatedAt: string | null }> {
-  const { data, error } = await supabase
+  const db = dbClient(supabase);
+  const { data, error } = await db
     .from("anime_workspace_snapshots")
     .select("state, updated_at")
     .eq("workspace_id", workspaceId)
@@ -119,14 +136,15 @@ export async function putAnimeSnapshot(
   workspaceId: string,
   state: AnimeWorkspaceSnapshotState
 ) {
-  const { error } = await supabase.from("anime_workspace_snapshots").upsert({
+  const db = dbClient(supabase);
+  const { error } = await db.from("anime_workspace_snapshots").upsert({
     workspace_id: workspaceId,
     state,
     updated_by: userId,
     updated_at: new Date().toISOString(),
   });
   if (error) throw toError(error);
-  await supabase
+  await db
     .from("anime_workspaces")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", workspaceId);
@@ -150,7 +168,8 @@ export async function inviteToAnimeWorkspace(
     await putAnimeSnapshot(supabase, userId, own.id, state);
   }
 
-  const { data, error } = await supabase
+  const db = dbClient(supabase);
+  const { data, error } = await db
     .from("anime_workspace_invites")
     .upsert(
       {
@@ -172,19 +191,20 @@ export async function listAnimeShare(
   userId: string
 ) {
   const own = await ensureOwnWorkspace(supabase, userId);
-  const { data: members } = await supabase
+  const db = dbClient(supabase);
+  const { data: members } = await db
     .from("anime_workspace_members")
     .select("id, user_id, role, created_at")
     .eq("workspace_id", own.id);
 
-  const { data: invites } = await supabase
+  const { data: invites } = await db
     .from("anime_workspace_invites")
     .select("id, email, role, created_at")
     .eq("workspace_id", own.id)
     .order("created_at", { ascending: false });
 
   const userIds = [own.owner_user_id, ...(members ?? []).map((m) => m.user_id as string)];
-  const { data: profiles } = await supabase
+  const { data: profiles } = await db
     .from("profiles")
     .select("user_id, display_name")
     .in("user_id", [...new Set(userIds)]);
@@ -229,7 +249,8 @@ export async function removeAnimeMember(
 ) {
   const own = await ensureOwnWorkspace(supabase, userId);
   if (memberUserId === userId) throw new Error("Cannot remove the owner");
-  const { error } = await supabase
+  const db = dbClient(supabase);
+  const { error } = await db
     .from("anime_workspace_members")
     .delete()
     .eq("workspace_id", own.id)
@@ -243,7 +264,8 @@ export async function cancelAnimeInvite(
   inviteId: string
 ) {
   const own = await ensureOwnWorkspace(supabase, userId);
-  const { error } = await supabase
+  const db = dbClient(supabase);
+  const { error } = await db
     .from("anime_workspace_invites")
     .delete()
     .eq("id", inviteId)
