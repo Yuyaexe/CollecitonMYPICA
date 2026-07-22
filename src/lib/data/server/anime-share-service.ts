@@ -4,7 +4,7 @@ import type { AnimeCharacterCard } from "@/lib/demo/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   errorMessage,
-  isAnimeShareSchemaError,
+  isAnimeShareTableMissingError,
   toError,
 } from "@/lib/data/server/error-message";
 
@@ -43,7 +43,7 @@ async function ensureOwnWorkspace(
     .single();
   if (error) throw toError(error);
 
-  await supabase.from("anime_workspace_snapshots").upsert({
+  const { error: snapErr } = await supabase.from("anime_workspace_snapshots").upsert({
     workspace_id: created.id,
     state: {
       animeSeries: [],
@@ -54,6 +54,7 @@ async function ensureOwnWorkspace(
     updated_by: userId,
     updated_at: new Date().toISOString(),
   });
+  if (snapErr) throw toError(snapErr);
 
   return created as { id: string; owner_user_id: string };
 }
@@ -285,7 +286,7 @@ export async function acceptAnimeInvites(
 
     if (inviteErr) {
       const msg = errorMessage(inviteErr);
-      if (isAnimeShareSchemaError(msg) || (rpcError && isAnimeShareSchemaError(rpcError))) {
+      if (isAnimeShareTableMissingError(msg)) {
         throw new Error(
           "Anime share tables missing. Run migration 0013_anime_workspace_share.sql (and 0014) in Supabase."
         );
@@ -311,7 +312,7 @@ export async function acceptAnimeInvites(
     if (accepted > 0) return { accepted, rpcError: null };
   }
 
-  if (rpcError && isAnimeShareSchemaError(rpcError)) {
+  if (rpcError && isAnimeShareTableMissingError(rpcError)) {
     throw new Error(
       "Anime share tables missing. Run migration 0013_anime_workspace_share.sql (and 0014) in Supabase."
     );

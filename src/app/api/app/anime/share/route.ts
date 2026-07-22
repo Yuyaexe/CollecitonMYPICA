@@ -17,7 +17,7 @@ import {
 } from "@/lib/data/server/anime-share-service";
 import {
   errorMessage,
-  isAnimeShareSchemaError,
+  isAnimeShareTableMissingError,
 } from "@/lib/data/server/error-message";
 
 function apiError(error: unknown) {
@@ -27,7 +27,10 @@ function apiError(error: unknown) {
   if (message.includes("Valid email") || message.includes("email required")) {
     return { status: 400, message };
   }
-  if (isAnimeShareSchemaError(message) || message.includes("Anime share tables missing")) {
+  if (
+    isAnimeShareTableMissingError(message) ||
+    message.includes("Anime share tables missing")
+  ) {
     return {
       status: 503,
       message:

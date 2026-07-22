@@ -16,15 +16,30 @@ export function errorMessage(error: unknown, fallback = "Operation failed"): str
 
 export function isAnimeShareSchemaError(message: string): boolean {
   const m = message.toLowerCase();
+  // Only treat as missing-schema when Postgres/PostgREST clearly says the object is absent.
+  // Do NOT match every message that merely mentions "anime_workspace" (RLS/permission noise).
   return (
-    m.includes("does not exist") ||
-    m.includes("schema cache") ||
-    m.includes("anime_workspace") ||
-    m.includes("accept_anime_workspace_invites") ||
-    m.includes("could not find the function") ||
-    m.includes("could not find the table")
+    ((m.includes("does not exist") || m.includes("could not find")) &&
+      (m.includes("anime_workspace") ||
+        m.includes("accept_anime_workspace_invites") ||
+        m.includes("relation") ||
+        m.includes("table") ||
+        m.includes("function") ||
+        m.includes("schema cache"))) ||
+    (m.includes("schema cache") && m.includes("anime_workspace"))
   );
 }
+
+/** Tables/relations missing — sync cannot work until migrations are applied. */
+export function isAnimeShareTableMissingError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    (m.includes("does not exist") || m.includes("could not find")) &&
+    (m.includes("anime_workspace") || m.includes("relation") || m.includes("table")) &&
+    !m.includes("function")
+  );
+}
+
 
 export function toError(error: unknown, fallback = "Operation failed"): Error {
   if (error instanceof Error) return error;

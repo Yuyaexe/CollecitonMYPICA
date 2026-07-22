@@ -42,3 +42,6 @@ $$;
 
 REVOKE ALL ON FUNCTION public.accept_anime_workspace_invites() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.accept_anime_workspace_invites() TO authenticated, service_role;
+
+-- Refresh PostgREST so /rest/v1 and RPC see the new objects immediately
+NOTIFY pgrst, 'reload schema';
