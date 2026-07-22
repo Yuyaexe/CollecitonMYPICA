@@ -358,6 +358,15 @@ export const extraMessages = {
     "share.inviteSentCount": "Invite sent ({count})",
     "share.selectAll": "All",
     "share.clearAll": "None",
+    "anime.syncShared": "Shared with you",
+    "anime.syncOwner": "Cloud sync on",
+    "anime.syncing": "Syncing anime…",
+    "anime.syncEmptyShared":
+      "Invite accepted, but the shared anime snapshot is still empty. Ask the owner to open Anime Collection once (or re-invite with Anime checked).",
+    "anime.syncRefresh": "Pull shared anime",
+    "anime.syncError": "Anime sync error",
+    "anime.syncMigrationHint":
+      "Cloud anime share needs Supabase migrations 0013 and 0014 applied.",
   },
   "pt-BR": {
     "common.close": "Fechar",
@@ -717,5 +726,14 @@ export const extraMessages = {
     "share.inviteSentCount": "Convite enviado ({count})",
     "share.selectAll": "Todas",
     "share.clearAll": "Nenhuma",
+    "anime.syncShared": "Compartilhada com você",
+    "anime.syncOwner": "Sync na nuvem ativo",
+    "anime.syncing": "Sincronizando anime…",
+    "anime.syncEmptyShared":
+      "Convite aceito, mas o snapshot compartilhado ainda está vazio. Peça ao dono para abrir a Coleção Anime uma vez (ou reenviar o convite com Anime marcado).",
+    "anime.syncRefresh": "Buscar anime compartilhada",
+    "anime.syncError": "Erro no sync da anime",
+    "anime.syncMigrationHint":
+      "O compartilhamento da Anime precisa das migrations 0013 e 0014 no Supabase.",
   },
 } as const;

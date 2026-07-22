@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { useDemoStore } from "@/lib/demo/store";
 import type { AnimeWorkspaceSnapshotState } from "@/lib/data/server/anime-share-service";
+import { useAnimeShareSyncStore } from "@/features/anime-collection/stores/anime-share-sync.store";
 
 function readLocalAnimeState(): AnimeWorkspaceSnapshotState {
   const local = useDemoStore.getState();
@@ -33,18 +34,61 @@ function stateHasData(state: AnimeWorkspaceSnapshotState | undefined | null): bo
   );
 }
 
+async function waitForDemoHydration() {
+  const persistApi = useDemoStore.persist;
+  if (persistApi.hasHydrated()) return;
+  await new Promise<void>((resolve) => {
+    const unsub = persistApi.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+    // Safety: don't hang forever if hydration already raced.
+    setTimeout(() => {
+      unsub();
+      resolve();
+    }, 2500);
+  });
+}
+
 async function pushAnimeState(state: AnimeWorkspaceSnapshotState) {
-  await fetch("/api/app/anime/share", {
+  const res = await fetch("/api/app/anime/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "push", state }),
   });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Failed to push anime share");
+  }
+}
+
+type SnapshotResponse = {
+  role?: string;
+  isOwner?: boolean;
+  state?: AnimeWorkspaceSnapshotState;
+  accepted?: number;
+  error?: string;
+};
+
+async function pullSnapshot(): Promise<SnapshotResponse> {
+  const res = await fetch("/api/app/anime/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "pull" }),
+  });
+  const json = (await res.json().catch(() => ({}))) as SnapshotResponse;
+  if (!res.ok) {
+    throw new Error(json.error ?? "Failed to pull anime share");
+  }
+  return json;
 }
 
 /**
  * Cloud anime share sync:
- * - Owner: push local anime so invitees always get the latest snapshot
- * - Member: always pull shared snapshot; never overwrite remote with empty local
+ * - Wait for localStorage hydration before applying remote (avoids empty overwrite races)
+ * - Always accept invites + pull on boot and on demand
+ * - Owner: push local data so invitees receive it
+ * - Member: cloud is source of truth; never push empty over shared data
  */
 export function useAnimeCloudShareSync() {
   const { isSupabaseMode, configLoading } = useAppConfig();
@@ -52,118 +96,114 @@ export function useAnimeCloudShareSync() {
   const animeCharacters = useDemoStore((s) => s.animeCharacters);
   const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
   const animeBinderLayoutByCharacter = useDemoStore((s) => s.animeBinderLayoutByCharacter);
+  const requestSync = useAnimeShareSyncStore((s) => s.requestSync);
+  const setStatus = useAnimeShareSyncStore((s) => s.setStatus);
 
-  const bootstrapped = useRef(false);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const skipNextPush = useRef(false);
   const canEdit = useRef(true);
   const isSharedMember = useRef(false);
   const readyToPush = useRef(false);
+  const syncing = useRef(false);
 
-  useEffect(() => {
-    if (configLoading || !isSupabaseMode || bootstrapped.current) return;
-    bootstrapped.current = true;
+  const runSync = async (reason: "boot" | "poll" | "manual") => {
+    if (syncing.current) return;
+    syncing.current = true;
+    if (reason !== "poll") {
+      setStatus("syncing", { error: null });
+    }
 
-    void (async () => {
-      try {
-        await fetch("/api/app/anime/share", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "accept" }),
+    try {
+      await waitForDemoHydration();
+      const json = await pullSnapshot();
+      canEdit.current = json.role !== "viewer";
+      isSharedMember.current = json.isOwner === false;
+
+      const remote = json.state ?? {
+        animeSeries: [],
+        animeCharacters: [],
+        animeCharacterCards: [],
+        animeBinderLayoutByCharacter: {},
+      };
+      const local = readLocalAnimeState();
+
+      if (isSharedMember.current) {
+        skipNextPush.current = true;
+        applyRemoteAnimeState(remote);
+        readyToPush.current = canEdit.current && stateHasData(remote);
+        setStatus(stateHasData(remote) ? "shared" : "empty", {
+          error: null,
+          isOwner: false,
+          role: json.role ?? null,
+          lastSyncedAt: Date.now(),
         });
-
-        const res = await fetch("/api/app/anime/share?view=snapshot");
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          role?: string;
-          isOwner?: boolean;
-          state?: AnimeWorkspaceSnapshotState;
-        };
-
-        canEdit.current = json.role !== "viewer";
-        isSharedMember.current = json.isOwner === false;
-        const remote = json.state ?? {
-          animeSeries: [],
-          animeCharacters: [],
-          animeCharacterCards: [],
-          animeBinderLayoutByCharacter: {},
-        };
-        const local = readLocalAnimeState();
-
-        if (isSharedMember.current) {
-          // Shared member: cloud is source of truth.
+      } else {
+        if (stateHasData(local)) {
+          await pushAnimeState(local);
+          setStatus("owner", {
+            error: null,
+            isOwner: true,
+            role: json.role ?? "owner",
+            lastSyncedAt: Date.now(),
+          });
+        } else if (stateHasData(remote)) {
           skipNextPush.current = true;
           applyRemoteAnimeState(remote);
-          readyToPush.current = canEdit.current && stateHasData(remote);
+          setStatus("owner", {
+            error: null,
+            isOwner: true,
+            role: json.role ?? "owner",
+            lastSyncedAt: Date.now(),
+          });
         } else {
-          // Owner: prefer local if it has data, then push so friends can pull.
-          if (stateHasData(local)) {
-            await pushAnimeState(local);
-          } else if (stateHasData(remote)) {
-            skipNextPush.current = true;
-            applyRemoteAnimeState(remote);
-          } else {
-            await pushAnimeState(local);
-          }
-          readyToPush.current = canEdit.current;
+          setStatus("empty", {
+            error: null,
+            isOwner: true,
+            role: json.role ?? "owner",
+            lastSyncedAt: Date.now(),
+          });
         }
-      } catch {
-        // best-effort — tables may not exist until migration 0013
+        readyToPush.current = canEdit.current;
       }
-    })();
-  }, [isSupabaseMode, configLoading]);
+    } catch (err) {
+      setStatus("error", {
+        error: err instanceof Error ? err.message : "Anime sync failed",
+        lastSyncedAt: Date.now(),
+      });
+    } finally {
+      syncing.current = false;
+    }
+  };
 
-  // Members: poll for owner updates so anime appears without refresh forever
   useEffect(() => {
-    if (!isSupabaseMode) return;
+    if (configLoading || !isSupabaseMode) return;
+    void runSync("boot");
 
     pollTimer.current = setInterval(() => {
-      if (!isSharedMember.current) return;
-      void (async () => {
-        try {
-          const res = await fetch("/api/app/anime/share?view=snapshot");
-          if (!res.ok) return;
-          const json = (await res.json()) as {
-            state?: AnimeWorkspaceSnapshotState;
-            role?: string;
-          };
-          const remote = json.state;
-          if (!remote || !stateHasData(remote)) return;
-
-          const local = readLocalAnimeState();
-          const remoteJson = JSON.stringify(remote);
-          const localJson = JSON.stringify({
-            animeSeries: local.animeSeries,
-            animeCharacters: local.animeCharacters,
-            animeCharacterCards: local.animeCharacterCards,
-            animeBinderLayoutByCharacter: local.animeBinderLayoutByCharacter,
-          });
-          if (remoteJson === localJson) return;
-
-          skipNextPush.current = true;
-          applyRemoteAnimeState(remote);
-          readyToPush.current = json.role !== "viewer";
-        } catch {
-          // ignore
-        }
-      })();
-    }, 8000);
+      void runSync("poll");
+    }, 5000);
 
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current);
     };
-  }, [isSupabaseMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per mode
+  }, [isSupabaseMode, configLoading]);
 
   useEffect(() => {
-    if (!isSupabaseMode || !bootstrapped.current) return;
-    if (!canEdit.current || !readyToPush.current) return;
+    if (!isSupabaseMode || requestSync === 0) return;
+    void runSync("manual");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestSync, isSupabaseMode]);
+
+  useEffect(() => {
+    if (!isSupabaseMode || !readyToPush.current) return;
+    if (!canEdit.current) return;
     if (skipNextPush.current) {
       skipNextPush.current = false;
       return;
     }
 
-    // Shared members must not push empty state over the owner's data.
     if (
       isSharedMember.current &&
       !stateHasData({
@@ -183,6 +223,8 @@ export function useAnimeCloudShareSync() {
         animeCharacters,
         animeCharacterCards,
         animeBinderLayoutByCharacter: animeBinderLayoutByCharacter ?? {},
+      }).catch(() => {
+        // push errors surface on next pull/status
       });
     }, 800);
 

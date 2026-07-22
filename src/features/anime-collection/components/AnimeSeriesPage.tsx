@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Share2 } from "lucide-react";
+import { Sparkles, Share2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
@@ -23,8 +23,10 @@ import {
 import { EditSeriesModal } from "@/features/anime-collection/components/EditSeriesModal";
 import { ShareHubModal } from "@/features/collection/components/ShareHubModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
+import { useAnimeShareSyncStore } from "@/features/anime-collection/stores/anime-share-sync.store";
 import { resolveSeriesCoverUrl } from "@/features/anime-collection/utils/resolve-series-cover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import type { AnimeSeries } from "@/features/anime-collection/types";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
@@ -32,6 +34,7 @@ import { toast } from "sonner";
 export function AnimeSeriesPage() {
   const t = useT();
   const router = useRouter();
+  const { isSupabaseMode } = useAppConfig();
   const isTouchDevice = useMediaQuery("(hover: none) and (pointer: coarse)");
   const {
     animeSeries,
@@ -41,6 +44,11 @@ export function AnimeSeriesPage() {
     updateAnimeSeriesCover,
     deleteAnimeSeries,
   } = useAnimeCollection();
+
+  const syncStatus = useAnimeShareSyncStore((s) => s.status);
+  const syncError = useAnimeShareSyncStore((s) => s.error);
+  const isOwner = useAnimeShareSyncStore((s) => s.isOwner);
+  const triggerSync = useAnimeShareSyncStore((s) => s.triggerSync);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -93,6 +101,11 @@ export function AnimeSeriesPage() {
     toast.success(t("anime.seriesDeleted"));
   };
 
+  const handlePullShared = () => {
+    triggerSync();
+    toast.message(t("anime.syncing"));
+  };
+
   const renderSeriesCard = (series: AnimeSeries, index: number) => (
     <AnimeSeriesCard
       name={series.name}
@@ -105,33 +118,91 @@ export function AnimeSeriesPage() {
     />
   );
 
+  const syncBadge =
+    isSupabaseMode && syncStatus === "shared" ? (
+      <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+        {t("anime.syncShared")}
+      </span>
+    ) : isSupabaseMode && syncStatus === "owner" ? (
+      <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        {t("anime.syncOwner")}
+      </span>
+    ) : isSupabaseMode && syncStatus === "syncing" ? (
+      <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        {t("anime.syncing")}
+      </span>
+    ) : null;
+
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title={t("anime.title")}
-          description={t("anime.description")}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={() => setShareOpen(true)}
-        >
-          <Share2 className="h-4 w-4" />
-          {t("share.menuShare")}
-        </Button>
+        <div className="min-w-0 space-y-1">
+          <PageHeader
+            title={t("anime.title")}
+            description={t("anime.description")}
+          />
+          {syncBadge}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isSupabaseMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePullShared}
+              disabled={syncStatus === "syncing"}
+              title={t("anime.syncRefresh")}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("anime.syncRefresh")}</span>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setShareOpen(true)}
+          >
+            <Share2 className="h-4 w-4" />
+            {t("share.menuShare")}
+          </Button>
+        </div>
       </div>
 
+      {isSupabaseMode && syncStatus === "error" && syncError && (
+        <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="font-medium">{t("anime.syncError")}</p>
+          <p className="mt-1 text-destructive/90">{syncError}</p>
+          {syncError.toLowerCase().includes("migration") && (
+            <p className="mt-1 text-xs">{t("anime.syncMigrationHint")}</p>
+          )}
+        </div>
+      )}
+
       {animeSeries.length === 0 ? (
-        <EmptyState
-          icon={Sparkles}
-          title={t("anime.noSeriesTitle")}
-          description={t("anime.noSeriesDescription")}
-          actionLabel={t("anime.addSeries")}
-          onAction={() => setCreateOpen(true)}
-          className="mt-12"
-        />
+        <div className="mt-12 space-y-4">
+          <EmptyState
+            icon={Sparkles}
+            title={t("anime.noSeriesTitle")}
+            description={
+              isSupabaseMode && isOwner === false
+                ? t("anime.syncEmptyShared")
+                : t("anime.noSeriesDescription")
+            }
+            actionLabel={
+              isSupabaseMode ? t("anime.syncRefresh") : t("anime.addSeries")
+            }
+            onAction={
+              isSupabaseMode ? handlePullShared : () => setCreateOpen(true)
+            }
+          />
+          {isSupabaseMode && isOwner !== false && (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
+                {t("anime.addSeries")}
+              </Button>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {animeSeries.map((series, index) =>

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type AnimeWorkspaceRole = "owner" | "editor" | "viewer";
 
@@ -244,8 +245,77 @@ export async function cancelAnimeInvite(
   if (error) throw error;
 }
 
-export async function acceptAnimeInvites(supabase: SupabaseClient) {
+/**
+ * Accept pending anime workspace invites for the current user.
+ * Tries the RPC first, then a service-role fallback keyed by auth email
+ * (covers JWT email claim mismatches / missing migration edge cases).
+ */
+export async function acceptAnimeInvites(
+  supabase: SupabaseClient,
+  opts?: { userId?: string; email?: string | null }
+) {
+  let accepted = 0;
+  let rpcError: string | null = null;
+
   const { data, error } = await supabase.rpc("accept_anime_workspace_invites");
-  if (error) throw error;
-  return { accepted: typeof data === "number" ? data : 0 };
+  if (error) {
+    rpcError = error.message;
+  } else {
+    accepted = typeof data === "number" ? data : 0;
+  }
+
+  if (accepted > 0) return { accepted, rpcError };
+
+  const email = opts?.email?.trim().toLowerCase() || null;
+  const userId = opts?.userId;
+  if (!email || !userId) {
+    if (rpcError) throw new Error(rpcError);
+    return { accepted: 0, rpcError };
+  }
+
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    if (rpcError) throw new Error(rpcError);
+    return { accepted: 0, rpcError };
+  }
+
+  const { data: invites, error: inviteErr } = await admin
+    .from("anime_workspace_invites")
+    .select("id, workspace_id, role")
+    .eq("email", email);
+  if (inviteErr) {
+    if (rpcError) throw new Error(rpcError);
+    throw inviteErr;
+  }
+  if (!invites || invites.length === 0) {
+    if (rpcError) throw new Error(rpcError);
+    return { accepted: 0, rpcError };
+  }
+
+  for (const invite of invites) {
+    const { error: memberErr } = await admin.from("anime_workspace_members").upsert(
+      {
+        workspace_id: invite.workspace_id,
+        user_id: userId,
+        role: invite.role,
+      },
+      { onConflict: "workspace_id,user_id" }
+    );
+    if (memberErr) throw memberErr;
+    await admin.from("anime_workspace_invites").delete().eq("id", invite.id);
+    accepted += 1;
+  }
+
+  return { accepted, rpcError: null };
+}
+
+/** Accept invites then resolve the workspace the user should use. */
+export async function resolveAnimeWorkspaceAfterAccept(
+  supabase: SupabaseClient,
+  userId: string,
+  email?: string | null
+): Promise<AnimeWorkspaceInfo & { accepted: number }> {
+  const { accepted } = await acceptAnimeInvites(supabase, { userId, email });
+  const info = await resolveAnimeWorkspace(supabase, userId);
+  return { ...info, accepted };
 }

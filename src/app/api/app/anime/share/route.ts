@@ -12,7 +12,7 @@ import {
   listAnimeShare,
   putAnimeSnapshot,
   removeAnimeMember,
-  resolveAnimeWorkspace,
+  resolveAnimeWorkspaceAfterAccept,
   type AnimeWorkspaceSnapshotState,
 } from "@/lib/data/server/anime-share-service";
 
@@ -21,7 +21,27 @@ function apiError(error: unknown) {
   if (message === "Authentication required") return { status: 401, message };
   if (message.includes("Only the")) return { status: 403, message };
   if (message.includes("email")) return { status: 400, message };
+  if (
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("anime_workspace")
+  ) {
+    return {
+      status: 503,
+      message:
+        "Anime share tables missing. Run migration 0013_anime_workspace_share.sql (and 0014) in Supabase.",
+    };
+  }
   return { status: 500, message };
+}
+
+async function currentUserEmail(
+  supabase: ReturnType<typeof requireSupabase>
+): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.email?.trim().toLowerCase() ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -34,11 +54,16 @@ export async function GET(request: NextRequest) {
     const supabase = requireSupabase(ctx);
     const userId = requireUserId(ctx);
     const view = request.nextUrl.searchParams.get("view") ?? "share";
+    const email = await currentUserEmail(supabase);
 
     if (view === "snapshot") {
-      const info = await resolveAnimeWorkspace(supabase, userId);
+      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
       const snap = await getAnimeSnapshot(supabase, info.workspaceId);
-      return NextResponse.json({ ...info, ...snap });
+      return NextResponse.json({
+        ...info,
+        ...snap,
+        email,
+      });
     }
 
     const share = await listAnimeShare(supabase, userId);
@@ -65,9 +90,10 @@ export async function POST(request: NextRequest) {
     };
     const supabase = requireSupabase(ctx);
     const userId = requireUserId(ctx);
+    const email = await currentUserEmail(supabase);
 
     if (body.action === "accept") {
-      const result = await acceptAnimeInvites(supabase);
+      const result = await acceptAnimeInvites(supabase, { userId, email });
       return NextResponse.json(result);
     }
 
@@ -89,12 +115,32 @@ export async function POST(request: NextRequest) {
       if (!body.state) {
         return NextResponse.json({ error: "state required" }, { status: 400 });
       }
-      const info = await resolveAnimeWorkspace(supabase, userId);
+      // Accept first so a newly invited editor writes to the shared workspace.
+      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
       if (info.role === "viewer") {
         return NextResponse.json({ error: "Viewer cannot edit anime" }, { status: 403 });
       }
+      // Never let a shared member overwrite owner data with an empty local snapshot.
+      if (info.isOwner === false) {
+        const hasData =
+          (body.state.animeSeries?.length ?? 0) > 0 ||
+          (body.state.animeCharacters?.length ?? 0) > 0 ||
+          (body.state.animeCharacterCards?.length ?? 0) > 0;
+        if (!hasData) {
+          return NextResponse.json(
+            { error: "Refusing to push empty anime state over shared workspace" },
+            { status: 400 }
+          );
+        }
+      }
       await putAnimeSnapshot(supabase, userId, info.workspaceId, body.state);
       return NextResponse.json({ ok: true, workspaceId: info.workspaceId });
+    }
+
+    if (body.action === "pull") {
+      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      const snap = await getAnimeSnapshot(supabase, info.workspaceId);
+      return NextResponse.json({ ...info, ...snap, email });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
