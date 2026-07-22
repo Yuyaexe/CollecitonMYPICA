@@ -114,6 +114,18 @@ export const messages = {
     "collection.bulkDeleted": "{count} card(s) removed",
     "collection.bulkDeleteFailed": "Failed to delete cards",
     "collection.noActiveCollection": "Create or select a collection before adding cards.",
+    "collection.qtyDoubledBanner":
+      "Quantities look doubled on this collection (most cards show 2×).",
+    "collection.halveQuantities": "Halve quantities",
+    "collection.halveQuantitiesConfirm":
+      "Halve every quantity in this collection (2→1, 4→2, …)? This fixes accidental doubling.",
+    "collection.setAllQtyToOne": "Set all to 1×",
+    "collection.setAllQtyToOneConfirm":
+      "Set every card in this collection to quantity 1? Extra copies will be discarded.",
+    "collection.qtyFixDone": "Updated {count} cards",
+    "collection.qtyFixNone": "No quantities needed changing",
+    "collection.qtyFixFailed": "Could not update quantities",
+    "collection.dismissQtyBanner": "Dismiss",
 
     "quickAdd.title": "Quick Add",
     "quickAdd.choosePrint": "Choose print",
@@ -396,6 +408,18 @@ export const messages = {
     "collection.bulkDeleted": "{count} carta(s) removida(s)",
     "collection.bulkDeleteFailed": "Falha ao excluir cartas",
     "collection.noActiveCollection": "Crie ou selecione uma coleção antes de adicionar cartas.",
+    "collection.qtyDoubledBanner":
+      "As quantidades parecem dobradas nesta coleção (a maioria das cartas está em 2×).",
+    "collection.halveQuantities": "Metade das qtds",
+    "collection.halveQuantitiesConfirm":
+      "Dividir pela metade todas as quantidades desta coleção (2→1, 4→2, …)? Isso corrige o dobro acidental.",
+    "collection.setAllQtyToOne": "Tudo 1×",
+    "collection.setAllQtyToOneConfirm":
+      "Definir todas as cartas desta coleção como quantidade 1? Cópias extras serão descartadas.",
+    "collection.qtyFixDone": "{count} cartas atualizadas",
+    "collection.qtyFixNone": "Nenhuma quantidade precisava mudar",
+    "collection.qtyFixFailed": "Não foi possível atualizar as quantidades",
+    "collection.dismissQtyBanner": "Dispensar",
 
     "quickAdd.title": "Adicionar rápido",
     "quickAdd.choosePrint": "Escolher print",

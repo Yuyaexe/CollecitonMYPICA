@@ -206,6 +206,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ imported: count });
     }
 
+    if (action === "halve-quantities" || action === "set-quantities-to-one") {
+      const collectionId = requireCollectionId(body.collectionId);
+      const { data: rows, error: fetchErr } = await supabase
+        .from("owned_cards")
+        .select("id, quantity")
+        .eq("collection_id", collectionId);
+      if (fetchErr) throw fetchErr;
+
+      const updates = (rows ?? [])
+        .map((row) => {
+          const qty = Number(row.quantity) || 1;
+          const next =
+            action === "set-quantities-to-one"
+              ? 1
+              : Math.max(1, Math.floor(qty / 2));
+          return { id: row.id as string, quantity: next, prev: qty };
+        })
+        .filter((u) => u.quantity !== u.prev);
+
+      for (const u of updates) {
+        const { error } = await supabase
+          .from("owned_cards")
+          .update({ quantity: u.quantity, updated_at: new Date().toISOString() })
+          .eq("id", u.id);
+        if (error) throw error;
+      }
+
+      await appendActivityEvent(supabase, {
+        collectionId,
+        actorUserId: userId,
+        actorDisplayName: actorName,
+        action: "import",
+        meta: {
+          imported: updates.length,
+          source: action === "set-quantities-to-one" ? "set-qty-one" : "halve-qty",
+        },
+      });
+
+      return NextResponse.json({ changed: updates.length });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error("POST /api/app/owned-cards", error);

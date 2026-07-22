@@ -247,6 +247,9 @@ interface DemoStore extends DemoState {
     }>,
     mergeDuplicates: boolean
   ) => number;
+  /** Undo accidental qty doubling (qty → floor(qty/2), min 1). */
+  halveOwnedCardQuantities: (collectionId: string) => number;
+  setOwnedCardQuantitiesToOne: (collectionId: string) => number;
   updateProfile: (updates: Partial<DemoState["profile"]>) => void;
   addCollection: (name: string) => DemoCollection;
   renameCollection: (id: string, name: string) => void;
@@ -917,6 +920,70 @@ export const useDemoStore = create<DemoStore>()(
           ],
         }));
         return imported;
+      },
+
+      halveOwnedCardQuantities: (collectionId) => {
+        let changed = 0;
+        set((s) => {
+          const ownedCards = s.ownedCards.map((oc) => {
+            if (oc.collectionId !== collectionId) return oc;
+            const next = Math.max(1, Math.floor(oc.quantity / 2));
+            if (next === oc.quantity) return oc;
+            changed++;
+            return { ...oc, quantity: next };
+          });
+          if (changed === 0) return s;
+          return {
+            ownedCards,
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId,
+                  action: "import",
+                  ownedCardId: null,
+                  cardName: null,
+                  beforeState: null,
+                  afterState: null,
+                  meta: { imported: changed, source: "halve-qty" },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []),
+            ],
+          };
+        });
+        return changed;
+      },
+
+      setOwnedCardQuantitiesToOne: (collectionId) => {
+        let changed = 0;
+        set((s) => {
+          const ownedCards = s.ownedCards.map((oc) => {
+            if (oc.collectionId !== collectionId || oc.quantity === 1) return oc;
+            changed++;
+            return { ...oc, quantity: 1 };
+          });
+          if (changed === 0) return s;
+          return {
+            ownedCards,
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId,
+                  action: "import",
+                  ownedCardId: null,
+                  cardName: null,
+                  beforeState: null,
+                  afterState: null,
+                  meta: { imported: changed, source: "set-qty-one" },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []),
+            ],
+          };
+        });
+        return changed;
       },
 
       updateProfile: (updates) =>

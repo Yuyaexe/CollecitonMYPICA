@@ -86,6 +86,7 @@ export function useAppData() {
     deleteCardsMutation,
     importMutation,
     importDeckMutation,
+    normalizeQtyMutation,
   } = useOwnedCardsMutations({
     isSupabaseMode,
     resolvedActiveId,
@@ -295,5 +296,9 @@ export function useAppData() {
       items: Parameters<typeof importDeckMutation.mutateAsync>[0]["items"],
       mergeDuplicates: boolean
     ) => importDeckMutation.mutateAsync({ items, mergeDuplicates }),
+    halveOwnedCardQuantities: () =>
+      normalizeQtyMutation.mutateAsync({ mode: "halve-quantities" }),
+    setOwnedCardQuantitiesToOne: () =>
+      normalizeQtyMutation.mutateAsync({ mode: "set-quantities-to-one" }),
   };
 }

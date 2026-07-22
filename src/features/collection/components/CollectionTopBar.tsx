@@ -16,6 +16,7 @@ import { useDataUiStore } from "@/lib/data/ui-store";
 import { mergeCollectionOrder, sortCollectionsByOrder } from "@/lib/collections/order";
 import { formatNumber } from "@/lib/utils";
 import { useT } from "@/lib/i18n/context";
+import { toast } from "sonner";
 
 const ExportDeckModal = dynamic(
   () => import("@/features/import/components/ExportDeckModal").then((m) => m.ExportDeckModal),
@@ -32,6 +33,8 @@ export function CollectionTopBar() {
   const t = useT();
   const [exportOpen, setExportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [qtyBannerDismissed, setQtyBannerDismissed] = useState(false);
+  const [qtyFixing, setQtyFixing] = useState(false);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -42,6 +45,8 @@ export function CollectionTopBar() {
     collections,
     activeCollectionId,
     setActiveCollection,
+    halveOwnedCardQuantities,
+    setOwnedCardQuantitiesToOne,
   } = useAppData();
   const { collectionCards, filtered } = useCollectionView();
   const sortedCollections = useMemo(
@@ -62,6 +67,39 @@ export function CollectionTopBar() {
     return { totalCards, uniqueSets };
   }, [collectionCards]);
 
+  const looksDoubled = useMemo(() => {
+    if (collectionCards.length < 5) return false;
+    const withTwo = collectionCards.filter((oc) => oc.quantity === 2).length;
+    return withTwo / collectionCards.length >= 0.75;
+  }, [collectionCards]);
+
+  const showQtyBanner = looksDoubled && !qtyBannerDismissed;
+
+  const runQtyFix = async (mode: "halve" | "one") => {
+    const confirmKey =
+      mode === "halve"
+        ? "collection.halveQuantitiesConfirm"
+        : "collection.setAllQtyToOneConfirm";
+    if (!confirm(t(confirmKey))) return;
+    setQtyFixing(true);
+    try {
+      const changed =
+        mode === "halve"
+          ? await halveOwnedCardQuantities()
+          : await setOwnedCardQuantitiesToOne();
+      if (changed > 0) {
+        toast.success(t("collection.qtyFixDone", { count: changed }));
+        setQtyBannerDismissed(true);
+      } else {
+        toast.message(t("collection.qtyFixNone"));
+      }
+    } catch {
+      toast.error(t("collection.qtyFixFailed"));
+    } finally {
+      setQtyFixing(false);
+    }
+  };
+
   const hasActiveSearch = filters.search.trim().length > 0;
   const visibleCount = filtered.length;
 
@@ -75,7 +113,10 @@ export function CollectionTopBar() {
                 <ResponsiveSelect
                   preferNative
                   value={collectionSelectValue}
-                  onValueChange={setActiveCollection}
+                  onValueChange={(id) => {
+                    setQtyBannerDismissed(false);
+                    setActiveCollection(id);
+                  }}
                   options={sortedCollections.map((c) => ({ value: c.id, label: c.name }))}
                   triggerClassName="h-9 max-w-[min(100%,12rem)] border-0 bg-transparent text-base font-semibold shadow-none focus:ring-0 sm:max-w-none sm:text-lg"
                 />
@@ -151,6 +192,39 @@ export function CollectionTopBar() {
         <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 sm:hidden">
           <CollectionViewSwitcher className="flex-1" />
         </div>
+        {showQtyBanner && (
+          <div className="flex flex-col gap-2 border-t border-amber-500/40 bg-amber-500/10 px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <p className="text-xs text-amber-100 sm:text-sm">{t("collection.qtyDoubledBanner")}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                className="h-7"
+                disabled={qtyFixing}
+                onClick={() => void runQtyFix("halve")}
+              >
+                {t("collection.halveQuantities")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7"
+                disabled={qtyFixing}
+                onClick={() => void runQtyFix("one")}
+              >
+                {t("collection.setAllQtyToOne")}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2"
+                disabled={qtyFixing}
+                onClick={() => setQtyBannerDismissed(true)}
+              >
+                {t("collection.dismissQtyBanner")}
+              </Button>
+            </div>
+          </div>
+        )}
         {hasActiveSearch && (
           <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2 sm:px-6">
             <span className="text-xs text-muted-foreground">

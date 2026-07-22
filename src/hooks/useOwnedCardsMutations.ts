@@ -292,6 +292,40 @@ export function useOwnedCardsMutations({
     },
   });
 
+  const normalizeQtyMutation = useMutation({
+    mutationFn: async ({
+      mode,
+    }: {
+      mode: "halve-quantities" | "set-quantities-to-one";
+    }) => {
+      if (!resolvedActiveId) {
+        throw new Error(NO_ACTIVE_COLLECTION);
+      }
+      if (!isSupabaseMode) {
+        return mode === "halve-quantities"
+          ? useDemoStore.getState().halveOwnedCardQuantities(resolvedActiveId)
+          : useDemoStore.getState().setOwnedCardQuantitiesToOne(resolvedActiveId);
+      }
+      const res = await fetch("/api/app/owned-cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: mode,
+          collectionId: resolvedActiveId,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to update quantities");
+      }
+      const json = (await res.json()) as { changed: number };
+      return json.changed;
+    },
+    onSuccess: () => {
+      void refreshAppState();
+    },
+  });
+
   return {
     addCardMutation,
     updateCardMutation,
@@ -299,6 +333,7 @@ export function useOwnedCardsMutations({
     deleteCardsMutation,
     importMutation,
     importDeckMutation,
+    normalizeQtyMutation,
     noActiveCollectionMessage: NO_ACTIVE_COLLECTION,
   };
 }
