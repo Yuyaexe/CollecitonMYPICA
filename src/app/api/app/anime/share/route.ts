@@ -8,6 +8,7 @@ import {
   acceptAnimeInvites,
   cancelAnimeInvite,
   getAnimeSnapshot,
+  getAnimeSnapshotMeta,
   inviteToAnimeWorkspace,
   listAnimeShare,
   putAnimeSnapshot,
@@ -72,6 +73,18 @@ export async function GET(request: NextRequest) {
         ...info,
         ...snap,
         email,
+        currentUserId: userId,
+      });
+    }
+
+    if (view === "meta") {
+      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      const meta = await getAnimeSnapshotMeta(supabase, info.workspaceId);
+      return NextResponse.json({
+        ...info,
+        ...meta,
+        email,
+        currentUserId: userId,
       });
     }
 
@@ -144,21 +157,25 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const current = await getAnimeSnapshot(supabase, info.workspaceId);
       const basedOn = body.basedOnUpdatedAt ?? null;
+      const meta = await getAnimeSnapshotMeta(supabase, info.workspaceId);
       if (
         basedOn != null &&
-        current.updatedAt != null &&
-        basedOn !== current.updatedAt
+        meta.updatedAt != null &&
+        basedOn !== meta.updatedAt
       ) {
-        // Client must pull + 3-way merge, then retry with fresh basedOnUpdatedAt.
+        // Only load the full blob when the client must merge.
+        const current = await getAnimeSnapshot(supabase, info.workspaceId);
         return NextResponse.json(
           {
             error: "Anime snapshot conflict",
             conflict: true,
             state: current.state,
             updatedAt: current.updatedAt,
+            updatedByUserId: current.updatedByUserId,
+            updatedByDisplayName: current.updatedByDisplayName,
             workspaceId: info.workspaceId,
+            currentUserId: userId,
           },
           { status: 409 }
         );
@@ -177,10 +194,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (body.action === "meta") {
+      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      const meta = await getAnimeSnapshotMeta(supabase, info.workspaceId);
+      return NextResponse.json({ ...info, ...meta, email, currentUserId: userId });
+    }
+
     if (body.action === "pull") {
       const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
       const snap = await getAnimeSnapshot(supabase, info.workspaceId);
-      return NextResponse.json({ ...info, ...snap, email });
+      return NextResponse.json({ ...info, ...snap, email, currentUserId: userId });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

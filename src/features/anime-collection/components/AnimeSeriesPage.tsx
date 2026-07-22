@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Share2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -48,7 +48,9 @@ export function AnimeSeriesPage() {
   const syncStatus = useAnimeShareSyncStore((s) => s.status);
   const syncError = useAnimeShareSyncStore((s) => s.error);
   const isOwner = useAnimeShareSyncStore((s) => s.isOwner);
+  const syncProgress = useAnimeShareSyncStore((s) => s.progress);
   const triggerSync = useAnimeShareSyncStore((s) => s.triggerSync);
+  const awaitingManualSync = useRef(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -58,6 +60,16 @@ export function AnimeSeriesPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnimeSeries | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+
+  useEffect(() => {
+    if (!awaitingManualSync.current) return;
+    if (syncProgress === 100) {
+      awaitingManualSync.current = false;
+      toast.success(t("anime.syncComplete"));
+    } else if (syncStatus === "error") {
+      awaitingManualSync.current = false;
+    }
+  }, [syncProgress, syncStatus, t]);
 
   const handleCreate = () => {
     const trimmed = newName.trim();
@@ -102,6 +114,7 @@ export function AnimeSeriesPage() {
   };
 
   const handlePullShared = () => {
+    awaitingManualSync.current = true;
     triggerSync();
     toast.message(t("anime.syncing"));
   };
@@ -133,6 +146,8 @@ export function AnimeSeriesPage() {
       </span>
     ) : null;
 
+  const showSyncBar = isSupabaseMode && syncProgress != null;
+
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -152,7 +167,9 @@ export function AnimeSeriesPage() {
               disabled={syncStatus === "syncing"}
               title={t("anime.syncRefresh")}
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw
+                className={`h-4 w-4 ${syncStatus === "syncing" ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">{t("anime.syncRefresh")}</span>
             </Button>
           )}
@@ -167,6 +184,32 @@ export function AnimeSeriesPage() {
           </Button>
         </div>
       </div>
+
+      {showSyncBar && (
+        <div
+          className="mt-3 space-y-1.5"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={syncProgress ?? 0}
+          aria-label={t("anime.syncing")}
+        >
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              {syncProgress >= 100
+                ? t("anime.syncComplete")
+                : t("anime.syncProgress", { percent: String(syncProgress ?? 0) })}
+            </span>
+            <span className="tabular-nums">{syncProgress ?? 0}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+              style={{ width: `${Math.min(100, Math.max(0, syncProgress ?? 0))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {isSupabaseMode && syncStatus === "error" && syncError && (
         <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -57,6 +57,27 @@ export function useAppData() {
   }, [queryClient]);
 
   const profile = isSupabaseMode ? (serverState?.profile ?? demoProfile) : demoProfile;
+
+  // Keep local demo profile (anime Activity "Who") aligned with cloud Settings name.
+  useEffect(() => {
+    if (!isSupabaseMode || !serverState?.profile) return;
+    const cloud = serverState.profile;
+    const local = useDemoStore.getState().profile;
+    if (
+      cloud.displayName !== local.displayName ||
+      cloud.currency !== local.currency ||
+      cloud.theme !== local.theme ||
+      cloud.defaultGameId !== local.defaultGameId
+    ) {
+      useDemoStore.getState().updateProfile({
+        displayName: cloud.displayName,
+        currency: cloud.currency,
+        theme: cloud.theme,
+        defaultGameId: cloud.defaultGameId,
+      });
+    }
+  }, [isSupabaseMode, serverState?.profile]);
+
   const collections = useMemo(
     () => (isSupabaseMode ? (serverState?.collections ?? []) : demoCollections),
     [isSupabaseMode, serverState?.collections, demoCollections]

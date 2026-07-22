@@ -367,6 +367,8 @@ export const extraMessages = {
     "anime.syncError": "Anime sync error",
     "anime.syncMigrationHint":
       "Cloud anime share needs Supabase migrations 0013 and 0014 applied.",
+    "anime.syncComplete": "Anime sync complete",
+    "anime.syncProgress": "Syncing… {percent}%",
   },
   "pt-BR": {
     "common.close": "Fechar",
@@ -735,5 +737,7 @@ export const extraMessages = {
     "anime.syncError": "Erro no sync da anime",
     "anime.syncMigrationHint":
       "O compartilhamento da Anime precisa das migrations 0013 e 0014 no Supabase.",
+    "anime.syncComplete": "Sync da anime concluído",
+    "anime.syncProgress": "Sincronizando… {percent}%",
   },
 } as const;

@@ -84,6 +84,111 @@ export function clearTombstone(
   return normalizeTombstones(list).filter((t) => t.key !== key);
 }
 
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of items) map.set(item.id, item);
+  return [...map.values()];
+}
+
+/**
+ * Remap local series/character UUIDs onto the canonical (cloud) IDs by slug + name.
+ * Prevents 3-way merge from treating "same Yuya, different id" as delete+add,
+ * which drops cards on the shared character and can push that wipe to the cloud.
+ */
+export function alignAnimeStateToCanonical(
+  sourceInput: AnimeWorkspaceSnapshotState | null | undefined,
+  canonicalInput: AnimeWorkspaceSnapshotState | null | undefined
+): AnimeWorkspaceSnapshotState {
+  const source = normalizeAnimeSnapshot(sourceInput);
+  const canonical = normalizeAnimeSnapshot(canonicalInput);
+  if (canonical.animeSeries.length === 0 && canonical.animeCharacters.length === 0) {
+    return source;
+  }
+
+  const seriesIdMap = new Map<string, string>();
+  const canonicalSeriesBySlug = new Map(
+    canonical.animeSeries.map((s) => [s.slug.trim().toLowerCase(), s] as const)
+  );
+  const canonicalSeriesByName = new Map(
+    canonical.animeSeries.map((s) => [s.name.trim().toLowerCase(), s] as const)
+  );
+
+  for (const series of source.animeSeries) {
+    const match =
+      canonicalSeriesBySlug.get(series.slug.trim().toLowerCase()) ??
+      canonicalSeriesByName.get(series.name.trim().toLowerCase());
+    if (match) seriesIdMap.set(series.id, match.id);
+  }
+
+  const charIdMap = new Map<string, string>();
+  for (const character of source.animeCharacters) {
+    const seriesId = seriesIdMap.get(character.seriesId) ?? character.seriesId;
+    const match = canonical.animeCharacters.find(
+      (c) =>
+        c.seriesId === seriesId &&
+        c.name.trim().toLowerCase() === character.name.trim().toLowerCase()
+    );
+    if (match) charIdMap.set(character.id, match.id);
+  }
+
+  if (seriesIdMap.size === 0 && charIdMap.size === 0) return source;
+
+  const animeSeries = dedupeById(
+    source.animeSeries.map((series) => {
+      const id = seriesIdMap.get(series.id);
+      if (!id) return series;
+      const canon = canonical.animeSeries.find((s) => s.id === id);
+      return canon
+        ? {
+            ...series,
+            id: canon.id,
+            slug: canon.slug,
+          }
+        : series;
+    })
+  );
+
+  const animeCharacters = dedupeById(
+    source.animeCharacters.map((character) => {
+      const id = charIdMap.get(character.id) ?? character.id;
+      const seriesId = seriesIdMap.get(character.seriesId) ?? character.seriesId;
+      return { ...character, id, seriesId };
+    })
+  );
+
+  const animeCharacterCards = dedupeAnimeCards(
+    source.animeCharacterCards.map((entry) => {
+      const characterId = charIdMap.get(entry.characterId) ?? entry.characterId;
+      return characterId === entry.characterId ? entry : { ...entry, characterId };
+    })
+  );
+
+  const animeBinderLayoutByCharacter: Record<string, (string | null)[]> = {};
+  for (const [characterId, layout] of Object.entries(
+    source.animeBinderLayoutByCharacter ?? {}
+  )) {
+    const nextId = charIdMap.get(characterId) ?? characterId;
+    animeBinderLayoutByCharacter[nextId] = layout;
+  }
+
+  const animeCardTombstones = normalizeTombstones(source.animeCardTombstones).map((t) => {
+    const parts = t.key.split("|");
+    if (parts.length < 3) return t;
+    const [oldCharId, ...rest] = parts;
+    const nextCharId = charIdMap.get(oldCharId!) ?? oldCharId!;
+    if (nextCharId === oldCharId) return t;
+    return { ...t, key: [nextCharId, ...rest].join("|") };
+  });
+
+  return {
+    animeSeries,
+    animeCharacters,
+    animeCharacterCards,
+    animeBinderLayoutByCharacter,
+    animeCardTombstones,
+  };
+}
+
 export function mergeTombstoneLists(
   ...lists: Array<AnimeCardTombstone[] | null | undefined>
 ): AnimeCardTombstone[] {
@@ -117,9 +222,58 @@ function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
 function indexCards(cards: AnimeCharacterCard[]): Map<string, AnimeCharacterCard> {
   const map = new Map<string, AnimeCharacterCard>();
   for (const card of cards) {
-    map.set(animeCardSyncKey(card), card);
+    const key = animeCardSyncKey(card);
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, card);
+      continue;
+    }
+    // Same logical card twice (e.g. after ID align) — keep richer row.
+    const qty = Math.max(prev.quantity, card.quantity);
+    const touched = [prev.lastTouchedAt, card.lastTouchedAt].filter(Boolean).sort().at(-1);
+    map.set(key, {
+      ...prev,
+      ...card,
+      id: prev.id,
+      quantity: qty,
+      lastTouchedAt: touched,
+      card: {
+        ...prev.card,
+        ...card.card,
+        imageUrl: card.card.imageUrl ?? prev.card.imageUrl,
+        rarity: card.card.rarity ?? prev.card.rarity,
+        setName: card.card.setName ?? prev.card.setName,
+        type: card.card.type ?? prev.card.type,
+        cardTraderBlueprintId:
+          card.card.cardTraderBlueprintId ?? prev.card.cardTraderBlueprintId,
+      },
+    });
   }
   return map;
+}
+
+/** Collapse duplicate sync-keys after character-id remapping. */
+export function dedupeAnimeCards(cards: AnimeCharacterCard[]): AnimeCharacterCard[] {
+  return [...indexCards(cards).values()];
+}
+
+/**
+ * True when pushing `candidate` would drop cloud cards without a matching tombstone.
+ * Blocks the classic wipe where a peer push erases the owner's cards.
+ */
+export function wouldWipeRemoteCards(
+  candidate: AnimeWorkspaceSnapshotState,
+  remote: AnimeWorkspaceSnapshotState
+): boolean {
+  const cand = normalizeAnimeSnapshot(candidate);
+  const rem = normalizeAnimeSnapshot(remote);
+  const candKeys = new Set(cand.animeCharacterCards.map((c) => animeCardSyncKey(c)));
+  const tombs = new Set((cand.animeCardTombstones ?? []).map((t) => t.key));
+  for (const card of rem.animeCharacterCards) {
+    const key = animeCardSyncKey(card);
+    if (!candKeys.has(key) && !tombs.has(key)) return true;
+  }
+  return false;
 }
 
 /** Classic 3-way presence for entities keyed by id. */
@@ -434,9 +588,10 @@ export function threeWayMergeAnimeState(
   cloudInput: AnimeWorkspaceSnapshotState | null | undefined,
   localInput: AnimeWorkspaceSnapshotState | null | undefined
 ): AnimeWorkspaceSnapshotState {
-  const base = normalizeAnimeSnapshot(baseInput);
   const cloud = normalizeAnimeSnapshot(cloudInput);
-  const local = normalizeAnimeSnapshot(localInput);
+  // Align UUIDs to cloud so "Yuya" locally !== "Yuya" remotely doesn't wipe cards.
+  const base = alignAnimeStateToCanonical(normalizeAnimeSnapshot(baseInput), cloud);
+  const local = alignAnimeStateToCanonical(normalizeAnimeSnapshot(localInput), cloud);
 
   const mergedTombstones = mergeTombstoneLists(
     base.animeCardTombstones,
@@ -466,7 +621,9 @@ export function threeWayMergeAnimeState(
     local.animeCharacterCards,
     mergedTombstones
   );
-  const animeCharacterCards = mergedCards.filter((c) => characterIds.has(c.characterId));
+  const animeCharacterCards = dedupeAnimeCards(
+    mergedCards.filter((c) => characterIds.has(c.characterId))
+  );
 
   const liveKeys = new Set(animeCharacterCards.map((c) => animeCardSyncKey(c)));
   const now = new Date().toISOString();

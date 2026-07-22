@@ -104,16 +104,52 @@ export async function resolveAnimeWorkspace(
 export async function getAnimeSnapshot(
   supabase: SupabaseClient,
   workspaceId: string
-): Promise<{ state: AnimeWorkspaceSnapshotState; updatedAt: string | null }> {
+): Promise<{
+  state: AnimeWorkspaceSnapshotState;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  updatedByDisplayName: string | null;
+}> {
   const db = dbClient(supabase);
   const { data, error } = await db
     .from("anime_workspace_snapshots")
-    .select("state, updated_at")
+    .select("state, updated_at, updated_by")
     .eq("workspace_id", workspaceId)
     .maybeSingle();
   if (error) throw toError(error);
   const state = normalizeAnimeSnapshot(data?.state as AnimeWorkspaceSnapshotState | null);
-  return { state, updatedAt: (data?.updated_at as string | null) ?? null };
+  const updatedByUserId = (data?.updated_by as string | null) ?? null;
+  let updatedByDisplayName: string | null = null;
+  if (updatedByUserId) {
+    const { data: profile } = await db
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", updatedByUserId)
+      .maybeSingle();
+    updatedByDisplayName =
+      ((profile?.display_name as string | null) ?? "").trim() || "Collector";
+  }
+  return {
+    state,
+    updatedAt: (data?.updated_at as string | null) ?? null,
+    updatedByUserId,
+    updatedByDisplayName,
+  };
+}
+
+/** Cheap poll: only the revision timestamp, never the multi-MB state blob. */
+export async function getAnimeSnapshotMeta(
+  supabase: SupabaseClient,
+  workspaceId: string
+): Promise<{ updatedAt: string | null }> {
+  const db = dbClient(supabase);
+  const { data, error } = await db
+    .from("anime_workspace_snapshots")
+    .select("updated_at")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) throw toError(error);
+  return { updatedAt: (data?.updated_at as string | null) ?? null };
 }
 
 export async function putAnimeSnapshot(

@@ -275,6 +275,13 @@ interface DemoStore extends DemoState {
   halveOwnedCardQuantities: (collectionId: string) => number;
   setOwnedCardQuantitiesToOne: (collectionId: string) => number;
   updateProfile: (updates: Partial<DemoState["profile"]>) => void;
+  /** Record Activity rows for peer anime share diffs (add/remove). */
+  recordAnimeShareRemoteDiff: (
+    beforeCards: AnimeCharacterCard[],
+    afterCards: AnimeCharacterCard[],
+    actor: { displayName: string; userId?: string | null },
+    characterNames?: Array<{ id: string; name: string }>
+  ) => { added: number; removed: number };
   addCollection: (name: string) => DemoCollection;
   renameCollection: (id: string, name: string) => void;
   deleteCollection: (id: string) => void;
@@ -1012,6 +1019,91 @@ export const useDemoStore = create<DemoStore>()(
 
       updateProfile: (updates) =>
         set((s) => ({ profile: { ...s.profile, ...updates } })),
+
+      recordAnimeShareRemoteDiff: (beforeCards, afterCards, actor, characterNames) => {
+        const beforeByKey = new Map(
+          beforeCards.map((c) => [animeCardSyncKey(c), c] as const)
+        );
+        const afterByKey = new Map(
+          afterCards.map((c) => [animeCardSyncKey(c), c] as const)
+        );
+        const removed: AnimeCharacterCard[] = [];
+        const added: AnimeCharacterCard[] = [];
+        for (const [key, card] of beforeByKey) {
+          if (!afterByKey.has(key)) removed.push(card);
+        }
+        for (const [key, card] of afterByKey) {
+          if (!beforeByKey.has(key)) added.push(card);
+        }
+        if (removed.length === 0 && added.length === 0) {
+          return { added: 0, removed: 0 };
+        }
+
+        const displayName = actor.displayName.trim() || "Collector";
+        const characterNameById = new Map(
+          (characterNames ?? get().animeCharacters).map((c) => [c.id, c.name] as const)
+        );
+        const MAX_EVENTS = 40;
+        const events: DemoActivityEvent[] = [];
+
+        for (const entry of removed.slice(0, MAX_EVENTS)) {
+          const characterName = characterNameById.get(entry.characterId) ?? null;
+          events.push(
+            makeDemoActivity(
+              {
+                collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                action: "card_deleted",
+                ownedCardId: entry.id,
+                cardName: entry.card.name,
+                beforeState: snapshotAnimeCard(entry, characterName ?? undefined),
+                afterState: null,
+                actorDisplayName: displayName,
+                meta: {
+                  source: "anime",
+                  characterId: entry.characterId,
+                  characterName,
+                  remoteShare: true,
+                  actorUserId: actor.userId ?? null,
+                },
+              },
+              displayName
+            )
+          );
+        }
+
+        const remaining = Math.max(0, MAX_EVENTS - events.length);
+        for (const entry of added.slice(0, remaining)) {
+          const characterName = characterNameById.get(entry.characterId) ?? null;
+          events.push(
+            makeDemoActivity(
+              {
+                collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                action: "card_added",
+                ownedCardId: entry.id,
+                cardName: entry.card.name,
+                beforeState: null,
+                afterState: snapshotAnimeCard(entry, characterName ?? undefined),
+                actorDisplayName: displayName,
+                meta: {
+                  source: "anime",
+                  characterId: entry.characterId,
+                  characterName,
+                  remoteShare: true,
+                  actorUserId: actor.userId ?? null,
+                },
+              },
+              displayName
+            )
+          );
+        }
+
+        if (events.length > 0) {
+          set((s) => ({
+            activityEvents: [...events, ...(s.activityEvents ?? [])],
+          }));
+        }
+        return { added: added.length, removed: removed.length };
+      },
 
       addCollection: (name) => {
         const newCollection = {
