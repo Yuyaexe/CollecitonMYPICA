@@ -348,6 +348,14 @@ export const extraMessages = {
     "activity.openLog": "Activity log",
     "activity.scopeAll": "All collections + Anime",
     "activity.scopeAnime": "Anime collection",
+
+    "share.hubTitle": "Invite to share",
+    "share.hubDescription": "Invite a friend by email. Pick which collections and/or Anime to share.",
+    "share.hubHint": "They need a DeckVault account with this same email. Tell them to sign in after you invite.",
+    "share.whatToShare": "What to share",
+    "share.animeCollection": "Anime collection",
+    "share.selectSomething": "Select at least one collection or Anime",
+    "share.inviteSentCount": "Invite sent ({count})",
   },
   "pt-BR": {
     "common.close": "Fechar",
@@ -697,5 +705,13 @@ export const extraMessages = {
     "activity.openLog": "Log de atividade",
     "activity.scopeAll": "Todas as coleções + Anime",
     "activity.scopeAnime": "Coleção Anime",
+
+    "share.hubTitle": "Convidar para compartilhar",
+    "share.hubDescription": "Convide um amigo por e-mail. Escolha quais coleções e/ou a Anime para compartilhar.",
+    "share.hubHint": "A pessoa precisa de conta no DeckVault com este e-mail. Peça para ela entrar depois do convite.",
+    "share.whatToShare": "O que compartilhar",
+    "share.animeCollection": "Coleção Anime",
+    "share.selectSomething": "Selecione ao menos uma coleção ou a Anime",
+    "share.inviteSentCount": "Convite enviado ({count})",
   },
 } as const;

@@ -17,7 +17,7 @@ Shared: `src/components/shared/`, `src/hooks/`, `src/types/`, `src/lib/`
 ## Data modes
 
 - **Demo:** Zustand persist (`deckvault-demo`) — full TCG collection + anime collection + JSON backup/restore + local activity log
-- **Supabase:** React Query + `/api/app/*` for TCG; shared collections via `collection_members` / invites; **anime collection stays local-only** until cloud sync is built
+- **Supabase:** React Query + `/api/app/*` for TCG; shared collections via `collection_members` / invites; **Anime** can be shared via `anime_workspaces` snapshot sync in cloud mode
 - **No Live:** realtime presence is out of product scope (poll/refetch after mutations)
 
 ## Before writing code

@@ -59,7 +59,7 @@ Everything below is optional — only needed for cloud sync or building a deskto
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy env vars into `.env.local` (Supabase URL, anon key, `DATABASE_URL`)
-3. Run migrations in the SQL Editor — files `0001` through `0012` in `src/lib/db/migrations/`, in order
+3. Run migrations in the SQL Editor — files `0001` through `0013` in `src/lib/db/migrations/`, in order
 4. Deploy to [Vercel](https://vercel.com)
 5. Supabase → **Authentication → URL Configuration** — set Site URL to your Vercel domain
 
@@ -79,6 +79,7 @@ Run in SQL Editor, in order:
 10. `0010_drop_unused_phase_tables.sql`
 11. `0011_drop_collaboration.sql`
 12. `0012_collaboration_and_activity.sql` (reintroduces members/invites + activity log)
+13. `0013_anime_workspace_share.sql` (shareable Anime Collection workspace)
 
 **Auth tip:** enable **Leaked password protection** under Authentication → Providers → Email.
 

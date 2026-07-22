@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Share2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
@@ -21,6 +21,7 @@ import {
   AddAnimeSeriesCard,
 } from "@/features/anime-collection/components/AnimeSeriesCard";
 import { EditSeriesModal } from "@/features/anime-collection/components/EditSeriesModal";
+import { ShareHubModal } from "@/features/collection/components/ShareHubModal";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
 import { resolveSeriesCoverUrl } from "@/features/anime-collection/utils/resolve-series-cover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -48,6 +49,7 @@ export function AnimeSeriesPage() {
   const [editTarget, setEditTarget] = useState<AnimeSeries | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnimeSeries | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleCreate = () => {
     const trimmed = newName.trim();
@@ -105,10 +107,21 @@ export function AnimeSeriesPage() {
 
   return (
     <>
-      <PageHeader
-        title={t("anime.title")}
-        description={t("anime.description")}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title={t("anime.title")}
+          description={t("anime.description")}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() => setShareOpen(true)}
+        >
+          <Share2 className="h-4 w-4" />
+          {t("share.menuShare")}
+        </Button>
+      </div>
 
       {animeSeries.length === 0 ? (
         <EmptyState
@@ -235,6 +248,12 @@ export function AnimeSeriesPage() {
       >
         <span className="sr-only">{t("anime.confirmDeleteSeries")}</span>
       </Modal>
+
+      <ShareHubModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        preselectAnime
+      />
     </>
   );
 }

@@ -11,7 +11,7 @@ Goals: track collection, import/export (including file backup), multi-collection
 
 ## Product scope (current)
 
-**In scope:** Auth (optional cloud), Collection views, Search/Quick Add, Import CSV/decklist, Export, Collection manager, Anime collection (local), Proxy print, Settings + **JSON backup/restore**, **Share / collection invites** (editor/viewer), **Activity log + undo** (simple card actions).
+**In scope:** Auth (optional cloud), Collection views, Search/Quick Add, Import CSV/decklist, Export, Collection manager, Anime collection (local + **optional cloud share**), Proxy print, Settings + **JSON backup/restore**, **Share / collection invites** (editor/viewer, TCG + Anime), **Activity log + undo** (simple card actions).
 
 **Out of scope (removed):** Deck builder, Wishlist, Folders, Tags, Price history, Trading, Notifications, Phase 4 community, **Live realtime presence**.
 
