@@ -1,7 +1,6 @@
 "use client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { useT } from "@/lib/i18n/context";
@@ -67,12 +66,8 @@ export function CollectionGridCardItem({
       </button>
 
       <div className="mt-2 space-y-1.5 px-1">
-        <div className="flex items-center justify-center">
-          <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
-        </div>
         <button type="button" onClick={onOpen} className="w-full text-center">
           <p className="line-clamp-2 text-xs font-semibold leading-tight">{item.card.name}</p>
-          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.card.setName ?? "—"}</p>
         </button>
         <div className="flex justify-center pt-0.5">
           <QuantityStepper

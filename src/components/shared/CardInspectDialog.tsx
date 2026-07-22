@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_SHEET } from "@/lib/ui/mobile-dialog";
 import { CardImage } from "@/components/shared/CardImage";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { buildMarketplaceListings } from "@/features/market/services/marketplace";
 import { isApiSupported } from "@/features/catalog/services/card-api";
@@ -233,22 +232,7 @@ export function CardInspectDialog({
                 <h2 className="text-base font-semibold leading-snug break-words md:text-lg">
                   {card.card.name}
                 </h2>
-                {card.card.rarity && (
-                  <div className="mt-2 flex justify-center md:justify-start">
-                    <RarityBadge
-                      rarity={card.card.rarity}
-                      gameSlug={card.card.gameSlug}
-                      size="sm"
-                    />
-                  </div>
-                )}
                 <dl className="mt-3 grid w-full grid-cols-1 gap-2 text-sm">
-                  <div className="rounded-md bg-background/70 px-3 py-2 text-left">
-                    <dt className="text-xs text-muted-foreground">{t("inspect.set")}</dt>
-                    <dd className="mt-0.5 font-medium leading-snug break-words">
-                      {card.card.setName ?? "—"}
-                    </dd>
-                  </div>
                   <div className="rounded-md bg-background/70 px-3 py-2 text-left">
                     <dt className="text-xs text-muted-foreground">{t("inspect.number")}</dt>
                     <dd className="mt-0.5 font-medium leading-snug break-all">

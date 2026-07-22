@@ -1,15 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { DEMO_GAMES } from "@/lib/demo/types";
-import { useAppData } from "@/hooks/useAppData";
 import { CARD_CONDITIONS, CARD_LANGUAGES } from "@/types/tcg";
-import { isKnownRarity } from "@/lib/rarity/resolve-rarity";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n/context";
 
@@ -48,36 +45,8 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
   const sortField = useCollectionUIStore((s) => s.sortField);
   const sortDir = useCollectionUIStore((s) => s.sortDir);
   const setSort = useCollectionUIStore((s) => s.setSort);
-  const { ownedCards, activeCollectionId } = useAppData();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const preferNative = inSheet || isMobile;
-
-  const collectionCards = useMemo(
-    () => ownedCards.filter((oc) => oc.collectionId === activeCollectionId),
-    [ownedCards, activeCollectionId]
-  );
-
-  const sets = useMemo(
-    () => [...new Set(collectionCards.map((oc) => oc.card.setCode).filter(Boolean))] as string[],
-    [collectionCards]
-  );
-
-  const rarities = useMemo(
-    () =>
-      [
-        ...new Set(
-          collectionCards
-            .filter((oc) => isKnownRarity(oc.card.rarity, oc.card.gameSlug))
-            .map((oc) => oc.card.rarity!)
-        ),
-      ] as string[],
-    [collectionCards]
-  );
-
-  const setFilterValue =
-    filters.setCode && sets.includes(filters.setCode) ? filters.setCode : "all";
-  const rarityFilterValue =
-    filters.rarity && rarities.includes(filters.rarity) ? filters.rarity : "all";
 
   return (
     <ScrollArea className={inSheet ? "min-h-0 flex-1" : "h-full"}>
@@ -103,8 +72,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
               { value: "name:desc", label: t("collection.sortNameDesc") },
               { value: "quantity:desc", label: t("collection.sortQtyDesc") },
               { value: "quantity:asc", label: t("collection.sortQtyAsc") },
-              { value: "set:asc", label: t("collection.sortSetAsc") },
-              { value: "rarity:asc", label: t("collection.sortRarityAsc") },
             ]}
           />
         </div>
@@ -118,32 +85,6 @@ export function CollectionFilters({ inSheet = false }: CollectionFiltersProps) {
             options={[
               { value: "all", label: t("collection.allGames") },
               ...DEMO_GAMES.map((g) => ({ value: g.id, label: g.name })),
-            ]}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">{t("collection.set")}</Label>
-          <FilterSelect
-            preferNative={preferNative}
-            value={setFilterValue}
-            onValueChange={(v) => setFilters({ setCode: v === "all" ? null : v })}
-            options={[
-              { value: "all", label: t("collection.allSets") },
-              ...sets.map((s) => ({ value: s, label: s })),
-            ]}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">{t("collection.rarity")}</Label>
-          <FilterSelect
-            preferNative={preferNative}
-            value={rarityFilterValue}
-            onValueChange={(v) => setFilters({ rarity: v === "all" ? null : v })}
-            options={[
-              { value: "all", label: t("collection.allRarities") },
-              ...rarities.map((r) => ({ value: r, label: r })),
             ]}
           />
         </div>

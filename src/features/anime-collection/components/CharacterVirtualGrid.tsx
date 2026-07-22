@@ -3,7 +3,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, type MouseEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Check, Minus, Plus, Trash2 } from "lucide-react";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import { Button } from "@/components/ui/button";
 import { CharacterCardThumb } from "@/features/anime-collection/components/CharacterCardThumb";
 import { useAnimeCharacterUIStore } from "@/features/anime-collection/stores/anime-character-ui.store";
@@ -13,8 +12,8 @@ import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 
-/** Image (~204px) + rarity/name/set + qty controls + padding */
-const CARD_ROW_HEIGHT = 340;
+/** Image (~204px) + name + qty controls + padding */
+const CARD_ROW_HEIGHT = 300;
 
 function CharacterGridCard({
   item,
@@ -98,23 +97,15 @@ function CharacterGridCard({
       />
 
       <div className="mt-2 space-y-1.5 px-1">
-        <div className="flex items-center justify-center gap-1.5">
-          <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
-          {item.quantity > 1 && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-              ×{item.quantity}
-            </span>
-          )}
-        </div>
         <button
           type="button"
           onClick={handleCardClick}
           className="w-full text-center hover:text-primary"
         >
           <p className="line-clamp-2 text-xs font-semibold leading-tight">{item.card.name}</p>
-          <p className="truncate text-[10px] text-muted-foreground">
-            {item.card.setName ?? "—"}
-          </p>
+          {item.quantity > 1 && (
+            <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">×{item.quantity}</p>
+          )}
         </button>
         <div className="flex items-center justify-center gap-1 pt-1">
           <Button

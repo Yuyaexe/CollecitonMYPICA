@@ -10,7 +10,6 @@ import {
   Minus,
   Plus,
 } from "lucide-react";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import {
   BinderEmptySlot,
   BinderLayoutToggle,
@@ -148,7 +147,6 @@ function CharacterBinderSlot({
     );
   }
 
-  const setLine = item.card.setName ?? "—";
   const dragOver = dragHandlers.isDragOver(item.id);
   const rowIndex = allIds.indexOf(item.id);
 
@@ -240,31 +238,13 @@ function CharacterBinderSlot({
         type="button"
         onClick={handleCardClick}
         className={cn(
-          "flex w-full flex-col gap-0.5 rounded-md px-1.5 py-1 text-left ring-1 transition-colors",
+          "w-full truncate rounded-md px-1.5 py-1 text-left text-[9px] font-medium ring-1 transition-colors",
           selected
             ? "bg-primary text-primary-foreground ring-primary/60"
-            : "bg-zinc-900/90 ring-white/5 hover:bg-zinc-800/95 group-hover:ring-primary/20 dark:bg-zinc-950/90"
+            : "bg-zinc-900/90 text-white/75 ring-white/5 hover:bg-zinc-800/95 hover:text-white group-hover:ring-primary/20 dark:bg-zinc-950/90"
         )}
       >
-        <div className="flex items-center justify-between gap-1">
-          <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} size="sm" />
-        </div>
-        <p
-          className={cn(
-            "truncate text-[9px] font-medium",
-            selected ? "text-primary-foreground" : "text-white/75 group-hover:text-white"
-          )}
-        >
-          {item.card.name}
-        </p>
-        <p
-          className={cn(
-            "truncate text-[8px]",
-            selected ? "text-primary-foreground/75" : "text-white/50 group-hover:text-white/70"
-          )}
-        >
-          {setLine}
-        </p>
+        {item.card.name}
       </button>
     </div>
   );

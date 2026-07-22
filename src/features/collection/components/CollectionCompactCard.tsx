@@ -3,13 +3,13 @@
 import { memo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CardImage } from "@/components/shared/CardImage";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { useCollectionCardImage } from "@/hooks/useCollectionCardImage";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { dragHandleProps, useDragReorder } from "@/hooks/useDragReorder";
 import type { DemoOwnedCard } from "@/lib/demo/types";
+
 interface CollectionCompactCardProps {
   item: DemoOwnedCard;
   selected: boolean;
@@ -68,16 +68,7 @@ export const CollectionCompactCard = memo(function CollectionCompactCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <button type="button" onClick={onOpen} className="min-w-0 text-left">
-          <div className="flex items-start gap-2">
-            <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} size="md" />
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-sm font-semibold leading-tight">{item.card.name}</p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {item.card.setName ?? "—"}
-                {item.card.collectorNumber ? ` · ${item.card.collectorNumber}` : ""}
-              </p>
-            </div>
-          </div>
+          <p className="line-clamp-2 text-sm font-semibold leading-tight">{item.card.name}</p>
         </button>
 
         <QuantityStepper

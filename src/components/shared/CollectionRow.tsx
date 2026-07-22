@@ -5,7 +5,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { CardImage } from "@/components/shared/CardImage";
 import { CardHoverPreview } from "@/components/shared/CardHoverPreview";
-import { RarityBadge } from "@/components/shared/RarityBadge";
 import { TruncatedTooltip } from "@/components/shared/TruncatedTooltip";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
 import { getCardHoverPreviewUrl } from "@/lib/cards/preview-image";
@@ -111,8 +110,6 @@ export const CollectionRow = memo(function CollectionRow({
         </div>
       </CardHoverPreview>
 
-      <RarityBadge rarity={item.card.rarity} gameSlug={item.card.gameSlug} />
-
       <div className="min-w-0 flex-[2]">
         <button
           type="button"
@@ -131,14 +128,6 @@ export const CollectionRow = memo(function CollectionRow({
         <TruncatedTooltip
           text={item.card.gameName}
           className="text-xs text-muted-foreground"
-        />
-      </div>
-
-      <div className="hidden min-w-[9rem] flex-[1.5] md:block">
-        <TruncatedTooltip
-          text={item.card.setName}
-          className="text-sm text-muted-foreground"
-          side="top"
         />
       </div>
 

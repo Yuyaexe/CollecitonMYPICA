@@ -434,8 +434,6 @@ export function CharacterDetailPage({
                       { value: "name:desc", label: t("collection.sortNameDesc") },
                       { value: "quantity:desc", label: t("collection.sortQtyDesc") },
                       { value: "quantity:asc", label: t("collection.sortQtyAsc") },
-                      { value: "set:asc", label: t("collection.sortSetAsc") },
-                      { value: "rarity:asc", label: t("collection.sortRarityAsc") },
                     ]}
                   />
                 </div>

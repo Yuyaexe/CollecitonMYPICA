@@ -93,9 +93,7 @@ export function CollectionTable() {
           />
         </div>
         <span className="w-7 shrink-0" aria-hidden />
-        <span className="w-9 shrink-0 text-center">{t("collection.table.rarity")}</span>
         <span className="flex-[2]">{t("collection.table.name")}</span>
-        <span className="hidden min-w-[9rem] flex-[1.5] md:block">{t("collection.table.set")}</span>
         <span className="hidden w-12 xl:block">{t("collection.table.number")}</span>
         <span className="w-[104px] shrink-0 text-center">{t("collection.table.qty")}</span>
         <span className="hidden w-12 text-center md:block">{t("collection.table.condition")}</span>
