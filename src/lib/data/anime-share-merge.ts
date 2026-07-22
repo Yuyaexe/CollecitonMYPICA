@@ -1,0 +1,495 @@
+import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
+import type { AnimeCardTombstone, AnimeCharacterCard } from "@/lib/demo/types";
+
+export type { AnimeCardTombstone };
+
+/**
+ * Product rules (anime share conflict resolution):
+ * 1. If A removes a card and B still has a stale copy → removal wins.
+ * 2. If B adds a new card (not in base) → addition wins.
+ * 3. If B removes and A still has a stale copy → removal wins.
+ * 4. Re-add after removal only counts as a fresh add (!inBase && present).
+ * 5. Tombstones reinforce removals when a peer pushes a stale snapshot.
+ */
+
+export interface AnimeWorkspaceSnapshotState {
+  animeSeries: AnimeSeries[];
+  animeCharacters: AnimeCharacter[];
+  animeCharacterCards: AnimeCharacterCard[];
+  animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
+  animeCardTombstones?: AnimeCardTombstone[];
+}
+
+const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+export function animeCardSyncKey(entry: {
+  characterId: string;
+  card: { gameSlug: string; externalId: string | null; name: string };
+}): string {
+  const external = entry.card.externalId?.trim() || entry.card.name.trim().toLowerCase();
+  return `${entry.characterId}|${entry.card.gameSlug}|${external}`;
+}
+
+export function emptyAnimeSnapshot(): AnimeWorkspaceSnapshotState {
+  return {
+    animeSeries: [],
+    animeCharacters: [],
+    animeCharacterCards: [],
+    animeBinderLayoutByCharacter: {},
+    animeCardTombstones: [],
+  };
+}
+
+export function normalizeAnimeSnapshot(
+  state: AnimeWorkspaceSnapshotState | null | undefined
+): AnimeWorkspaceSnapshotState {
+  if (!state) return emptyAnimeSnapshot();
+  return {
+    animeSeries: state.animeSeries ?? [],
+    animeCharacters: state.animeCharacters ?? [],
+    animeCharacterCards: state.animeCharacterCards ?? [],
+    animeBinderLayoutByCharacter: state.animeBinderLayoutByCharacter ?? {},
+    animeCardTombstones: normalizeTombstones(state.animeCardTombstones),
+  };
+}
+
+export function normalizeTombstones(
+  list: AnimeCardTombstone[] | null | undefined
+): AnimeCardTombstone[] {
+  const byKey = new Map<string, AnimeCardTombstone>();
+  for (const raw of list ?? []) {
+    if (!raw?.key || !raw.deletedAt) continue;
+    const prev = byKey.get(raw.key);
+    if (!prev || raw.deletedAt > prev.deletedAt) {
+      byKey.set(raw.key, { key: raw.key, deletedAt: raw.deletedAt });
+    }
+  }
+  return [...byKey.values()];
+}
+
+export function upsertTombstone(
+  list: AnimeCardTombstone[] | null | undefined,
+  key: string,
+  deletedAt: string = new Date().toISOString()
+): AnimeCardTombstone[] {
+  const next = normalizeTombstones(list).filter((t) => t.key !== key);
+  next.push({ key, deletedAt });
+  return next;
+}
+
+export function clearTombstone(
+  list: AnimeCardTombstone[] | null | undefined,
+  key: string
+): AnimeCardTombstone[] {
+  return normalizeTombstones(list).filter((t) => t.key !== key);
+}
+
+export function mergeTombstoneLists(
+  ...lists: Array<AnimeCardTombstone[] | null | undefined>
+): AnimeCardTombstone[] {
+  const byKey = new Map<string, AnimeCardTombstone>();
+  for (const list of lists) {
+    for (const t of normalizeTombstones(list)) {
+      const prev = byKey.get(t.key);
+      if (!prev || t.deletedAt > prev.deletedAt) byKey.set(t.key, t);
+    }
+  }
+  return [...byKey.values()];
+}
+
+function pruneTombstones(
+  tombstones: AnimeCardTombstone[],
+  liveKeys: Set<string>,
+  nowMs: number = Date.now()
+): AnimeCardTombstone[] {
+  return tombstones.filter((t) => {
+    if (liveKeys.has(t.key)) return false;
+    const deletedMs = Date.parse(t.deletedAt);
+    if (!Number.isFinite(deletedMs)) return true;
+    return nowMs - deletedMs <= TOMBSTONE_TTL_MS;
+  });
+}
+
+function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
+  return new Map(items.map((item) => [item.id, item]));
+}
+
+function indexCards(cards: AnimeCharacterCard[]): Map<string, AnimeCharacterCard> {
+  const map = new Map<string, AnimeCharacterCard>();
+  for (const card of cards) {
+    map.set(animeCardSyncKey(card), card);
+  }
+  return map;
+}
+
+/** Classic 3-way presence for entities keyed by id. */
+function threeWayEntities<T extends { id: string }>(
+  base: T[],
+  cloud: T[],
+  local: T[],
+  mergeBoth: (baseItem: T | undefined, cloudItem: T, localItem: T) => T
+): T[] {
+  const bMap = indexById(base);
+  const cMap = indexById(cloud);
+  const lMap = indexById(local);
+  const keys = new Set([...bMap.keys(), ...cMap.keys(), ...lMap.keys()]);
+  const out: T[] = [];
+
+  for (const id of keys) {
+    const b = bMap.get(id);
+    const c = cMap.get(id);
+    const l = lMap.get(id);
+
+    if (b && c && l) {
+      out.push(mergeBoth(b, c, l));
+    } else if (b && c && !l) {
+      // local removed
+    } else if (b && !c && l) {
+      // cloud removed
+    } else if (b && !c && !l) {
+      // both removed
+    } else if (!b && c && l) {
+      out.push(mergeBoth(undefined, c, l));
+    } else if (!b && c && !l) {
+      out.push(c);
+    } else if (!b && !c && l) {
+      out.push(l);
+    }
+  }
+
+  return out;
+}
+
+function mergeSeriesFields(
+  baseItem: AnimeSeries | undefined,
+  cloudItem: AnimeSeries,
+  localItem: AnimeSeries
+): AnimeSeries {
+  if (!baseItem) {
+    return {
+      ...cloudItem,
+      name: localItem.name || cloudItem.name,
+      coverImageUrl: localItem.coverImageUrl ?? cloudItem.coverImageUrl,
+      coverColor: localItem.coverColor ?? cloudItem.coverColor,
+    };
+  }
+  return {
+    ...cloudItem,
+    name:
+      localItem.name !== baseItem.name
+        ? localItem.name
+        : cloudItem.name !== baseItem.name
+          ? cloudItem.name
+          : localItem.name,
+    coverImageUrl: pickChanged(
+      baseItem.coverImageUrl,
+      cloudItem.coverImageUrl,
+      localItem.coverImageUrl
+    ),
+    coverColor: pickChanged(baseItem.coverColor, cloudItem.coverColor, localItem.coverColor),
+    sortOrder: pickChanged(baseItem.sortOrder, cloudItem.sortOrder, localItem.sortOrder) ?? 0,
+  };
+}
+
+function mergeCharacterFields(
+  baseItem: AnimeCharacter | undefined,
+  cloudItem: AnimeCharacter,
+  localItem: AnimeCharacter
+): AnimeCharacter {
+  if (!baseItem) {
+    return {
+      ...cloudItem,
+      name: localItem.name || cloudItem.name,
+      imageUrl: localItem.imageUrl ?? cloudItem.imageUrl,
+      accentColor: localItem.accentColor ?? cloudItem.accentColor,
+    };
+  }
+  return {
+    ...cloudItem,
+    seriesId:
+      localItem.seriesId !== baseItem.seriesId
+        ? localItem.seriesId
+        : cloudItem.seriesId !== baseItem.seriesId
+          ? cloudItem.seriesId
+          : localItem.seriesId,
+    name:
+      localItem.name !== baseItem.name
+        ? localItem.name
+        : cloudItem.name !== baseItem.name
+          ? cloudItem.name
+          : localItem.name,
+    imageUrl: pickChanged(baseItem.imageUrl, cloudItem.imageUrl, localItem.imageUrl),
+    accentColor: pickChanged(
+      baseItem.accentColor,
+      cloudItem.accentColor,
+      localItem.accentColor
+    ),
+    sortOrder: pickChanged(baseItem.sortOrder, cloudItem.sortOrder, localItem.sortOrder) ?? 0,
+  };
+}
+
+function pickChanged<T>(base: T, cloud: T, local: T): T {
+  if (local !== base && cloud === base) return local;
+  if (cloud !== base && local === base) return cloud;
+  if (local !== base) return local;
+  return cloud;
+}
+
+function mergeCardFields(
+  baseItem: AnimeCharacterCard | undefined,
+  cloudItem: AnimeCharacterCard,
+  localItem: AnimeCharacterCard
+): AnimeCharacterCard {
+  const touched = [cloudItem.lastTouchedAt, localItem.lastTouchedAt]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  if (!baseItem) {
+    return {
+      ...cloudItem,
+      quantity: cloudItem.quantity + localItem.quantity,
+      condition: localItem.condition || cloudItem.condition,
+      language: localItem.language || cloudItem.language,
+      isFoil: localItem.isFoil || cloudItem.isFoil,
+      lastTouchedAt: touched,
+      card: {
+        ...cloudItem.card,
+        imageUrl: localItem.card.imageUrl ?? cloudItem.card.imageUrl,
+        rarity: localItem.card.rarity ?? cloudItem.card.rarity,
+        setName: localItem.card.setName ?? cloudItem.card.setName,
+        type: localItem.card.type ?? cloudItem.card.type,
+        cardTraderBlueprintId:
+          localItem.card.cardTraderBlueprintId ?? cloudItem.card.cardTraderBlueprintId,
+      },
+    };
+  }
+
+  let quantity = baseItem.quantity;
+  const cloudChanged = cloudItem.quantity !== baseItem.quantity;
+  const localChanged = localItem.quantity !== baseItem.quantity;
+  if (cloudChanged && localChanged) quantity = Math.max(cloudItem.quantity, localItem.quantity);
+  else if (localChanged) quantity = localItem.quantity;
+  else if (cloudChanged) quantity = cloudItem.quantity;
+
+  return {
+    ...cloudItem,
+    id: cloudItem.id,
+    quantity: Math.max(1, quantity),
+    condition: pickChanged(baseItem.condition, cloudItem.condition, localItem.condition),
+    language: pickChanged(baseItem.language, cloudItem.language, localItem.language),
+    isFoil: pickChanged(baseItem.isFoil, cloudItem.isFoil, localItem.isFoil),
+    sortOrder: pickChanged(baseItem.sortOrder, cloudItem.sortOrder, localItem.sortOrder),
+    lastTouchedAt: touched ?? baseItem.lastTouchedAt,
+    card: {
+      ...cloudItem.card,
+      name: pickChanged(baseItem.card.name, cloudItem.card.name, localItem.card.name),
+      imageUrl: pickChanged(
+        baseItem.card.imageUrl,
+        cloudItem.card.imageUrl,
+        localItem.card.imageUrl
+      ),
+      rarity: pickChanged(baseItem.card.rarity, cloudItem.card.rarity, localItem.card.rarity),
+      setName: pickChanged(
+        baseItem.card.setName,
+        cloudItem.card.setName,
+        localItem.card.setName
+      ),
+      type: pickChanged(baseItem.card.type, cloudItem.card.type, localItem.card.type),
+      cardTraderBlueprintId: pickChanged(
+        baseItem.card.cardTraderBlueprintId,
+        cloudItem.card.cardTraderBlueprintId,
+        localItem.card.cardTraderBlueprintId
+      ),
+    },
+  };
+}
+
+function threeWayCards(
+  base: AnimeCharacterCard[],
+  cloud: AnimeCharacterCard[],
+  local: AnimeCharacterCard[],
+  tombstones: AnimeCardTombstone[]
+): { cards: AnimeCharacterCard[]; removedKeys: string[] } {
+  const bMap = indexCards(base);
+  const cMap = indexCards(cloud);
+  const lMap = indexCards(local);
+  const tombByKey = new Map(tombstones.map((t) => [t.key, t]));
+  const keys = new Set([...bMap.keys(), ...cMap.keys(), ...lMap.keys(), ...tombByKey.keys()]);
+  const cards: AnimeCharacterCard[] = [];
+  const removedKeys: string[] = [];
+
+  for (const key of keys) {
+    const b = bMap.get(key);
+    const c = cMap.get(key);
+    const l = lMap.get(key);
+    const tomb = tombByKey.get(key);
+
+    let keep: AnimeCharacterCard | null = null;
+
+    if (b && c && l) {
+      keep = mergeCardFields(b, c, l);
+    } else if (b && c && !l) {
+      keep = null;
+      removedKeys.push(key);
+    } else if (b && !c && l) {
+      keep = null;
+      removedKeys.push(key);
+    } else if (b && !c && !l) {
+      keep = null;
+      removedKeys.push(key);
+    } else if (!b && c && l) {
+      keep = mergeCardFields(undefined, c, l);
+    } else if (!b && c && !l) {
+      keep = c;
+    } else if (!b && !c && l) {
+      keep = l;
+    }
+
+    // Tombstone: blocks stale presence.
+    // Re-add wins only when the card was touched after the tombstone.
+    if (tomb) {
+      const touched = keep?.lastTouchedAt;
+      if (keep && touched && touched > tomb.deletedAt) {
+        // intentional re-add / edit after delete
+      } else if (keep) {
+        keep = null;
+        removedKeys.push(key);
+      } else {
+        removedKeys.push(key);
+      }
+    }
+
+    if (keep) cards.push(keep);
+  }
+
+  return { cards, removedKeys };
+}
+
+function mergeBinderLayouts(
+  base: Record<string, (string | null)[]>,
+  cloud: Record<string, (string | null)[]>,
+  local: Record<string, (string | null)[]>,
+  cards: AnimeCharacterCard[]
+): Record<string, (string | null)[]> {
+  const byCharacter = new Map<string, string[]>();
+  for (const card of cards) {
+    const list = byCharacter.get(card.characterId) ?? [];
+    list.push(card.id);
+    byCharacter.set(card.characterId, list);
+  }
+
+  const characterIds = new Set([
+    ...Object.keys(base),
+    ...Object.keys(cloud),
+    ...Object.keys(local),
+    ...byCharacter.keys(),
+  ]);
+
+  const out: Record<string, (string | null)[]> = {};
+  for (const characterId of characterIds) {
+    const surviving = new Set(byCharacter.get(characterId) ?? []);
+    if (surviving.size === 0) continue;
+
+    const baseLayout = base[characterId] ?? [];
+    const cloudLayout = cloud[characterId] ?? [];
+    const localLayout = local[characterId] ?? [];
+
+    const baseSameAsCloud =
+      JSON.stringify(baseLayout) === JSON.stringify(cloudLayout);
+    const preferred = !baseSameAsCloud
+      ? cloudLayout
+      : JSON.stringify(baseLayout) !== JSON.stringify(localLayout)
+        ? localLayout
+        : cloudLayout.length
+          ? cloudLayout
+          : localLayout;
+
+    const merged: (string | null)[] = [];
+    const placed = new Set<string>();
+    for (const slot of preferred) {
+      if (slot == null) {
+        merged.push(null);
+        continue;
+      }
+      if (surviving.has(slot) && !placed.has(slot)) {
+        merged.push(slot);
+        placed.add(slot);
+      }
+    }
+    for (const id of surviving) {
+      if (!placed.has(id)) merged.push(id);
+    }
+    out[characterId] = merged;
+  }
+  return out;
+}
+
+/**
+ * 3-way merge of anime workspace snapshots with card tombstones.
+ * `base` = last commonly acknowledged snapshot (last successful sync).
+ */
+export function threeWayMergeAnimeState(
+  baseInput: AnimeWorkspaceSnapshotState | null | undefined,
+  cloudInput: AnimeWorkspaceSnapshotState | null | undefined,
+  localInput: AnimeWorkspaceSnapshotState | null | undefined
+): AnimeWorkspaceSnapshotState {
+  const base = normalizeAnimeSnapshot(baseInput);
+  const cloud = normalizeAnimeSnapshot(cloudInput);
+  const local = normalizeAnimeSnapshot(localInput);
+
+  const mergedTombstones = mergeTombstoneLists(
+    base.animeCardTombstones,
+    cloud.animeCardTombstones,
+    local.animeCardTombstones
+  );
+
+  const animeSeries = threeWayEntities(
+    base.animeSeries,
+    cloud.animeSeries,
+    local.animeSeries,
+    mergeSeriesFields
+  );
+  const seriesIds = new Set(animeSeries.map((s) => s.id));
+
+  const animeCharacters = threeWayEntities(
+    base.animeCharacters,
+    cloud.animeCharacters,
+    local.animeCharacters,
+    mergeCharacterFields
+  ).filter((c) => seriesIds.has(c.seriesId));
+  const characterIds = new Set(animeCharacters.map((c) => c.id));
+
+  const { cards: mergedCards, removedKeys } = threeWayCards(
+    base.animeCharacterCards,
+    cloud.animeCharacterCards,
+    local.animeCharacterCards,
+    mergedTombstones
+  );
+  const animeCharacterCards = mergedCards.filter((c) => characterIds.has(c.characterId));
+
+  const liveKeys = new Set(animeCharacterCards.map((c) => animeCardSyncKey(c)));
+  const now = new Date().toISOString();
+  let animeCardTombstones = pruneTombstones(mergedTombstones, liveKeys);
+  for (const key of removedKeys) {
+    if (!liveKeys.has(key)) {
+      animeCardTombstones = upsertTombstone(animeCardTombstones, key, now);
+    }
+  }
+  animeCardTombstones = pruneTombstones(animeCardTombstones, liveKeys);
+
+  const animeBinderLayoutByCharacter = mergeBinderLayouts(
+    base.animeBinderLayoutByCharacter,
+    cloud.animeBinderLayoutByCharacter,
+    local.animeBinderLayoutByCharacter,
+    animeCharacterCards
+  );
+
+  return {
+    animeSeries,
+    animeCharacters,
+    animeCharacterCards,
+    animeBinderLayoutByCharacter,
+    animeCardTombstones,
+  };
+}

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
-import type { AnimeCharacterCard } from "@/lib/demo/types";
+import {
+  normalizeAnimeSnapshot,
+  type AnimeWorkspaceSnapshotState,
+} from "@/lib/data/anime-share-merge";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   errorMessage,
@@ -9,13 +11,7 @@ import {
 } from "@/lib/data/server/error-message";
 
 export type AnimeWorkspaceRole = "owner" | "editor" | "viewer";
-
-export interface AnimeWorkspaceSnapshotState {
-  animeSeries: AnimeSeries[];
-  animeCharacters: AnimeCharacter[];
-  animeCharacterCards: AnimeCharacterCard[];
-  animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
-}
+export type { AnimeWorkspaceSnapshotState };
 
 export interface AnimeWorkspaceInfo {
   workspaceId: string;
@@ -59,12 +55,7 @@ async function ensureOwnWorkspace(
 
   const { error: snapErr } = await db.from("anime_workspace_snapshots").upsert({
     workspace_id: created.id,
-    state: {
-      animeSeries: [],
-      animeCharacters: [],
-      animeCharacterCards: [],
-      animeBinderLayoutByCharacter: {},
-    },
+    state: normalizeAnimeSnapshot(null),
     updated_by: userId,
     updated_at: new Date().toISOString(),
   });
@@ -121,12 +112,7 @@ export async function getAnimeSnapshot(
     .eq("workspace_id", workspaceId)
     .maybeSingle();
   if (error) throw toError(error);
-  const state = (data?.state ?? {
-    animeSeries: [],
-    animeCharacters: [],
-    animeCharacterCards: [],
-    animeBinderLayoutByCharacter: {},
-  }) as AnimeWorkspaceSnapshotState;
+  const state = normalizeAnimeSnapshot(data?.state as AnimeWorkspaceSnapshotState | null);
   return { state, updatedAt: (data?.updated_at as string | null) ?? null };
 }
 
@@ -135,19 +121,21 @@ export async function putAnimeSnapshot(
   userId: string,
   workspaceId: string,
   state: AnimeWorkspaceSnapshotState
-) {
+): Promise<{ updatedAt: string }> {
   const db = dbClient(supabase);
+  const updatedAt = new Date().toISOString();
   const { error } = await db.from("anime_workspace_snapshots").upsert({
     workspace_id: workspaceId,
-    state,
+    state: normalizeAnimeSnapshot(state),
     updated_by: userId,
-    updated_at: new Date().toISOString(),
+    updated_at: updatedAt,
   });
   if (error) throw toError(error);
   await db
     .from("anime_workspaces")
-    .update({ updated_at: new Date().toISOString() })
+    .update({ updated_at: updatedAt })
     .eq("id", workspaceId);
+  return { updatedAt };
 }
 
 export async function inviteToAnimeWorkspace(

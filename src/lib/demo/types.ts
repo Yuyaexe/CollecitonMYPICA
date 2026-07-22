@@ -4,6 +4,12 @@ import type {
   AnimeSeries,
 } from "@/features/anime-collection/types";
 
+export interface AnimeCardTombstone {
+  /** Stable identity: characterId|gameSlug|externalId */
+  key: string;
+  deletedAt: string;
+}
+
 export interface DemoCard {
   id: string;
   gameId: string;
@@ -73,6 +79,8 @@ export interface AnimeCharacterCard {
   language: CardLanguage;
   isFoil: boolean;
   sortOrder: number;
+  /** ISO time of last local add/edit — used with share tombstones. */
+  lastTouchedAt?: string;
 }
 
 export interface DemoActivityEvent {
@@ -101,6 +109,8 @@ export interface DemoState {
   animeCharacterCards: AnimeCharacterCard[];
   /** Sparse binder slot layouts keyed by character id (null = empty pocket). */
   animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
+  /** Cloud-share deletion markers (anime card sync keys). */
+  animeCardTombstones: AnimeCardTombstone[];
   activityEvents: DemoActivityEvent[];
 }
 
@@ -135,6 +145,7 @@ export function createInitialDemoState(): DemoState {
     animeCharacters: [],
     animeCharacterCards: [],
     animeBinderLayoutByCharacter: {},
+    animeCardTombstones: [],
     activityEvents: [],
   };
 }

@@ -87,12 +87,36 @@ import {
   cardTraderBlueprintFromSearch,
   repairDemoCard,
 } from "./repair-card";
+import {
+  animeCardSyncKey,
+  clearTombstone,
+  upsertTombstone,
+} from "@/lib/data/anime-share-merge";
 
 function characterCardIds(state: DemoState, characterId: string): string[] {
   return state.animeCharacterCards
     .filter((card) => card.characterId === characterId)
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((card) => card.id);
+}
+
+function tombstonesAfterRemovingCards(
+  state: DemoState,
+  removed: AnimeCharacterCard[]
+): DemoState["animeCardTombstones"] {
+  let next = state.animeCardTombstones ?? [];
+  const now = new Date().toISOString();
+  for (const entry of removed) {
+    next = upsertTombstone(next, animeCardSyncKey(entry), now);
+  }
+  return next;
+}
+
+function tombstonesAfterTouchingCard(
+  state: DemoState,
+  entry: Pick<AnimeCharacterCard, "characterId" | "card">
+): DemoState["animeCardTombstones"] {
+  return clearTombstone(state.animeCardTombstones ?? [], animeCardSyncKey(entry));
 }
 
 function resolveAnimeBinderLayout(
@@ -1053,6 +1077,7 @@ export const useDemoStore = create<DemoStore>()(
           animeSeries: anime.animeSeries,
           animeCharacters: anime.animeCharacters,
           animeCharacterCards: anime.animeCharacterCards,
+          animeCardTombstones: [],
         });
       },
 
@@ -1062,6 +1087,7 @@ export const useDemoStore = create<DemoStore>()(
           animeSeries: anime.animeSeries,
           animeCharacters: anime.animeCharacters,
           animeCharacterCards: anime.animeCharacterCards,
+          animeCardTombstones: [],
         });
       },
 
@@ -1110,12 +1136,16 @@ export const useDemoStore = create<DemoStore>()(
           const characterIds = s.animeCharacters
             .filter((c) => c.seriesId === id)
             .map((c) => c.id);
+          const removedCards = s.animeCharacterCards.filter((card) =>
+            characterIds.includes(card.characterId)
+          );
           return {
             animeSeries: s.animeSeries.filter((series) => series.id !== id),
             animeCharacters: s.animeCharacters.filter((c) => c.seriesId !== id),
             animeCharacterCards: s.animeCharacterCards.filter(
               (card) => !characterIds.includes(card.characterId)
             ),
+            animeCardTombstones: tombstonesAfterRemovingCards(s, removedCards),
           };
         });
       },
@@ -1184,10 +1214,12 @@ export const useDemoStore = create<DemoStore>()(
         set((s) => {
           const { [id]: _removed, ...animeBinderLayoutByCharacter } =
             s.animeBinderLayoutByCharacter ?? {};
+          const removedCards = s.animeCharacterCards.filter((c) => c.characterId === id);
           return {
             animeCharacters: s.animeCharacters.filter((c) => c.id !== id),
             animeCharacterCards: s.animeCharacterCards.filter((c) => c.characterId !== id),
             animeBinderLayoutByCharacter,
+            animeCardTombstones: tombstonesAfterRemovingCards(s, removedCards),
           };
         });
       },
@@ -1243,8 +1275,15 @@ export const useDemoStore = create<DemoStore>()(
                 : entry
             );
             const updated = animeCharacterCards.find((e) => e.id === existing.id)!;
+            const touched = {
+              ...updated,
+              lastTouchedAt: new Date().toISOString(),
+            };
             return {
-              animeCharacterCards,
+              animeCharacterCards: animeCharacterCards.map((entry) =>
+                entry.id === existing.id ? touched : entry
+              ),
+              animeCardTombstones: tombstonesAfterTouchingCard(s, touched),
               activityEvents: [
                 makeDemoActivity(
                   {
@@ -1253,7 +1292,7 @@ export const useDemoStore = create<DemoStore>()(
                     ownedCardId: existing.id,
                     cardName: existing.card.name,
                     beforeState: before,
-                    afterState: snapshotAnimeCard(updated, characterName ?? undefined),
+                    afterState: snapshotAnimeCard(touched, characterName ?? undefined),
                     meta: { source: "anime", characterId, characterName },
                   },
                   actor
@@ -1298,6 +1337,7 @@ export const useDemoStore = create<DemoStore>()(
           isFoil: false,
           sortOrder: state.animeCharacterCards.filter((c) => c.characterId === characterId)
             .length,
+          lastTouchedAt: new Date().toISOString(),
         };
         const layout = [...resolveAnimeBinderLayout(state, characterId), entry.id];
         const nextCards = [...state.animeCharacterCards, entry];
@@ -1307,6 +1347,7 @@ export const useDemoStore = create<DemoStore>()(
             characterId,
             layout
           ),
+          animeCardTombstones: tombstonesAfterTouchingCard(s, entry),
           activityEvents: [
             makeDemoActivity(
               {
@@ -1341,6 +1382,7 @@ export const useDemoStore = create<DemoStore>()(
               ...(s.animeBinderLayoutByCharacter ?? {}),
               [entry.characterId]: layout,
             },
+            animeCardTombstones: tombstonesAfterRemovingCards(s, [entry]),
             activityEvents: [
               makeDemoActivity(
                 {
@@ -1381,7 +1423,9 @@ export const useDemoStore = create<DemoStore>()(
           const characterName =
             s.animeCharacters.find((c) => c.id === beforeEntry.characterId)?.name ?? null;
           const animeCharacterCards = s.animeCharacterCards.map((entry) =>
-            entry.id === id ? { ...entry, quantity } : entry
+            entry.id === id
+              ? { ...entry, quantity, lastTouchedAt: new Date().toISOString() }
+              : entry
           );
           const afterEntry = animeCharacterCards.find((e) => e.id === id)!;
           return {
@@ -1481,7 +1525,11 @@ export const useDemoStore = create<DemoStore>()(
           animeCharacterCards: s.animeCharacterCards.map((entry) => {
             if (entry.id !== id) return entry;
             const { card: cardUpdates, ...rest } = updates;
-            const next: AnimeCharacterCard = { ...entry, ...rest };
+            const next: AnimeCharacterCard = {
+              ...entry,
+              ...rest,
+              lastTouchedAt: new Date().toISOString(),
+            };
             if (cardUpdates) {
               next.card = { ...entry.card, ...cardUpdates };
             }
@@ -1610,6 +1658,22 @@ export const useDemoStore = create<DemoStore>()(
           }
         }
 
+        let animeCardTombstones = state.animeCardTombstones ?? [];
+        const now = new Date().toISOString();
+        for (const source of toMove) {
+          // Leaving the source character slot is a removal for sync purposes.
+          animeCardTombstones = upsertTombstone(
+            animeCardTombstones,
+            animeCardSyncKey(source),
+            now
+          );
+          const destKey = animeCardSyncKey({
+            characterId: toCharacterId,
+            card: source.card,
+          });
+          animeCardTombstones = clearTombstone(animeCardTombstones, destKey);
+        }
+
         const sourceLayout = removeIdsFromBinderLayout(
           mergeBinderLayout(
             state.animeBinderLayoutByCharacter?.[fromCharacterId] ??
@@ -1640,6 +1704,7 @@ export const useDemoStore = create<DemoStore>()(
           let mergedState = {
             ...s,
             animeCharacterCards: cards,
+            animeCardTombstones,
           };
           const fromSynced = withSyncedAnimeBinderOrder(
             mergedState,
@@ -1660,7 +1725,7 @@ export const useDemoStore = create<DemoStore>()(
     }),
     {
       name: "deckvault-demo",
-      version: 11,
+      version: 12,
       storage: createJSONStorage(() => createDebouncedLocalStorage()),
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
@@ -1721,6 +1786,12 @@ export const useDemoStore = create<DemoStore>()(
           state = {
             ...state,
             activityEvents: state.activityEvents ?? [],
+          };
+        }
+        if (version < 12) {
+          state = {
+            ...state,
+            animeCardTombstones: state.animeCardTombstones ?? [],
           };
         }
         return state;

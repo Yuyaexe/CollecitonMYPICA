@@ -12,6 +12,7 @@ import {
   listAnimeShare,
   putAnimeSnapshot,
   removeAnimeMember,
+  resolveAnimeWorkspace,
   resolveAnimeWorkspaceAfterAccept,
   type AnimeWorkspaceSnapshotState,
 } from "@/lib/data/server/anime-share-service";
@@ -19,6 +20,9 @@ import {
   errorMessage,
   isAnimeShareTableMissingError,
 } from "@/lib/data/server/error-message";
+
+/** Large anime snapshots (thousands of cards) need a longer serverless budget. */
+export const maxDuration = 60;
 
 function apiError(error: unknown) {
   const message = errorMessage(error);
@@ -92,6 +96,7 @@ export async function POST(request: NextRequest) {
       email?: string;
       role?: "editor" | "viewer";
       state?: AnimeWorkspaceSnapshotState;
+      basedOnUpdatedAt?: string | null;
     };
     const supabase = requireSupabase(ctx);
     const userId = requireUserId(ctx);
@@ -120,8 +125,8 @@ export async function POST(request: NextRequest) {
       if (!body.state) {
         return NextResponse.json({ error: "state required" }, { status: 400 });
       }
-      // Accept first so a newly invited editor writes to the shared workspace.
-      const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      // Resolve only (accept happens on pull) — avoid extra RPC on large uploads.
+      const info = await resolveAnimeWorkspace(supabase, userId);
       if (info.role === "viewer") {
         return NextResponse.json({ error: "Viewer cannot edit anime" }, { status: 403 });
       }
@@ -138,8 +143,38 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      await putAnimeSnapshot(supabase, userId, info.workspaceId, body.state);
-      return NextResponse.json({ ok: true, workspaceId: info.workspaceId });
+
+      const current = await getAnimeSnapshot(supabase, info.workspaceId);
+      const basedOn = body.basedOnUpdatedAt ?? null;
+      if (
+        basedOn != null &&
+        current.updatedAt != null &&
+        basedOn !== current.updatedAt
+      ) {
+        // Client must pull + 3-way merge, then retry with fresh basedOnUpdatedAt.
+        return NextResponse.json(
+          {
+            error: "Anime snapshot conflict",
+            conflict: true,
+            state: current.state,
+            updatedAt: current.updatedAt,
+            workspaceId: info.workspaceId,
+          },
+          { status: 409 }
+        );
+      }
+
+      const saved = await putAnimeSnapshot(
+        supabase,
+        userId,
+        info.workspaceId,
+        body.state
+      );
+      return NextResponse.json({
+        ok: true,
+        workspaceId: info.workspaceId,
+        updatedAt: saved.updatedAt,
+      });
     }
 
     if (body.action === "pull") {
