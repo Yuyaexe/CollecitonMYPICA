@@ -12,6 +12,12 @@ export type ActivityAction =
   | "member_removed"
   | "undo";
 
+/** Pseudo collection id for anime-side activity (always local). */
+export const ANIME_ACTIVITY_COLLECTION_ID = "anime-collection";
+
+/** Filter value: all TCG collections + anime. */
+export const ALL_ACTIVITY_SCOPE_ID = "__all__";
+
 export type CollectionMemberRole = "owner" | "editor" | "viewer";
 
 export interface OwnedCardSnapshot {
@@ -54,8 +60,10 @@ export const UNDOABLE_ACTIONS: ReadonlySet<ActivityAction> = new Set([
   "cards_bulk_deleted",
 ]);
 
-export function isUndoableEvent(event: Pick<ActivityEvent, "action" | "undoneAt">): boolean {
-  return event.undoneAt == null && UNDOABLE_ACTIONS.has(event.action);
+export function isUndoableEvent(event: Pick<ActivityEvent, "action" | "undoneAt" | "collectionId">): boolean {
+  if (event.undoneAt != null) return false;
+  if (event.collectionId === ANIME_ACTIVITY_COLLECTION_ID) return false;
+  return UNDOABLE_ACTIONS.has(event.action);
 }
 
 export function snapshotOwnedCard(oc: DemoOwnedCard): OwnedCardSnapshot {

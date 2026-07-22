@@ -345,6 +345,9 @@ export const extraMessages = {
     "activity.action.undo": "Undo",
     "activity.qtyChange": "qty {from} → {to}",
     "activity.loadFailed": "Failed to load activity",
+    "activity.openLog": "Activity log",
+    "activity.scopeAll": "All collections + Anime",
+    "activity.scopeAnime": "Anime collection",
   },
   "pt-BR": {
     "common.close": "Fechar",
@@ -691,5 +694,8 @@ export const extraMessages = {
     "activity.action.undo": "Desfazer",
     "activity.qtyChange": "qtd {from} → {to}",
     "activity.loadFailed": "Falha ao carregar atividade",
+    "activity.openLog": "Log de atividade",
+    "activity.scopeAll": "Todas as coleções + Anime",
+    "activity.scopeAnime": "Coleção Anime",
   },
 } as const;

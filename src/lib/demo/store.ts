@@ -60,7 +60,7 @@ import {
   type DemoOwnedCard,
   type DemoState,
 } from "./types";
-import { snapshotOwnedCard, ownedSnapshotsEqual, type OwnedCardSnapshot } from "@/lib/activity/types";
+import { snapshotOwnedCard, ownedSnapshotsEqual, type OwnedCardSnapshot, ANIME_ACTIVITY_COLLECTION_ID } from "@/lib/activity/types";
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { CardCondition, CardLanguage } from "@/types/tcg";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
@@ -181,6 +181,28 @@ function makeDemoActivity(
     createdAt: new Date().toISOString(),
     undoneAt: null,
     undoneBy: null,
+  };
+}
+
+function snapshotAnimeCard(
+  entry: AnimeCharacterCard,
+  characterName?: string
+): OwnedCardSnapshot {
+  return {
+    id: entry.id,
+    collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+    cardId: entry.card.id,
+    quantity: entry.quantity,
+    condition: entry.condition,
+    language: entry.language,
+    isFoil: entry.isFoil,
+    purchasePrice: null,
+    notes: characterName ? `anime:${characterName}` : null,
+    cardName: entry.card.name,
+    cardExternalId: entry.card.externalId,
+    cardSetCode: entry.card.setCode,
+    cardRarity: entry.card.rarity,
+    cardImageUrl: entry.card.imageUrl,
   };
 }
 
@@ -1113,6 +1135,9 @@ export const useDemoStore = create<DemoStore>()(
       ) => {
         const addQty = Math.max(1, Math.floor(quantity));
         const state = get();
+        const actor = state.profile.displayName;
+        const characterName =
+          state.animeCharacters.find((c) => c.id === characterId)?.name ?? null;
         const existing = state.animeCharacterCards.find(
           (entry) =>
             entry.characterId === characterId &&
@@ -1121,8 +1146,9 @@ export const useDemoStore = create<DemoStore>()(
         );
 
         if (existing) {
-          set((s) => ({
-            animeCharacterCards: s.animeCharacterCards.map((entry) =>
+          const before = snapshotAnimeCard(existing, characterName ?? undefined);
+          set((s) => {
+            const animeCharacterCards = s.animeCharacterCards.map((entry) =>
               entry.id === existing.id
                 ? {
                     ...entry,
@@ -1148,8 +1174,27 @@ export const useDemoStore = create<DemoStore>()(
                     },
                   }
                 : entry
-            ),
-          }));
+            );
+            const updated = animeCharacterCards.find((e) => e.id === existing.id)!;
+            return {
+              animeCharacterCards,
+              activityEvents: [
+                makeDemoActivity(
+                  {
+                    collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                    action: "card_updated",
+                    ownedCardId: existing.id,
+                    cardName: existing.card.name,
+                    beforeState: before,
+                    afterState: snapshotAnimeCard(updated, characterName ?? undefined),
+                    meta: { source: "anime", characterId, characterName },
+                  },
+                  actor
+                ),
+                ...(s.activityEvents ?? []),
+              ],
+            };
+          });
           return;
         }
 
@@ -1195,6 +1240,21 @@ export const useDemoStore = create<DemoStore>()(
             characterId,
             layout
           ),
+          activityEvents: [
+            makeDemoActivity(
+              {
+                collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                action: "card_added",
+                ownedCardId: entry.id,
+                cardName: entry.card.name,
+                beforeState: null,
+                afterState: snapshotAnimeCard(entry, characterName ?? undefined),
+                meta: { source: "anime", characterId, characterName },
+              },
+              actor
+            ),
+            ...(s.activityEvents ?? []),
+          ],
         }));
       },
 
@@ -1204,6 +1264,8 @@ export const useDemoStore = create<DemoStore>()(
           const animeCharacterCards = s.animeCharacterCards.filter((card) => card.id !== id);
           if (!entry) return { animeCharacterCards };
 
+          const characterName =
+            s.animeCharacters.find((c) => c.id === entry.characterId)?.name ?? null;
           const nextState = { ...s, animeCharacterCards };
           const layout = resolveAnimeBinderLayout(nextState, entry.characterId);
           return {
@@ -1212,6 +1274,25 @@ export const useDemoStore = create<DemoStore>()(
               ...(s.animeBinderLayoutByCharacter ?? {}),
               [entry.characterId]: layout,
             },
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                  action: "card_deleted",
+                  ownedCardId: entry.id,
+                  cardName: entry.card.name,
+                  beforeState: snapshotAnimeCard(entry, characterName ?? undefined),
+                  afterState: null,
+                  meta: {
+                    source: "anime",
+                    characterId: entry.characterId,
+                    characterName,
+                  },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []),
+            ],
           };
         });
       },
@@ -1221,11 +1302,44 @@ export const useDemoStore = create<DemoStore>()(
           get().removeAnimeCharacterCard(id);
           return;
         }
-        set((s) => ({
-          animeCharacterCards: s.animeCharacterCards.map((entry) =>
+        set((s) => {
+          const beforeEntry = s.animeCharacterCards.find((e) => e.id === id);
+          if (!beforeEntry || beforeEntry.quantity === quantity) {
+            return {
+              animeCharacterCards: s.animeCharacterCards.map((entry) =>
+                entry.id === id ? { ...entry, quantity } : entry
+              ),
+            };
+          }
+          const characterName =
+            s.animeCharacters.find((c) => c.id === beforeEntry.characterId)?.name ?? null;
+          const animeCharacterCards = s.animeCharacterCards.map((entry) =>
             entry.id === id ? { ...entry, quantity } : entry
-          ),
-        }));
+          );
+          const afterEntry = animeCharacterCards.find((e) => e.id === id)!;
+          return {
+            animeCharacterCards,
+            activityEvents: [
+              makeDemoActivity(
+                {
+                  collectionId: ANIME_ACTIVITY_COLLECTION_ID,
+                  action: "card_updated",
+                  ownedCardId: id,
+                  cardName: beforeEntry.card.name,
+                  beforeState: snapshotAnimeCard(beforeEntry, characterName ?? undefined),
+                  afterState: snapshotAnimeCard(afterEntry, characterName ?? undefined),
+                  meta: {
+                    source: "anime",
+                    characterId: beforeEntry.characterId,
+                    characterName,
+                  },
+                },
+                s.profile.displayName
+              ),
+              ...(s.activityEvents ?? []),
+            ],
+          };
+        });
       },
 
       setAnimeCharacterCardsQuantityToOne: (characterId) => {

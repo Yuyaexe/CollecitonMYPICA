@@ -96,7 +96,8 @@ export async function appendActivityEvent(
 export async function listActivityEvents(
   supabase: SupabaseClient,
   opts: {
-    collectionId: string;
+    collectionId?: string;
+    collectionIds?: string[];
     actorUserId?: string;
     action?: ActivityAction;
     q?: string;
@@ -107,9 +108,14 @@ export async function listActivityEvents(
   let query = supabase
     .from("collection_activity")
     .select("*")
-    .eq("collection_id", opts.collectionId)
     .order("created_at", { ascending: false })
-    .range(opts.offset ?? 0, (opts.offset ?? 0) + (opts.limit ?? 50) - 1);
+    .range(opts.offset ?? 0, (opts.offset ?? 0) + (opts.limit ?? 100) - 1);
+
+  if (opts.collectionIds && opts.collectionIds.length > 0) {
+    query = query.in("collection_id", opts.collectionIds);
+  } else if (opts.collectionId) {
+    query = query.eq("collection_id", opts.collectionId);
+  }
 
   if (opts.actorUserId) {
     query = query.eq("actor_user_id", opts.actorUserId);

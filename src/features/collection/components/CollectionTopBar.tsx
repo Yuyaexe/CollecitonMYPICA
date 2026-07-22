@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, X } from "lucide-react";
+import { Plus, Upload, Download, LayoutGrid, X, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
@@ -78,6 +78,11 @@ export function CollectionTopBar() {
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
                 <Link href="/collections" aria-label={t("collection.manageCollections")}>
                   <LayoutGrid className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+                <Link href="/activity?scope=all" aria-label={t("activity.openLog")}>
+                  <History className="h-4 w-4" />
                 </Link>
               </Button>
             </div>

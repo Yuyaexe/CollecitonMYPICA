@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -12,6 +13,8 @@ import { useAppData } from "@/hooks/useAppData";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { useDemoStore } from "@/lib/demo/store";
 import {
+  ALL_ACTIVITY_SCOPE_ID,
+  ANIME_ACTIVITY_COLLECTION_ID,
   isUndoableEvent,
   type ActivityAction,
   type ActivityEvent,
@@ -103,31 +106,74 @@ const ACTION_FILTERS: Array<ActivityAction | "all"> = [
   "undo",
 ];
 
+function matchesScope(
+  event: ActivityEvent,
+  scope: string,
+  tcgIds: Set<string>
+): boolean {
+  if (scope === ALL_ACTIVITY_SCOPE_ID) {
+    return (
+      event.collectionId === ANIME_ACTIVITY_COLLECTION_ID ||
+      tcgIds.has(event.collectionId)
+    );
+  }
+  if (scope === ANIME_ACTIVITY_COLLECTION_ID) {
+    return event.collectionId === ANIME_ACTIVITY_COLLECTION_ID;
+  }
+  return event.collectionId === scope;
+}
+
 export function ActivityPanel() {
   const t = useT();
   const locale = useLocale();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { isSupabaseMode } = useAppConfig();
-  const { collections, activeCollectionId, setActiveCollection, isLoading } = useAppData();
+  const { collections, activeCollectionId, isLoading } = useAppData();
   const demoEvents = useDemoStore((s) => s.activityEvents);
 
-  const [collectionId, setCollectionId] = useState(
-    activeCollectionId ?? collections[0]?.id ?? ""
-  );
+  const initialScope =
+    searchParams.get("scope") === "all"
+      ? ALL_ACTIVITY_SCOPE_ID
+      : searchParams.get("scope") === "anime"
+        ? ANIME_ACTIVITY_COLLECTION_ID
+        : activeCollectionId ?? collections[0]?.id ?? ALL_ACTIVITY_SCOPE_ID;
+
+  const [scope, setScope] = useState(initialScope);
   const [actorFilter, setActorFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState<ActivityAction | "all">("all");
   const [query, setQuery] = useState("");
 
-  const resolvedCollectionId =
-    collectionId && collections.some((c) => c.id === collectionId)
-      ? collectionId
-      : activeCollectionId ?? collections[0]?.id ?? "";
+  useEffect(() => {
+    const sp = searchParams.get("scope");
+    if (sp === "all") setScope(ALL_ACTIVITY_SCOPE_ID);
+    else if (sp === "anime") setScope(ANIME_ACTIVITY_COLLECTION_ID);
+  }, [searchParams]);
+
+  const tcgIds = useMemo(
+    () => new Set(collections.map((c) => c.id)),
+    [collections]
+  );
+
+  const collectionNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of collections) map.set(c.id, c.name);
+    map.set(ANIME_ACTIVITY_COLLECTION_ID, t("activity.scopeAnime"));
+    return map;
+  }, [collections, t]);
+
+  const cloudScope =
+    scope === ANIME_ACTIVITY_COLLECTION_ID
+      ? null
+      : scope === ALL_ACTIVITY_SCOPE_ID
+        ? ALL_ACTIVITY_SCOPE_ID
+        : scope;
 
   const cloudQuery = useQuery({
-    queryKey: ["activity", resolvedCollectionId, actorFilter, actionFilter, query],
-    enabled: isSupabaseMode && Boolean(resolvedCollectionId),
+    queryKey: ["activity", cloudScope, actorFilter, actionFilter, query],
+    enabled: isSupabaseMode && Boolean(cloudScope),
     queryFn: async () => {
-      const params = new URLSearchParams({ collectionId: resolvedCollectionId });
+      const params = new URLSearchParams({ collectionId: cloudScope! });
       if (actorFilter !== "all") params.set("actor", actorFilter);
       if (actionFilter !== "all") params.set("action", actionFilter);
       if (query.trim()) params.set("q", query.trim());
@@ -139,10 +185,26 @@ export function ActivityPanel() {
   });
 
   const events = useMemo(() => {
-    if (isSupabaseMode) return cloudQuery.data ?? [];
-    let list = (demoEvents ?? [])
-      .filter((e) => e.collectionId === resolvedCollectionId)
-      .map(toActivityEvent);
+    const localAll = (demoEvents ?? []).map(toActivityEvent);
+    const localFiltered = localAll.filter((e) => matchesScope(e, scope, tcgIds));
+
+    let list: ActivityEvent[];
+    if (!isSupabaseMode) {
+      list = localFiltered;
+    } else if (scope === ANIME_ACTIVITY_COLLECTION_ID) {
+      list = localFiltered;
+    } else if (scope === ALL_ACTIVITY_SCOPE_ID) {
+      const cloud = cloudQuery.data ?? [];
+      const animeLocal = localAll.filter(
+        (e) => e.collectionId === ANIME_ACTIVITY_COLLECTION_ID
+      );
+      const byId = new Map<string, ActivityEvent>();
+      for (const e of [...cloud, ...animeLocal]) byId.set(e.id, e);
+      list = [...byId.values()];
+    } else {
+      list = cloudQuery.data ?? [];
+    }
+
     if (actorFilter !== "all") {
       list = list.filter((e) => e.actorUserId === actorFilter);
     }
@@ -160,7 +222,8 @@ export function ActivityPanel() {
     isSupabaseMode,
     cloudQuery.data,
     demoEvents,
-    resolvedCollectionId,
+    scope,
+    tcgIds,
     actorFilter,
     actionFilter,
     query,
@@ -173,6 +236,17 @@ export function ActivityPanel() {
     }
     return [...map.entries()];
   }, [events]);
+
+  const scopeOptions = useMemo(
+    () => [
+      { value: ALL_ACTIVITY_SCOPE_ID, label: t("activity.scopeAll") },
+      { value: ANIME_ACTIVITY_COLLECTION_ID, label: t("activity.scopeAnime") },
+      ...collections.map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [collections, t]
+  );
+
+  const showCollectionColumn = scope === ALL_ACTIVITY_SCOPE_ID;
 
   const undoMutation = useMutation({
     mutationFn: async (eventId: string) => {
@@ -221,6 +295,10 @@ export function ActivityPanel() {
 
   if (isLoading) return <PageLoading />;
 
+  const gridCols = showCollectionColumn
+    ? "sm:grid-cols-[110px_1fr_1fr_1.1fr_1.2fr_90px]"
+    : "sm:grid-cols-[120px_1fr_1.2fr_1.4fr_100px]";
+
   return (
     <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
       <PageHeader title={t("activity.title")} description={t("activity.description")} />
@@ -229,12 +307,9 @@ export function ActivityPanel() {
         <div className="min-w-[180px] flex-1 space-y-1">
           <p className="text-xs text-muted-foreground">{t("activity.filterCollection")}</p>
           <ResponsiveSelect
-            value={resolvedCollectionId}
-            onValueChange={(id) => {
-              setCollectionId(id);
-              setActiveCollection(id);
-            }}
-            options={collections.map((c) => ({ value: c.id, label: c.name }))}
+            value={scopeOptions.some((o) => o.value === scope) ? scope : ALL_ACTIVITY_SCOPE_ID}
+            onValueChange={setScope}
+            options={scopeOptions}
           />
         </div>
         <div className="min-w-[140px] flex-1 space-y-1">
@@ -274,7 +349,7 @@ export function ActivityPanel() {
         </div>
       </div>
 
-      {isSupabaseMode && cloudQuery.isLoading ? (
+      {isSupabaseMode && cloudQuery.isLoading && cloudScope ? (
         <div className="mt-10">
           <PageLoading />
         </div>
@@ -288,9 +363,12 @@ export function ActivityPanel() {
         </div>
       ) : (
         <div className="mt-6 overflow-hidden rounded-xl border border-border/70">
-          <div className="hidden grid-cols-[120px_1fr_1.2fr_1.4fr_100px] gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid">
+          <div
+            className={`hidden gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid ${gridCols}`}
+          >
             <span>{t("activity.when")}</span>
             <span>{t("activity.who")}</span>
+            {showCollectionColumn && <span>{t("activity.filterCollection")}</span>}
             <span>{t("activity.action")}</span>
             <span>{t("activity.card")}</span>
             <span />
@@ -298,10 +376,15 @@ export function ActivityPanel() {
           <ul className="divide-y divide-border/50">
             {events.map((event) => {
               const undoable = isUndoableEvent(event);
+              const sourceLabel =
+                collectionNameById.get(event.collectionId) ??
+                (event.meta.characterName
+                  ? String(event.meta.characterName)
+                  : event.collectionId);
               return (
                 <li
                   key={event.id}
-                  className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[120px_1fr_1.2fr_1.4fr_100px] sm:items-center sm:gap-3"
+                  className={`grid gap-2 px-4 py-3 text-sm sm:items-center sm:gap-3 ${gridCols}`}
                 >
                   <div>
                     <p
@@ -315,9 +398,15 @@ export function ActivityPanel() {
                     )}
                   </div>
                   <p className="font-medium">{event.actorDisplayName}</p>
+                  {showCollectionColumn && (
+                    <p className="truncate text-muted-foreground">{sourceLabel}</p>
+                  )}
                   <p>{describeAction(event, t)}</p>
                   <p className="truncate text-muted-foreground">
                     {event.cardName ?? "—"}
+                    {event.meta.characterName
+                      ? ` · ${String(event.meta.characterName)}`
+                      : ""}
                   </p>
                   <div className="sm:justify-self-end">
                     {undoable ? (
