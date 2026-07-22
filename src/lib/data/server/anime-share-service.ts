@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnimeCharacter, AnimeSeries } from "@/features/anime-collection/types";
 import type { AnimeCharacterCard } from "@/lib/demo/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import {
+  errorMessage,
+  isAnimeShareSchemaError,
+  toError,
+} from "@/lib/data/server/error-message";
 
 export type AnimeWorkspaceRole = "owner" | "editor" | "viewer";
 
@@ -28,7 +33,7 @@ async function ensureOwnWorkspace(
     .select("id, owner_user_id")
     .eq("owner_user_id", userId)
     .maybeSingle();
-  if (findErr) throw findErr;
+  if (findErr) throw toError(findErr);
   if (existing) return existing as { id: string; owner_user_id: string };
 
   const { data: created, error } = await supabase
@@ -36,7 +41,7 @@ async function ensureOwnWorkspace(
     .insert({ owner_user_id: userId })
     .select("id, owner_user_id")
     .single();
-  if (error) throw error;
+  if (error) throw toError(error);
 
   await supabase.from("anime_workspace_snapshots").upsert({
     workspace_id: created.id,
@@ -97,7 +102,7 @@ export async function getAnimeSnapshot(
     .select("state, updated_at")
     .eq("workspace_id", workspaceId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw toError(error);
   const state = (data?.state ?? {
     animeSeries: [],
     animeCharacters: [],
@@ -119,7 +124,7 @@ export async function putAnimeSnapshot(
     updated_by: userId,
     updated_at: new Date().toISOString(),
   });
-  if (error) throw error;
+  if (error) throw toError(error);
   await supabase
     .from("anime_workspaces")
     .update({ updated_at: new Date().toISOString() })
@@ -157,7 +162,7 @@ export async function inviteToAnimeWorkspace(
     )
     .select("id, workspace_id, email, role, invited_by, created_at")
     .single();
-  if (error) throw error;
+  if (error) throw toError(error);
   return data;
 }
 
@@ -228,7 +233,7 @@ export async function removeAnimeMember(
     .delete()
     .eq("workspace_id", own.id)
     .eq("user_id", memberUserId);
-  if (error) throw error;
+  if (error) throw toError(error);
 }
 
 export async function cancelAnimeInvite(
@@ -242,13 +247,15 @@ export async function cancelAnimeInvite(
     .delete()
     .eq("id", inviteId)
     .eq("workspace_id", own.id);
-  if (error) throw error;
+  if (error) throw toError(error);
 }
 
 /**
  * Accept pending anime workspace invites for the current user.
  * Tries the RPC first, then a service-role fallback keyed by auth email
  * (covers JWT email claim mismatches / missing migration edge cases).
+ *
+ * Non-schema RPC failures do not hard-fail: owners can still resolve/push.
  */
 export async function acceptAnimeInvites(
   supabase: SupabaseClient,
@@ -259,54 +266,58 @@ export async function acceptAnimeInvites(
 
   const { data, error } = await supabase.rpc("accept_anime_workspace_invites");
   if (error) {
-    rpcError = error.message;
+    rpcError = errorMessage(error);
   } else {
     accepted = typeof data === "number" ? data : 0;
   }
 
-  if (accepted > 0) return { accepted, rpcError };
+  if (accepted > 0) return { accepted, rpcError: null };
 
   const email = opts?.email?.trim().toLowerCase() || null;
   const userId = opts?.userId;
-  if (!email || !userId) {
-    if (rpcError) throw new Error(rpcError);
-    return { accepted: 0, rpcError };
-  }
-
   const admin = getSupabaseAdmin();
-  if (!admin) {
-    if (rpcError) throw new Error(rpcError);
-    return { accepted: 0, rpcError };
+
+  if (email && userId && admin) {
+    const { data: invites, error: inviteErr } = await admin
+      .from("anime_workspace_invites")
+      .select("id, workspace_id, role")
+      .eq("email", email);
+
+    if (inviteErr) {
+      const msg = errorMessage(inviteErr);
+      if (isAnimeShareSchemaError(msg) || (rpcError && isAnimeShareSchemaError(rpcError))) {
+        throw new Error(
+          "Anime share tables missing. Run migration 0013_anime_workspace_share.sql (and 0014) in Supabase."
+        );
+      }
+      // Soft-fail: don't block owner sync for invite lookup issues
+      return { accepted: 0, rpcError: rpcError ?? msg };
+    }
+
+    for (const invite of invites ?? []) {
+      const { error: memberErr } = await admin.from("anime_workspace_members").upsert(
+        {
+          workspace_id: invite.workspace_id,
+          user_id: userId,
+          role: invite.role,
+        },
+        { onConflict: "workspace_id,user_id" }
+      );
+      if (memberErr) throw toError(memberErr);
+      await admin.from("anime_workspace_invites").delete().eq("id", invite.id);
+      accepted += 1;
+    }
+
+    if (accepted > 0) return { accepted, rpcError: null };
   }
 
-  const { data: invites, error: inviteErr } = await admin
-    .from("anime_workspace_invites")
-    .select("id, workspace_id, role")
-    .eq("email", email);
-  if (inviteErr) {
-    if (rpcError) throw new Error(rpcError);
-    throw inviteErr;
-  }
-  if (!invites || invites.length === 0) {
-    if (rpcError) throw new Error(rpcError);
-    return { accepted: 0, rpcError };
-  }
-
-  for (const invite of invites) {
-    const { error: memberErr } = await admin.from("anime_workspace_members").upsert(
-      {
-        workspace_id: invite.workspace_id,
-        user_id: userId,
-        role: invite.role,
-      },
-      { onConflict: "workspace_id,user_id" }
+  if (rpcError && isAnimeShareSchemaError(rpcError)) {
+    throw new Error(
+      "Anime share tables missing. Run migration 0013_anime_workspace_share.sql (and 0014) in Supabase."
     );
-    if (memberErr) throw memberErr;
-    await admin.from("anime_workspace_invites").delete().eq("id", invite.id);
-    accepted += 1;
   }
 
-  return { accepted, rpcError: null };
+  return { accepted: 0, rpcError };
 }
 
 /** Accept invites then resolve the workspace the user should use. */

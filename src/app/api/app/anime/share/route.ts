@@ -15,17 +15,19 @@ import {
   resolveAnimeWorkspaceAfterAccept,
   type AnimeWorkspaceSnapshotState,
 } from "@/lib/data/server/anime-share-service";
+import {
+  errorMessage,
+  isAnimeShareSchemaError,
+} from "@/lib/data/server/error-message";
 
 function apiError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Operation failed";
+  const message = errorMessage(error);
   if (message === "Authentication required") return { status: 401, message };
   if (message.includes("Only the")) return { status: 403, message };
-  if (message.includes("email")) return { status: 400, message };
-  if (
-    message.includes("does not exist") ||
-    message.includes("schema cache") ||
-    message.includes("anime_workspace")
-  ) {
+  if (message.includes("Valid email") || message.includes("email required")) {
+    return { status: 400, message };
+  }
+  if (isAnimeShareSchemaError(message) || message.includes("Anime share tables missing")) {
     return {
       status: 503,
       message:
