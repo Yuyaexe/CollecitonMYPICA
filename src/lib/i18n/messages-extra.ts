@@ -356,6 +356,8 @@ export const extraMessages = {
     "share.animeCollection": "Anime collection",
     "share.selectSomething": "Select at least one collection or Anime",
     "share.inviteSentCount": "Invite sent ({count})",
+    "share.selectAll": "All",
+    "share.clearAll": "None",
   },
   "pt-BR": {
     "common.close": "Fechar",
@@ -713,5 +715,7 @@ export const extraMessages = {
     "share.animeCollection": "Coleção Anime",
     "share.selectSomething": "Selecione ao menos uma coleção ou a Anime",
     "share.inviteSentCount": "Convite enviado ({count})",
+    "share.selectAll": "Todas",
+    "share.clearAll": "Nenhuma",
   },
 } as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,14 @@ export function ShareHubModal({
     setIncludeAnime(preselectAnime);
   }, [open, preselectedCollectionId, preselectAnime, activeCollectionId]);
 
+  const allSelected = useMemo(
+    () =>
+      collections.length > 0 &&
+      collections.every((c) => selectedIds.has(c.id)) &&
+      includeAnime,
+    [collections, selectedIds, includeAnime]
+  );
+
   const toggleCollection = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -55,6 +63,16 @@ export function ShareHubModal({
       else next.add(id);
       return next;
     });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(collections.map((c) => c.id)));
+    setIncludeAnime(true);
+  }, [collections]);
+
+  const clearAll = useCallback(() => {
+    setSelectedIds(new Set());
+    setIncludeAnime(false);
   }, []);
 
   const handleInvite = async () => {
@@ -177,10 +195,51 @@ export function ShareHubModal({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("share.whatToShare")}
-            </p>
-            <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("share.whatToShare")}
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={selectAll}
+                  disabled={allSelected}
+                >
+                  {t("share.selectAll")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={clearAll}
+                  disabled={selectedIds.size === 0 && !includeAnime}
+                >
+                  {t("share.clearAll")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Anime pinned — always visible, not buried in the scroll list */}
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2.5 text-sm hover:bg-muted/50",
+                includeAnime && "border-primary/40 bg-primary/10"
+              )}
+            >
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={includeAnime}
+                onChange={(e) => setIncludeAnime(e.target.checked)}
+              />
+              <span className="font-medium">{t("share.animeCollection")}</span>
+            </label>
+
+            <ul className="max-h-44 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
               {collections.map((c) => {
                 const checked = selectedIds.has(c.id);
                 return (
@@ -202,22 +261,6 @@ export function ShareHubModal({
                   </li>
                 );
               })}
-              <li>
-                <label
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50",
-                    includeAnime && "bg-primary/10"
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
-                    checked={includeAnime}
-                    onChange={(e) => setIncludeAnime(e.target.checked)}
-                  />
-                  <span>{t("share.animeCollection")}</span>
-                </label>
-              </li>
             </ul>
           </div>
         </div>
