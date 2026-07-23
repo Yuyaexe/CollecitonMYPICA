@@ -165,6 +165,8 @@ export function CharacterDetailPage({
   const [addCardOpen, setAddCardOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [setAllToOneOpen, setSetAllToOneOpen] = useState(false);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [sortValue, setSortValue] = useState("name:asc");
@@ -202,14 +204,19 @@ export function CharacterDetailPage({
 
   const handleSetAllToOne = useCallback(() => {
     if (!character || !hasQuantityAboveOne) return;
-    if (!confirm(t("anime.setAllToOneConfirm"))) return;
+    setSetAllToOneOpen(true);
+  }, [character, hasQuantityAboveOne]);
+
+  const confirmSetAllToOne = useCallback(() => {
+    if (!character) return;
     const changed = setAnimeCharacterCardsQuantityToOne(character.id);
+    setSetAllToOneOpen(false);
     if (changed > 0) {
       toast.success(t("anime.setAllToOneDone", { count: changed }));
     } else {
       toast.message(t("anime.setAllToOneNone"));
     }
-  }, [character, hasQuantityAboveOne, setAnimeCharacterCardsQuantityToOne, t]);
+  }, [character, setAnimeCharacterCardsQuantityToOne, t]);
 
   useEffect(() => {
     clearSelection();
@@ -331,8 +338,12 @@ export function CharacterDetailPage({
       toast.error(t("anime.builtinNoDelete"));
       return;
     }
-    if (!confirm(t("anime.deleteCharacterConfirm", { name: character.name }))) return;
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
     deleteAnimeCharacter(character.id);
+    setDeleteOpen(false);
     toast.success(t("anime.characterDeleted"));
     router.push(`/anime-collection/${seriesSlug}`);
   };
@@ -658,6 +669,42 @@ export function CharacterDetailPage({
             autoFocus
           />
         </div>
+      </Modal>
+
+      <Modal
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("anime.deleteCharacterTitle")}
+        description={t("anime.deleteCharacterConfirmBody", { name: character.name })}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      >
+        <span className="sr-only">{t("anime.confirmDeleteCharacter")}</span>
+      </Modal>
+
+      <Modal
+        open={setAllToOneOpen}
+        onOpenChange={setSetAllToOneOpen}
+        title={t("anime.setAllToOneTitle")}
+        description={t("anime.setAllToOneConfirm")}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setSetAllToOneOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={confirmSetAllToOne}>{t("common.confirm")}</Button>
+          </>
+        }
+      >
+        <span className="sr-only">{t("anime.setAllToOneConfirm")}</span>
       </Modal>
     </>
       </AnimeYugiohPasscodeSync>

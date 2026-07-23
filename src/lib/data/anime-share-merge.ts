@@ -18,6 +18,10 @@ export interface AnimeWorkspaceSnapshotState {
   animeCharacterCards: AnimeCharacterCard[];
   animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
   animeCardTombstones?: AnimeCardTombstone[];
+  /** Confirmed character deletions — key = animeCharacterSyncKey */
+  animeCharacterTombstones?: AnimeCardTombstone[];
+  /** Confirmed series deletions — key = animeSeriesSyncKey */
+  animeSeriesTombstones?: AnimeCardTombstone[];
 }
 
 const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
@@ -37,6 +41,8 @@ export function emptyAnimeSnapshot(): AnimeWorkspaceSnapshotState {
     animeCharacterCards: [],
     animeBinderLayoutByCharacter: {},
     animeCardTombstones: [],
+    animeCharacterTombstones: [],
+    animeSeriesTombstones: [],
   };
 }
 
@@ -50,6 +56,8 @@ export function normalizeAnimeSnapshot(
     animeCharacterCards: state.animeCharacterCards ?? [],
     animeBinderLayoutByCharacter: state.animeBinderLayoutByCharacter ?? {},
     animeCardTombstones: normalizeTombstones(state.animeCardTombstones),
+    animeCharacterTombstones: normalizeTombstones(state.animeCharacterTombstones),
+    animeSeriesTombstones: normalizeTombstones(state.animeSeriesTombstones),
   };
 }
 
@@ -186,6 +194,9 @@ export function alignAnimeStateToCanonical(
     animeCharacterCards,
     animeBinderLayoutByCharacter,
     animeCardTombstones,
+    // Character tombstones use seriesSlug::name — already stable across UUID remaps.
+    animeCharacterTombstones: normalizeTombstones(source.animeCharacterTombstones),
+    animeSeriesTombstones: normalizeTombstones(source.animeSeriesTombstones),
   };
 }
 
@@ -283,7 +294,7 @@ export function animeSeriesSyncKey(series: AnimeSeries): string {
 }
 
 export function animeCharacterSyncKey(
-  character: AnimeCharacter,
+  character: Pick<AnimeCharacter, "seriesId" | "name">,
   seriesById: Map<string, AnimeSeries>
 ): string {
   const series = seriesById.get(character.seriesId);
@@ -304,23 +315,41 @@ export function unionLocalOnlyAnimeOnto(
   const remote = normalizeAnimeSnapshot(remoteInput);
   const local = alignAnimeStateToCanonical(normalizeAnimeSnapshot(localInput), remote);
 
+  const animeCharacterTombstones = mergeTombstoneLists(
+    remote.animeCharacterTombstones,
+    local.animeCharacterTombstones
+  );
+  const animeSeriesTombstones = mergeTombstoneLists(
+    remote.animeSeriesTombstones,
+    local.animeSeriesTombstones
+  );
+  const charTombKeys = new Set(animeCharacterTombstones.map((t) => t.key));
+  const seriesTombKeys = new Set(animeSeriesTombstones.map((t) => t.key));
+
   const remoteSeriesKeys = new Set(remote.animeSeries.map(animeSeriesSyncKey));
   const animeSeries = dedupeById([
-    ...remote.animeSeries,
-    ...local.animeSeries.filter((s) => !remoteSeriesKeys.has(animeSeriesSyncKey(s))),
+    ...remote.animeSeries.filter((s) => !seriesTombKeys.has(animeSeriesSyncKey(s))),
+    ...local.animeSeries.filter((s) => {
+      const key = animeSeriesSyncKey(s);
+      if (seriesTombKeys.has(key)) return false;
+      return !remoteSeriesKeys.has(key);
+    }),
   ]);
   const seriesById = new Map(animeSeries.map((s) => [s.id, s] as const));
+  const remoteSeriesById = new Map(remote.animeSeries.map((s) => [s.id, s] as const));
 
   const remoteCharKeys = new Set(
-    remote.animeCharacters.map((c) =>
-      animeCharacterSyncKey(c, new Map(remote.animeSeries.map((s) => [s.id, s] as const)))
-    )
+    remote.animeCharacters.map((c) => animeCharacterSyncKey(c, remoteSeriesById))
   );
   const animeCharacters = dedupeById([
-    ...remote.animeCharacters,
+    ...remote.animeCharacters.filter(
+      (c) => !charTombKeys.has(animeCharacterSyncKey(c, remoteSeriesById))
+    ),
     ...local.animeCharacters.filter((c) => {
       if (!seriesById.has(c.seriesId)) return false;
-      return !remoteCharKeys.has(animeCharacterSyncKey(c, seriesById));
+      const key = animeCharacterSyncKey(c, seriesById);
+      if (charTombKeys.has(key)) return false;
+      return !remoteCharKeys.has(key);
     }),
   ]);
   const characterIds = new Set(animeCharacters.map((c) => c.id));
@@ -352,6 +381,8 @@ export function unionLocalOnlyAnimeOnto(
       remote.animeCardTombstones,
       local.animeCardTombstones
     ),
+    animeCharacterTombstones,
+    animeSeriesTombstones,
   };
 }
 
@@ -383,6 +414,32 @@ export function hasLocalOnlyAnimeContent(
 
   const remoteCardKeys = new Set(remote.animeCharacterCards.map((c) => animeCardSyncKey(c)));
   return local.animeCharacterCards.some((c) => !remoteCardKeys.has(animeCardSyncKey(c)));
+}
+
+/** True when local confirmed character/series deletes that still appear on remote. */
+export function hasPendingCharacterDeletes(
+  localInput: AnimeWorkspaceSnapshotState,
+  remoteInput: AnimeWorkspaceSnapshotState
+): boolean {
+  const remote = normalizeAnimeSnapshot(remoteInput);
+  const local = normalizeAnimeSnapshot(localInput);
+
+  const charTombs = local.animeCharacterTombstones ?? [];
+  if (charTombs.length > 0) {
+    const remoteSeriesById = new Map(remote.animeSeries.map((s) => [s.id, s] as const));
+    const remoteKeys = new Set(
+      remote.animeCharacters.map((c) => animeCharacterSyncKey(c, remoteSeriesById))
+    );
+    if (charTombs.some((t) => remoteKeys.has(t.key))) return true;
+  }
+
+  const seriesTombs = local.animeSeriesTombstones ?? [];
+  if (seriesTombs.length > 0) {
+    const remoteKeys = new Set(remote.animeSeries.map(animeSeriesSyncKey));
+    if (seriesTombs.some((t) => remoteKeys.has(t.key))) return true;
+  }
+
+  return false;
 }
 
 /** Classic 3-way presence for entities keyed by id. */
@@ -710,21 +767,61 @@ export function threeWayMergeAnimeState(
     cloud.animeCardTombstones,
     local.animeCardTombstones
   );
+  const mergedCharTombstones = mergeTombstoneLists(
+    base.animeCharacterTombstones,
+    cloud.animeCharacterTombstones,
+    local.animeCharacterTombstones
+  );
+  const mergedSeriesTombstones = mergeTombstoneLists(
+    base.animeSeriesTombstones,
+    cloud.animeSeriesTombstones,
+    local.animeSeriesTombstones
+  );
 
-  const animeSeries = threeWayEntities(
+  const localSeriesKeys = new Set(local.animeSeries.map(animeSeriesSyncKey));
+  let animeSeries = threeWayEntities(
     base.animeSeries,
     cloud.animeSeries,
     local.animeSeries,
     mergeSeriesFields
   );
+  const clearedSeriesTombs = new Set<string>();
+  animeSeries = animeSeries.filter((s) => {
+    const key = animeSeriesSyncKey(s);
+    const tomb = mergedSeriesTombstones.find((t) => t.key === key);
+    if (!tomb) return true;
+    if (localSeriesKeys.has(key)) {
+      clearedSeriesTombs.add(key);
+      return true;
+    }
+    return false;
+  });
   const seriesIds = new Set(animeSeries.map((s) => s.id));
+  const seriesById = new Map(animeSeries.map((s) => [s.id, s] as const));
+  const localSeriesById = new Map(local.animeSeries.map((s) => [s.id, s] as const));
+  const localCharKeys = new Set(
+    local.animeCharacters.map((c) => animeCharacterSyncKey(c, localSeriesById))
+  );
 
-  const animeCharacters = threeWayEntities(
+  let animeCharacters = threeWayEntities(
     base.animeCharacters,
     cloud.animeCharacters,
     local.animeCharacters,
     mergeCharacterFields
   ).filter((c) => seriesIds.has(c.seriesId));
+
+  // Confirmed character deletes win over cloud reappearance (unless locally re-added).
+  const clearedCharTombs = new Set<string>();
+  animeCharacters = animeCharacters.filter((c) => {
+    const key = animeCharacterSyncKey(c, seriesById);
+    const tomb = mergedCharTombstones.find((t) => t.key === key);
+    if (!tomb) return true;
+    if (localCharKeys.has(key)) {
+      clearedCharTombs.add(key);
+      return true;
+    }
+    return false;
+  });
   const characterIds = new Set(animeCharacters.map((c) => c.id));
 
   const { cards: mergedCards, removedKeys } = threeWayCards(
@@ -747,6 +844,19 @@ export function threeWayMergeAnimeState(
   }
   animeCardTombstones = pruneTombstones(animeCardTombstones, liveKeys);
 
+  const liveCharKeys = new Set(
+    animeCharacters.map((c) => animeCharacterSyncKey(c, seriesById))
+  );
+  const animeCharacterTombstones = pruneTombstones(
+    mergedCharTombstones.filter((t) => !clearedCharTombs.has(t.key)),
+    liveCharKeys
+  );
+  const liveSeriesKeys = new Set(animeSeries.map(animeSeriesSyncKey));
+  const animeSeriesTombstones = pruneTombstones(
+    mergedSeriesTombstones.filter((t) => !clearedSeriesTombs.has(t.key)),
+    liveSeriesKeys
+  );
+
   const animeBinderLayoutByCharacter = mergeBinderLayouts(
     base.animeBinderLayoutByCharacter,
     cloud.animeBinderLayoutByCharacter,
@@ -760,5 +870,7 @@ export function threeWayMergeAnimeState(
     animeCharacterCards,
     animeBinderLayoutByCharacter,
     animeCardTombstones,
+    animeCharacterTombstones,
+    animeSeriesTombstones,
   };
 }

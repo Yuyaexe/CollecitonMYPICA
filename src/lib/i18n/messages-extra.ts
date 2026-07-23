@@ -183,6 +183,8 @@ export const extraMessages = {
     "anime.addCharacterDescription": "Add a character to {series}.",
     "anime.deleteCharacterTitle": "Delete character?",
     "anime.confirmDeleteCharacter": "Confirm delete character",
+    "anime.deleteCharacterConfirmBody":
+      'Delete "{name}"? This confirmed delete keeps priority over cloud sync — they will not come back on Pull.',
     "anime.exportCharacterDeck": "Export character deck",
     "anime.exportCharacterDeckDescription": "TXT, YDK or YDKE for EDOPro and CardTrader",
     "anime.importCharacterDeck": "Import deck",
@@ -231,6 +233,8 @@ export const extraMessages = {
     "anime.deleteSeriesBuiltin": "This is a built-in series and cannot be deleted.",
     "anime.deleteSeriesConfirm":
       'Delete "{name}" and all its characters? This cannot be undone.',
+    "anime.deleteSeriesConfirmBody":
+      'Delete "{name}" and all its characters? This confirmed delete keeps priority over cloud sync — they will not come back on Pull.',
     "anime.confirmDeleteSeries": "Confirm delete series",
     "anime.characterAdded": 'Added "{name}"',
     "anime.characterNamePlaceholder": "e.g. Yugi Muto",
@@ -260,6 +264,7 @@ export const extraMessages = {
     "anime.searchCharacter": "Search characters…",
     "anime.noOtherCharacters": "No other characters in this series.",
     "anime.setAllToOne": "Set all to 1×",
+    "anime.setAllToOneTitle": "Set all quantities to 1×?",
     "anime.setAllToOneConfirm":
       "Set every card on this character to quantity 1? Extra copies will be discarded.",
     "anime.setAllToOneDone": "Set {count} cards to 1×",
@@ -556,6 +561,8 @@ export const extraMessages = {
     "anime.addCharacterDescription": "Adicione um personagem a {series}.",
     "anime.deleteCharacterTitle": "Excluir personagem?",
     "anime.confirmDeleteCharacter": "Confirmar exclusão do personagem",
+    "anime.deleteCharacterConfirmBody":
+      'Excluir "{name}"? Esta exclusão confirmada tem prioridade sobre o sync — não volta no Pull.',
     "anime.exportCharacterDeck": "Exportar deck do personagem",
     "anime.exportCharacterDeckDescription": "TXT, YDK ou YDKE para EDOPro e CardTrader",
     "anime.importCharacterDeck": "Importar deck",
@@ -604,6 +611,8 @@ export const extraMessages = {
     "anime.deleteSeriesBuiltin": "Esta é uma série integrada e não pode ser excluída.",
     "anime.deleteSeriesConfirm":
       'Excluir "{name}" e todos os personagens? Esta ação não pode ser desfeita.',
+    "anime.deleteSeriesConfirmBody":
+      'Excluir "{name}" e todos os personagens? Esta exclusão confirmada tem prioridade sobre o sync — não volta no Pull.',
     "anime.confirmDeleteSeries": "Confirmar exclusão da série",
     "anime.characterAdded": 'Adicionado "{name}"',
     "anime.characterNamePlaceholder": "ex.: Yugi Muto",
@@ -633,6 +642,7 @@ export const extraMessages = {
     "anime.searchCharacter": "Buscar personagens…",
     "anime.noOtherCharacters": "Não há outros personagens nesta série.",
     "anime.setAllToOne": "Reduzir tudo a 1×",
+    "anime.setAllToOneTitle": "Reduzir todas as quantidades a 1×?",
     "anime.setAllToOneConfirm":
       "Definir a quantidade de todas as cartas deste personagem como 1? Cópias extras serão descartadas.",
     "anime.setAllToOneDone": "{count} cartas definidas como 1×",

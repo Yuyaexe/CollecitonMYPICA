@@ -89,9 +89,16 @@ import {
 } from "./repair-card";
 import {
   animeCardSyncKey,
+  animeCharacterSyncKey,
+  animeSeriesSyncKey,
   clearTombstone,
   upsertTombstone,
 } from "@/lib/data/anime-share-merge";
+
+function characterTombstoneKey(state: DemoState, character: { seriesId: string; name: string }): string {
+  const seriesById = new Map((state.animeSeries ?? []).map((s) => [s.id, s] as const));
+  return animeCharacterSyncKey(character, seriesById);
+}
 
 function characterCardIds(state: DemoState, characterId: string): string[] {
   return state.animeCharacterCards
@@ -1170,6 +1177,8 @@ export const useDemoStore = create<DemoStore>()(
           animeCharacters: anime.animeCharacters,
           animeCharacterCards: anime.animeCharacterCards,
           animeCardTombstones: [],
+          animeCharacterTombstones: [],
+          animeSeriesTombstones: [],
         });
       },
 
@@ -1180,6 +1189,8 @@ export const useDemoStore = create<DemoStore>()(
           animeCharacters: anime.animeCharacters,
           animeCharacterCards: anime.animeCharacterCards,
           animeCardTombstones: [],
+          animeCharacterTombstones: [],
+          animeSeriesTombstones: [],
         });
       },
 
@@ -1201,7 +1212,13 @@ export const useDemoStore = create<DemoStore>()(
           isSeeded: false,
           sortOrder: state.animeSeries.length,
         };
-        set((s) => ({ animeSeries: [...s.animeSeries, newSeries] }));
+        set((s) => ({
+          animeSeries: [...s.animeSeries, newSeries],
+          animeSeriesTombstones: clearTombstone(
+            s.animeSeriesTombstones ?? [],
+            animeSeriesSyncKey(newSeries)
+          ),
+        }));
         return newSeries;
       },
 
@@ -1225,12 +1242,19 @@ export const useDemoStore = create<DemoStore>()(
 
       deleteAnimeSeries: (id) => {
         set((s) => {
-          const characterIds = s.animeCharacters
-            .filter((c) => c.seriesId === id)
-            .map((c) => c.id);
+          const removedSeries = s.animeSeries.find((series) => series.id === id);
+          const characters = s.animeCharacters.filter((c) => c.seriesId === id);
+          const characterIds = characters.map((c) => c.id);
           const removedCards = s.animeCharacterCards.filter((card) =>
             characterIds.includes(card.characterId)
           );
+          let charTombs = s.animeCharacterTombstones ?? [];
+          for (const character of characters) {
+            charTombs = upsertTombstone(charTombs, characterTombstoneKey(s, character));
+          }
+          const seriesTombs = removedSeries
+            ? upsertTombstone(s.animeSeriesTombstones ?? [], animeSeriesSyncKey(removedSeries))
+            : s.animeSeriesTombstones ?? [];
           return {
             animeSeries: s.animeSeries.filter((series) => series.id !== id),
             animeCharacters: s.animeCharacters.filter((c) => c.seriesId !== id),
@@ -1238,6 +1262,8 @@ export const useDemoStore = create<DemoStore>()(
               (card) => !characterIds.includes(card.characterId)
             ),
             animeCardTombstones: tombstonesAfterRemovingCards(s, removedCards),
+            animeCharacterTombstones: charTombs,
+            animeSeriesTombstones: seriesTombs,
           };
         });
       },
@@ -1255,7 +1281,13 @@ export const useDemoStore = create<DemoStore>()(
           sortOrder: state.animeCharacters.filter((c) => c.seriesId === input.seriesId)
             .length,
         };
-        set((s) => ({ animeCharacters: [...s.animeCharacters, newCharacter] }));
+        set((s) => ({
+          animeCharacters: [...s.animeCharacters, newCharacter],
+          animeCharacterTombstones: clearTombstone(
+            s.animeCharacterTombstones ?? [],
+            characterTombstoneKey({ ...s, animeCharacters: [...s.animeCharacters, newCharacter] }, newCharacter)
+          ),
+        }));
         return newCharacter;
       },
 
@@ -1277,9 +1309,18 @@ export const useDemoStore = create<DemoStore>()(
           sortOrder: baseOrder + index,
         }));
 
-        set((s) => ({
-          animeCharacters: [...s.animeCharacters, ...newCharacters],
-        }));
+        set((s) => {
+          let tombs = s.animeCharacterTombstones ?? [];
+          const nextChars = [...s.animeCharacters, ...newCharacters];
+          const nextState = { ...s, animeCharacters: nextChars };
+          for (const character of newCharacters) {
+            tombs = clearTombstone(tombs, characterTombstoneKey(nextState, character));
+          }
+          return {
+            animeCharacters: nextChars,
+            animeCharacterTombstones: tombs,
+          };
+        });
 
         return newCharacters;
       },
@@ -1306,12 +1347,20 @@ export const useDemoStore = create<DemoStore>()(
         set((s) => {
           const { [id]: _removed, ...animeBinderLayoutByCharacter } =
             s.animeBinderLayoutByCharacter ?? {};
+          const removed = s.animeCharacters.find((c) => c.id === id);
           const removedCards = s.animeCharacterCards.filter((c) => c.characterId === id);
+          const charTombs = removed
+            ? upsertTombstone(
+                s.animeCharacterTombstones ?? [],
+                characterTombstoneKey(s, removed)
+              )
+            : s.animeCharacterTombstones ?? [];
           return {
             animeCharacters: s.animeCharacters.filter((c) => c.id !== id),
             animeCharacterCards: s.animeCharacterCards.filter((c) => c.characterId !== id),
             animeBinderLayoutByCharacter,
             animeCardTombstones: tombstonesAfterRemovingCards(s, removedCards),
+            animeCharacterTombstones: charTombs,
           };
         });
       },
@@ -1817,7 +1866,7 @@ export const useDemoStore = create<DemoStore>()(
     }),
     {
       name: "deckvault-demo",
-      version: 12,
+      version: 14,
       storage: createJSONStorage(() => createDebouncedLocalStorage()),
       migrate: (persisted, version) => {
         let state = persisted as DemoState;
@@ -1884,6 +1933,18 @@ export const useDemoStore = create<DemoStore>()(
           state = {
             ...state,
             animeCardTombstones: state.animeCardTombstones ?? [],
+          };
+        }
+        if (version < 13) {
+          state = {
+            ...state,
+            animeCharacterTombstones: state.animeCharacterTombstones ?? [],
+          };
+        }
+        if (version < 14) {
+          state = {
+            ...state,
+            animeSeriesTombstones: state.animeSeriesTombstones ?? [],
           };
         }
         return state;

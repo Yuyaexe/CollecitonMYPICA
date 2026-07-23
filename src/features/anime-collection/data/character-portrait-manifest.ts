@@ -41,6 +41,10 @@ const GX_PORTRAIT_SLUGS = [
   "marcel",
   "abidos-the-third",
   "belowski",
+  "brron",
+  "titan",
+  "tania",
+  "the-supreme-king",
 ] as const;
 
 const GX_PORTRAIT_ALIASES: Record<string, string> = {
@@ -82,6 +86,13 @@ const GX_PORTRAIT_ALIASES: Record<string, string> = {
   "marcel-bonaparte": "marcel",
   "martin-kanou": "marcel",
   "abidos-the-third": "abidos-the-third",
+  brron: "brron",
+  "brron-mad-king-of-dark-world": "brron",
+  titan: "titan",
+  tania: "tania",
+  "the-supreme-king": "the-supreme-king",
+  "supreme-king": "the-supreme-king",
+  haou: "the-supreme-king",
 };
 
 const ARCV_PORTRAIT_SLUGS = [
@@ -111,6 +122,8 @@ const ARCV_PORTRAIT_SLUGS = [
   "allen-kozuki",
   "dennis",
   "battle-beast",
+  "tate",
+  "zarc",
 ] as const;
 
 const ARCV_PORTRAIT_ALIASES: Record<string, string> = {
@@ -147,6 +160,10 @@ const ARCV_PORTRAIT_ALIASES: Record<string, string> = {
   "allen-kozuki": "allen-kozuki",
   "dennis-mcfield": "dennis",
   "battle-beast": "battle-beast",
+  tate: "tate",
+  "tate-kobayashi": "tate",
+  zarc: "zarc",
+  "supreme-king-z-arc": "zarc",
 };
 
 export const CHARACTER_PORTRAIT_MANIFEST: Record<

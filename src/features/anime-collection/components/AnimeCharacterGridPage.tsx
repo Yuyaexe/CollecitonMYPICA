@@ -302,7 +302,9 @@ export function AnimeCharacterGridPage({ seriesSlug }: AnimeCharacterGridPagePro
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={t("anime.deleteCharacterTitle")}
-        description={t("anime.deleteCharacterConfirm", { name: deleteTarget?.name ?? "" })}
+        description={t("anime.deleteCharacterConfirmBody", {
+          name: deleteTarget?.name ?? "",
+        })}
         footer={
           <>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>

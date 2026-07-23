@@ -7,6 +7,7 @@ import {
   animeCardSyncKey,
   emptyAnimeSnapshot,
   hasLocalOnlyAnimeContent,
+  hasPendingCharacterDeletes,
   normalizeAnimeSnapshot,
   threeWayMergeAnimeState,
   unionLocalOnlyAnimeOnto,
@@ -23,6 +24,8 @@ function readLocalAnimeState(): AnimeWorkspaceSnapshotState {
     animeCharacterCards: local.animeCharacterCards ?? [],
     animeBinderLayoutByCharacter: local.animeBinderLayoutByCharacter ?? {},
     animeCardTombstones: local.animeCardTombstones ?? [],
+    animeCharacterTombstones: local.animeCharacterTombstones ?? [],
+    animeSeriesTombstones: local.animeSeriesTombstones ?? [],
   });
 }
 
@@ -34,6 +37,8 @@ function slimAnimeState(state: AnimeWorkspaceSnapshotState): AnimeWorkspaceSnaps
     animeCharacters: normalized.animeCharacters,
     animeBinderLayoutByCharacter: normalized.animeBinderLayoutByCharacter,
     animeCardTombstones: normalized.animeCardTombstones,
+    animeCharacterTombstones: normalized.animeCharacterTombstones,
+    animeSeriesTombstones: normalized.animeSeriesTombstones,
     animeCharacterCards: normalized.animeCharacterCards.map((entry) => ({
       id: entry.id,
       characterId: entry.characterId,
@@ -71,6 +76,8 @@ function applyRemoteAnimeState(remote: AnimeWorkspaceSnapshotState) {
     animeCharacterCards: normalized.animeCharacterCards,
     animeBinderLayoutByCharacter: normalized.animeBinderLayoutByCharacter,
     animeCardTombstones: normalized.animeCardTombstones,
+    animeCharacterTombstones: normalized.animeCharacterTombstones,
+    animeSeriesTombstones: normalized.animeSeriesTombstones,
   });
 }
 
@@ -146,7 +153,15 @@ function fingerprint(state: AnimeWorkspaceSnapshotState): string {
     .map((t) => `${t.key}@${t.deletedAt}`)
     .sort()
     .join("|");
-  return [seriesSig, charSig, cardSig, tombSig].join("::");
+  const charTombSig = [...(slim.animeCharacterTombstones ?? [])]
+    .map((t) => `${t.key}@${t.deletedAt}`)
+    .sort()
+    .join("|");
+  const seriesTombSig = [...(slim.animeSeriesTombstones ?? [])]
+    .map((t) => `${t.key}@${t.deletedAt}`)
+    .sort()
+    .join("|");
+  return [seriesSig, charSig, cardSig, tombSig, charTombSig, seriesTombSig].join("::");
 }
 
 /** Prefer remote cards when merge would wipe them, but never drop local-only characters. */
@@ -286,6 +301,8 @@ export function useAnimeCloudShareSync() {
   const animeCharacterCards = useDemoStore((s) => s.animeCharacterCards);
   const animeBinderLayoutByCharacter = useDemoStore((s) => s.animeBinderLayoutByCharacter);
   const animeCardTombstones = useDemoStore((s) => s.animeCardTombstones);
+  const animeCharacterTombstones = useDemoStore((s) => s.animeCharacterTombstones);
+  const animeSeriesTombstones = useDemoStore((s) => s.animeSeriesTombstones);
   const requestSync = useAnimeShareSyncStore((s) => s.requestSync);
   const setStatus = useAnimeShareSyncStore((s) => s.setStatus);
   const setProgress = useAnimeShareSyncStore((s) => s.setProgress);
@@ -466,7 +483,9 @@ export function useAnimeCloudShareSync() {
         canEdit.current &&
         stateHasData(fixed) &&
         fingerprint(fixed) !== remoteFp &&
-        (repaired || hasLocalOnlyAnimeContent(fixed, remote)) &&
+        (repaired ||
+          hasLocalOnlyAnimeContent(fixed, remote) ||
+          hasPendingCharacterDeletes(fixed, remote)) &&
         !wouldWipeRemoteCards(fixed, remote);
 
       if (shouldUpload) {
@@ -542,7 +561,9 @@ export function useAnimeCloudShareSync() {
         skipNextPush.current = true;
         applyRemoteAnimeState(fixed);
         const shouldUpload =
-          repaired || hasLocalOnlyAnimeContent(fixed, remote);
+          repaired ||
+          hasLocalOnlyAnimeContent(fixed, remote) ||
+          hasPendingCharacterDeletes(fixed, remote);
         if (shouldUpload && canEdit.current && fingerprint(fixed) !== remoteFp) {
           setProgress(75);
           const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
@@ -777,6 +798,8 @@ export function useAnimeCloudShareSync() {
     animeCharacterCards,
     animeBinderLayoutByCharacter,
     animeCardTombstones,
+    animeCharacterTombstones,
+    animeSeriesTombstones,
     setStatus,
   ]);
 }

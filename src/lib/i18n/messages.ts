@@ -16,6 +16,7 @@ export const messages = {
 
     "common.cancel": "Cancel",
     "common.save": "Save",
+    "common.confirm": "Confirm",
     "common.delete": "Delete",
     "common.loading": "Loading...",
     "common.retry": "Try again",
@@ -307,6 +308,7 @@ export const messages = {
 
     "common.cancel": "Cancelar",
     "common.save": "Salvar",
+    "common.confirm": "Confirmar",
     "common.delete": "Excluir",
     "common.loading": "Carregando...",
     "common.retry": "Tentar novamente",

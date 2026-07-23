@@ -4,6 +4,7 @@ export const YUGIOH_PORTRAIT_BASE_PATH = "/anime-characters/yu-gi-oh";
 /** Portrait file slug (filename without extension). Keep in sync with download script. */
 export const YUGIOH_PORTRAIT_SLUGS = [
   "aigami",
+  "anubis",
   "arkana",
   "bakura",
   "bandit-keith",
@@ -13,6 +14,7 @@ export const YUGIOH_PORTRAIT_SLUGS = [
   "espa-roba",
   "ishizu-ishtar",
   "joey-wheeler",
+  "leon-wilson",
   "lumis-umbra",
   "mai-valentine",
   "mako-tsunami",
@@ -20,6 +22,7 @@ export const YUGIOH_PORTRAIT_SLUGS = [
   "mokuba-kaiba",
   "noah-kaiba",
   "odion",
+  "panik",
   "paradox-brothers",
   "pegasus",
   "rafael",
@@ -28,9 +31,11 @@ export const YUGIOH_PORTRAIT_SLUGS = [
   "seto-kaiba",
   "solomon-muto",
   "tea-gardner",
+  "tristan-taylor",
   "weevil-underwood",
   "yami-yugi",
   "yugi-muto",
+  "ziegfried",
 ] as const;
 
 export type YugiohPortraitSlug = (typeof YUGIOH_PORTRAIT_SLUGS)[number];
@@ -77,6 +82,18 @@ export const YUGIOH_PORTRAIT_ALIASES: Record<string, YugiohPortraitSlug> = {
   "ishizu": "ishizu-ishtar",
   "mako": "mako-tsunami",
   "noah": "noah-kaiba",
+  "leo": "leon-wilson",
+  "leon": "leon-wilson",
+  "tristan": "tristan-taylor",
+  "honda": "tristan-taylor",
+  "ziegfried": "ziegfried",
+  "zigfried": "ziegfried",
+  "siegfried": "ziegfried",
+  "zigfried-von-schroeder": "ziegfried",
+  "ziegfried-von-schroeder": "ziegfried",
+  "anubis": "anubis",
+  "panik": "panik",
+  "panic": "panik",
 };
 
 export function isBundledYugiohPortraitSlug(slug: string): slug is YugiohPortraitSlug {

@@ -351,7 +351,7 @@ export function AnimeSeriesPage() {
         description={
           deleteTarget?.isSeeded
             ? t("anime.deleteSeriesBuiltin")
-            : t("anime.deleteSeriesConfirm", { name: deleteTarget?.name ?? "" })
+            : t("anime.deleteSeriesConfirmBody", { name: deleteTarget?.name ?? "" })
         }
         footer={
           deleteTarget?.isSeeded ? (

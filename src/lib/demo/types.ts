@@ -111,6 +111,10 @@ export interface DemoState {
   animeBinderLayoutByCharacter: Record<string, (string | null)[]>;
   /** Cloud-share deletion markers (anime card sync keys). */
   animeCardTombstones: AnimeCardTombstone[];
+  /** Confirmed character deletions (seriesKey::name) — win over cloud reappearance. */
+  animeCharacterTombstones: AnimeCardTombstone[];
+  /** Confirmed series deletions (series sync key) — win over cloud reappearance. */
+  animeSeriesTombstones: AnimeCardTombstone[];
   activityEvents: DemoActivityEvent[];
 }
 
@@ -146,6 +150,8 @@ export function createInitialDemoState(): DemoState {
     animeCharacterCards: [],
     animeBinderLayoutByCharacter: {},
     animeCardTombstones: [],
+    animeCharacterTombstones: [],
+    animeSeriesTombstones: [],
     activityEvents: [],
   };
 }
