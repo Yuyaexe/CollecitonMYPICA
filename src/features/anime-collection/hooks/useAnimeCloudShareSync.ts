@@ -72,6 +72,47 @@ function applyRemoteAnimeState(remote: AnimeWorkspaceSnapshotState) {
   });
 }
 
+const QTY_UNDOUBLE_FLAG = "deckvault:anime-qty-undouble-v1";
+
+/**
+ * One-shot repair for the empty-base merge bug that summed qty (1+1→2) on every card.
+ * Only runs when every card is exactly 2 (the classic artifact) and the flag is unset.
+ */
+function repairDoubledQuantities(state: AnimeWorkspaceSnapshotState): {
+  state: AnimeWorkspaceSnapshotState;
+  repaired: boolean;
+} {
+  if (typeof window !== "undefined") {
+    try {
+      if (localStorage.getItem(QTY_UNDOUBLE_FLAG) === "1") {
+        return { state, repaired: false };
+      }
+    } catch {
+      // continue
+    }
+  }
+  const cards = state.animeCharacterCards ?? [];
+  if (cards.length < 3 || !cards.every((c) => c.quantity === 2)) {
+    return { state, repaired: false };
+  }
+  return {
+    state: {
+      ...state,
+      animeCharacterCards: cards.map((c) => ({ ...c, quantity: 1 })),
+    },
+    repaired: true,
+  };
+}
+
+function markQtyUndoubleDone() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(QTY_UNDOUBLE_FLAG, "1");
+  } catch {
+    // ignore
+  }
+}
+
 function stateHasData(state: AnimeWorkspaceSnapshotState | undefined | null): boolean {
   if (!state) return false;
   return (
@@ -127,6 +168,40 @@ async function waitForDemoHydration() {
       resolve();
     }, 2500);
   });
+}
+
+const MERGE_BASE_STORAGE_KEY = "deckvault:anime-share-merge-base";
+
+type PersistedMergeBase = {
+  updatedAt: string | null;
+  pushedFp: string | null;
+  state: AnimeWorkspaceSnapshotState;
+};
+
+function loadPersistedMergeBase(): PersistedMergeBase | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(MERGE_BASE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedMergeBase>;
+    if (!parsed.state) return null;
+    return {
+      updatedAt: parsed.updatedAt ?? null,
+      pushedFp: parsed.pushedFp ?? null,
+      state: normalizeAnimeSnapshot(parsed.state),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistMergeBase(entry: PersistedMergeBase) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(MERGE_BASE_STORAGE_KEY, JSON.stringify(entry));
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
 }
 
 type SnapshotResponse = {
@@ -214,10 +289,16 @@ export function useAnimeCloudShareSync() {
   const isSharedMember = useRef(false);
   const readyToPush = useRef(false);
   const syncing = useRef(false);
-  const lastPushedFp = useRef<string | null>(null);
-  const lastRemoteUpdatedAt = useRef<string | null>(null);
-  const baseState = useRef<AnimeWorkspaceSnapshotState>(emptyAnimeSnapshot());
-  const baseUpdatedAt = useRef<string | null>(null);
+  const persistedBase = useRef<PersistedMergeBase | null>(null);
+  if (persistedBase.current === null && typeof window !== "undefined") {
+    persistedBase.current = loadPersistedMergeBase();
+  }
+  const lastPushedFp = useRef<string | null>(persistedBase.current?.pushedFp ?? null);
+  const lastRemoteUpdatedAt = useRef<string | null>(persistedBase.current?.updatedAt ?? null);
+  const baseState = useRef<AnimeWorkspaceSnapshotState>(
+    persistedBase.current?.state ?? emptyAnimeSnapshot()
+  );
+  const baseUpdatedAt = useRef<string | null>(persistedBase.current?.updatedAt ?? null);
   const currentUserId = useRef<string | null>(null);
 
   const rememberBase = (state: AnimeWorkspaceSnapshotState, updatedAt: string | null) => {
@@ -225,6 +306,11 @@ export function useAnimeCloudShareSync() {
     baseUpdatedAt.current = updatedAt;
     lastRemoteUpdatedAt.current = updatedAt;
     lastPushedFp.current = fingerprint(baseState.current);
+    persistMergeBase({
+      updatedAt,
+      pushedFp: lastPushedFp.current,
+      state: baseState.current,
+    });
   };
 
   const maybeLogRemoteDiff = (
@@ -255,7 +341,8 @@ export function useAnimeCloudShareSync() {
     local: AnimeWorkspaceSnapshotState,
     cloudUpdatedAt: string | null
   ) => {
-    const merged = threeWayMergeAnimeState(base, cloud, local);
+    const mergedRaw = threeWayMergeAnimeState(base, cloud, local);
+    const { state: merged, repaired } = repairDoubledQuantities(mergedRaw);
     if (wouldWipeRemoteCards(merged, cloud)) {
       // Safety: never upload a merge that drops cloud cards without tombstones.
       skipNextPush.current = true;
@@ -269,7 +356,9 @@ export function useAnimeCloudShareSync() {
     let result = await pushAnimeState(merged, cloudUpdatedAt);
     if (result.conflict?.state) {
       const retryCloud = normalizeAnimeSnapshot(result.conflict.state);
-      const retryMerged = threeWayMergeAnimeState(cloud, retryCloud, local);
+      const retryMergedRaw = threeWayMergeAnimeState(cloud, retryCloud, local);
+      const { state: retryMerged, repaired: retryRepaired } =
+        repairDoubledQuantities(retryMergedRaw);
       if (wouldWipeRemoteCards(retryMerged, retryCloud)) {
         skipNextPush.current = true;
         applyRemoteAnimeState(retryCloud);
@@ -283,10 +372,12 @@ export function useAnimeCloudShareSync() {
         throw new Error("Anime snapshot conflict — refresh and try again");
       }
       rememberBase(retryMerged, result.updatedAt);
+      if (repaired || retryRepaired) markQtyUndoubleDone();
       return retryMerged;
     }
 
     rememberBase(merged, result.updatedAt ?? cloudUpdatedAt);
+    if (repaired) markQtyUndoubleDone();
     return merged;
   };
 
@@ -352,23 +443,25 @@ export function useAnimeCloudShareSync() {
       // If merge would drop remote cards, prefer remote (ID/base bugs).
       const safeMerged =
         wouldWipeRemoteCards(merged, remote) && stateHasData(remote) ? remote : merged;
+      const { state: fixed, repaired } = repairDoubledQuantities(safeMerged);
 
-      maybeLogRemoteDiff(local, safeMerged, json, { skip: opts?.skipRemoteActivity });
+      maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
       skipNextPush.current = true;
-      applyRemoteAnimeState(safeMerged);
-      rememberBase(safeMerged, remoteUpdatedAt);
+      applyRemoteAnimeState(fixed);
+      rememberBase(fixed, remoteUpdatedAt);
 
-      // Only push on pull when this device has cards the cloud lacks.
+      // Only push on pull when this device has cards the cloud lacks,
+      // or when repairing the qty-doubling artifact.
       const shouldUpload =
         canEdit.current &&
-        stateHasData(safeMerged) &&
-        fingerprint(safeMerged) !== remoteFp &&
-        hasLocalOnlyCardKeys(safeMerged, remote) &&
-        !wouldWipeRemoteCards(safeMerged, remote);
+        stateHasData(fixed) &&
+        fingerprint(fixed) !== remoteFp &&
+        (repaired || hasLocalOnlyCardKeys(fixed, remote)) &&
+        !wouldWipeRemoteCards(fixed, remote);
 
       if (shouldUpload) {
         setProgress(75);
-        const pushed = await pushAnimeState(safeMerged, remoteUpdatedAt);
+        const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
         if (pushed.conflict?.state) {
           await resolveConflictAndPush(
             base,
@@ -377,7 +470,8 @@ export function useAnimeCloudShareSync() {
             pushed.conflict.updatedAt ?? null
           );
         } else {
-          rememberBase(safeMerged, pushed.updatedAt ?? remoteUpdatedAt);
+          rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
+          if (repaired) markQtyUndoubleDone();
         }
       }
 
@@ -394,9 +488,30 @@ export function useAnimeCloudShareSync() {
     if (stateHasData(local)) {
       if (localFp !== lastPushedFp.current && localFp !== remoteFp) {
         setProgress(70);
-        await pushMerged(local);
+        const { state: fixedLocal, repaired } = repairDoubledQuantities(local);
+        if (repaired) {
+          skipNextPush.current = true;
+          applyRemoteAnimeState(fixedLocal);
+        }
+        await pushMerged(repaired ? fixedLocal : local);
+        if (repaired) markQtyUndoubleDone();
       } else if (localFp === remoteFp) {
-        rememberBase(remote, remoteUpdatedAt);
+        const { state: fixed, repaired } = repairDoubledQuantities(remote);
+        if (repaired) {
+          skipNextPush.current = true;
+          applyRemoteAnimeState(fixed);
+          rememberBase(fixed, remoteUpdatedAt);
+          if (canEdit.current) {
+            setProgress(70);
+            const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
+            if (!pushed.conflict) {
+              rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
+              markQtyUndoubleDone();
+            }
+          }
+        } else {
+          rememberBase(remote, remoteUpdatedAt);
+        }
       } else if (!stateHasData(remote)) {
         setProgress(70);
         await pushMerged(local);
@@ -404,10 +519,19 @@ export function useAnimeCloudShareSync() {
         const merged = threeWayMergeAnimeState(base, remote, local);
         const safeMerged =
           wouldWipeRemoteCards(merged, remote) && stateHasData(remote) ? remote : merged;
-        maybeLogRemoteDiff(local, safeMerged, json, { skip: opts?.skipRemoteActivity });
+        const { state: fixed, repaired } = repairDoubledQuantities(safeMerged);
+        maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
         skipNextPush.current = true;
-        applyRemoteAnimeState(safeMerged);
-        rememberBase(safeMerged, remoteUpdatedAt);
+        applyRemoteAnimeState(fixed);
+        rememberBase(fixed, remoteUpdatedAt);
+        if (repaired && canEdit.current && fingerprint(fixed) !== remoteFp) {
+          setProgress(75);
+          const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
+          if (!pushed.conflict) {
+            rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
+            markQtyUndoubleDone();
+          }
+        }
       }
       setStatus("owner", {
         error: null,
@@ -416,10 +540,18 @@ export function useAnimeCloudShareSync() {
         lastSyncedAt: Date.now(),
       });
     } else if (stateHasData(remote)) {
-      maybeLogRemoteDiff(local, remote, json, { skip: opts?.skipRemoteActivity });
+      const { state: fixed, repaired } = repairDoubledQuantities(remote);
+      maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
       skipNextPush.current = true;
-      applyRemoteAnimeState(remote);
-      rememberBase(remote, remoteUpdatedAt);
+      applyRemoteAnimeState(fixed);
+      rememberBase(fixed, remoteUpdatedAt);
+      if (repaired && canEdit.current) {
+        const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
+        if (!pushed.conflict) {
+          rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
+          markQtyUndoubleDone();
+        }
+      }
       setStatus("owner", {
         error: null,
         isOwner: true,

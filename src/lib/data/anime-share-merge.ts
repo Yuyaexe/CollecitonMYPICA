@@ -400,9 +400,12 @@ function mergeCardFields(
     .at(-1);
 
   if (!baseItem) {
+    // Same logical card on both sides with no shared base (cold boot / align).
+    // Never SUM — that doubles every card (1+1→2) on each empty-base merge.
+    // Concurrent independent adds of the same print are rare; max is the safe rule.
     return {
       ...cloudItem,
-      quantity: cloudItem.quantity + localItem.quantity,
+      quantity: Math.max(cloudItem.quantity, localItem.quantity),
       condition: localItem.condition || cloudItem.condition,
       language: localItem.language || cloudItem.language,
       isFoil: localItem.isFoil || cloudItem.isFoil,
