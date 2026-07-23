@@ -15,13 +15,18 @@ interface AnimeShareSyncState {
   error: string | null;
   isOwner: boolean | null;
   role: string | null;
+  /** null = unknown / local mode; false = cloud but not shared; true = collaborating */
+  isShared: boolean | null;
   lastSyncedAt: number | null;
   /** 0–100 while a visible sync is running; null when idle. */
   progress: number | null;
   setStatus: (
     status: AnimeShareSyncStatus,
     patch?: Partial<
-      Pick<AnimeShareSyncState, "error" | "isOwner" | "role" | "lastSyncedAt" | "progress">
+      Pick<
+        AnimeShareSyncState,
+        "error" | "isOwner" | "role" | "isShared" | "lastSyncedAt" | "progress"
+      >
     >
   ) => void;
   setProgress: (progress: number | null) => void;
@@ -34,6 +39,7 @@ export const useAnimeShareSyncStore = create<AnimeShareSyncState>((set) => ({
   error: null,
   isOwner: null,
   role: null,
+  isShared: null,
   lastSyncedAt: null,
   progress: null,
   requestSync: 0,

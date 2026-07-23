@@ -10,6 +10,7 @@ import {
   getAnimeSnapshot,
   getAnimeSnapshotMeta,
   inviteToAnimeWorkspace,
+  isAnimeWorkspaceShared,
   listAnimeShare,
   putAnimeSnapshot,
   removeAnimeMember,
@@ -68,10 +69,12 @@ export async function GET(request: NextRequest) {
 
     if (view === "snapshot") {
       const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      const isShared = await isAnimeWorkspaceShared(supabase, info);
       const snap = await getAnimeSnapshot(supabase, info.workspaceId);
       return NextResponse.json({
         ...info,
         ...snap,
+        isShared,
         email,
         currentUserId: userId,
       });
@@ -79,10 +82,14 @@ export async function GET(request: NextRequest) {
 
     if (view === "meta") {
       const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
-      const meta = await getAnimeSnapshotMeta(supabase, info.workspaceId);
+      const isShared = await isAnimeWorkspaceShared(supabase, info);
+      const meta = isShared
+        ? await getAnimeSnapshotMeta(supabase, info.workspaceId)
+        : { updatedAt: null };
       return NextResponse.json({
         ...info,
         ...meta,
+        isShared,
         email,
         currentUserId: userId,
       });
@@ -140,6 +147,16 @@ export async function POST(request: NextRequest) {
       }
       // Resolve only (accept happens on pull) — avoid extra RPC on large uploads.
       const info = await resolveAnimeWorkspace(supabase, userId);
+      const isShared = await isAnimeWorkspaceShared(supabase, info);
+      if (!isShared) {
+        return NextResponse.json(
+          {
+            error: "Anime sync only runs when the workspace is shared",
+            isShared: false,
+          },
+          { status: 409 }
+        );
+      }
       if (info.role === "viewer") {
         return NextResponse.json({ error: "Viewer cannot edit anime" }, { status: 403 });
       }
@@ -175,6 +192,7 @@ export async function POST(request: NextRequest) {
             updatedByUserId: current.updatedByUserId,
             updatedByDisplayName: current.updatedByDisplayName,
             workspaceId: info.workspaceId,
+            isShared: true,
             currentUserId: userId,
           },
           { status: 409 }
@@ -191,19 +209,46 @@ export async function POST(request: NextRequest) {
         ok: true,
         workspaceId: info.workspaceId,
         updatedAt: saved.updatedAt,
+        isShared: true,
       });
     }
 
     if (body.action === "meta") {
       const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
-      const meta = await getAnimeSnapshotMeta(supabase, info.workspaceId);
-      return NextResponse.json({ ...info, ...meta, email, currentUserId: userId });
+      const isShared = await isAnimeWorkspaceShared(supabase, info);
+      const meta = isShared
+        ? await getAnimeSnapshotMeta(supabase, info.workspaceId)
+        : { updatedAt: null };
+      return NextResponse.json({
+        ...info,
+        ...meta,
+        isShared,
+        email,
+        currentUserId: userId,
+      });
     }
 
     if (body.action === "pull") {
       const info = await resolveAnimeWorkspaceAfterAccept(supabase, userId, email);
+      const isShared = await isAnimeWorkspaceShared(supabase, info);
+      if (!isShared) {
+        return NextResponse.json({
+          ...info,
+          isShared: false,
+          state: null,
+          updatedAt: null,
+          email,
+          currentUserId: userId,
+        });
+      }
       const snap = await getAnimeSnapshot(supabase, info.workspaceId);
-      return NextResponse.json({ ...info, ...snap, email, currentUserId: userId });
+      return NextResponse.json({
+        ...info,
+        ...snap,
+        isShared: true,
+        email,
+        currentUserId: userId,
+      });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

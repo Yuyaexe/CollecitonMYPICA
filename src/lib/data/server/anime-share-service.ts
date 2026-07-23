@@ -101,6 +101,28 @@ export async function resolveAnimeWorkspace(
   };
 }
 
+/**
+ * Sync is only meaningful when collaborating with a real member:
+ * - you are a member of someone else's workspace, or
+ * - you own a workspace that already has at least one other member.
+ * Pending invites alone do not turn sync on.
+ */
+export async function isAnimeWorkspaceShared(
+  supabase: SupabaseClient,
+  info: AnimeWorkspaceInfo
+): Promise<boolean> {
+  if (!info.isOwner) return true;
+
+  const db = dbClient(supabase);
+  const { count: memberCount, error: memberErr } = await db
+    .from("anime_workspace_members")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", info.workspaceId)
+    .neq("user_id", info.ownerUserId);
+  if (memberErr) throw toError(memberErr);
+  return (memberCount ?? 0) > 0;
+}
+
 export async function getAnimeSnapshot(
   supabase: SupabaseClient,
   workspaceId: string

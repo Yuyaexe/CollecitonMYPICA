@@ -9,6 +9,7 @@ import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { useAppConfig } from "@/hooks/useAppConfig";
 import { useAppData } from "@/hooks/useAppData";
 import { useDemoStore } from "@/lib/demo/store";
+import { useAnimeShareSyncStore } from "@/features/anime-collection/stores/anime-share-sync.store";
 import { useT } from "@/lib/i18n/context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -132,6 +133,8 @@ export function ShareHubModal({
           errors.push(json.error ?? "anime");
         } else {
           okCount++;
+          // Kick sync now that the workspace is shared.
+          useAnimeShareSyncStore.getState().triggerSync();
         }
       }
 

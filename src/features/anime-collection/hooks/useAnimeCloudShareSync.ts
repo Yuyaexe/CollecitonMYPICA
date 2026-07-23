@@ -6,8 +6,10 @@ import { useDemoStore } from "@/lib/demo/store";
 import {
   animeCardSyncKey,
   emptyAnimeSnapshot,
+  hasLocalOnlyAnimeContent,
   normalizeAnimeSnapshot,
   threeWayMergeAnimeState,
+  unionLocalOnlyAnimeOnto,
   wouldWipeRemoteCards,
   type AnimeWorkspaceSnapshotState,
 } from "@/lib/data/anime-share-merge";
@@ -147,12 +149,16 @@ function fingerprint(state: AnimeWorkspaceSnapshotState): string {
   return [seriesSig, charSig, cardSig, tombSig].join("::");
 }
 
-function hasLocalOnlyCardKeys(
-  local: AnimeWorkspaceSnapshotState,
-  remote: AnimeWorkspaceSnapshotState
-): boolean {
-  const remoteKeys = new Set(remote.animeCharacterCards.map((c) => animeCardSyncKey(c)));
-  return local.animeCharacterCards.some((c) => !remoteKeys.has(animeCardSyncKey(c)));
+/** Prefer remote cards when merge would wipe them, but never drop local-only characters. */
+function safeMergePreferringRemote(
+  merged: AnimeWorkspaceSnapshotState,
+  remote: AnimeWorkspaceSnapshotState,
+  local: AnimeWorkspaceSnapshotState
+): AnimeWorkspaceSnapshotState {
+  if (wouldWipeRemoteCards(merged, remote) && stateHasData(remote)) {
+    return unionLocalOnlyAnimeOnto(remote, local);
+  }
+  return merged;
 }
 
 async function waitForDemoHydration() {
@@ -170,7 +176,7 @@ async function waitForDemoHydration() {
   });
 }
 
-const MERGE_BASE_STORAGE_KEY = "deckvault:anime-share-merge-base";
+const MERGE_BASE_STORAGE_KEY = "deckvault:anime-share-merge-base-v2";
 
 type PersistedMergeBase = {
   updatedAt: string | null;
@@ -207,7 +213,8 @@ function persistMergeBase(entry: PersistedMergeBase) {
 type SnapshotResponse = {
   role?: string;
   isOwner?: boolean;
-  state?: AnimeWorkspaceSnapshotState;
+  isShared?: boolean;
+  state?: AnimeWorkspaceSnapshotState | null;
   updatedAt?: string | null;
   updatedByUserId?: string | null;
   updatedByDisplayName?: string | null;
@@ -267,8 +274,9 @@ async function pushAnimeState(
 
 /**
  * Cloud anime share sync (bandwidth-aware + 3-way merge):
- * - Full pull on boot / manual refresh / when meta.updatedAt changes
- * - Polls use cheap meta (updatedAt only)
+ * - Local/demo mode: never syncs
+ * - Supabase: only syncs when the workspace is actively shared
+ * - Polls use cheap meta (updatedAt + isShared)
  * - Push assumes cloud == last base; on 409 merges conflict.state and retries
  */
 export function useAnimeCloudShareSync() {
@@ -287,6 +295,7 @@ export function useAnimeCloudShareSync() {
   const skipNextPush = useRef(false);
   const canEdit = useRef(true);
   const isSharedMember = useRef(false);
+  const sharingActive = useRef(false);
   const readyToPush = useRef(false);
   const syncing = useRef(false);
   const persistedBase = useRef<PersistedMergeBase | null>(null);
@@ -345,10 +354,11 @@ export function useAnimeCloudShareSync() {
     const { state: merged, repaired } = repairDoubledQuantities(mergedRaw);
     if (wouldWipeRemoteCards(merged, cloud)) {
       // Safety: never upload a merge that drops cloud cards without tombstones.
+      const safe = unionLocalOnlyAnimeOnto(cloud, local);
       skipNextPush.current = true;
-      applyRemoteAnimeState(cloud);
+      applyRemoteAnimeState(safe);
       rememberBase(cloud, cloudUpdatedAt);
-      return cloud;
+      return safe;
     }
     skipNextPush.current = true;
     applyRemoteAnimeState(merged);
@@ -360,10 +370,11 @@ export function useAnimeCloudShareSync() {
       const { state: retryMerged, repaired: retryRepaired } =
         repairDoubledQuantities(retryMergedRaw);
       if (wouldWipeRemoteCards(retryMerged, retryCloud)) {
+        const safe = unionLocalOnlyAnimeOnto(retryCloud, local);
         skipNextPush.current = true;
-        applyRemoteAnimeState(retryCloud);
+        applyRemoteAnimeState(safe);
         rememberBase(retryCloud, result.conflict.updatedAt ?? null);
-        return retryCloud;
+        return safe;
       }
       skipNextPush.current = true;
       applyRemoteAnimeState(retryMerged);
@@ -438,25 +449,24 @@ export function useAnimeCloudShareSync() {
       const merged =
         canEdit.current && stateHasData(local) && localFp !== remoteFp
           ? threeWayMergeAnimeState(base, remote, local)
-          : remote;
+          : // Viewer / identical fingerprint: start from remote, then reattach any
+            // local-only characters so a pull never erases them.
+            unionLocalOnlyAnimeOnto(remote, local);
 
-      // If merge would drop remote cards, prefer remote (ID/base bugs).
-      const safeMerged =
-        wouldWipeRemoteCards(merged, remote) && stateHasData(remote) ? remote : merged;
+      const safeMerged = safeMergePreferringRemote(merged, remote, local);
       const { state: fixed, repaired } = repairDoubledQuantities(safeMerged);
 
       maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
       skipNextPush.current = true;
       applyRemoteAnimeState(fixed);
-      rememberBase(fixed, remoteUpdatedAt);
 
-      // Only push on pull when this device has cards the cloud lacks,
+      // Only push on pull when this device has content the cloud lacks,
       // or when repairing the qty-doubling artifact.
       const shouldUpload =
         canEdit.current &&
         stateHasData(fixed) &&
         fingerprint(fixed) !== remoteFp &&
-        (repaired || hasLocalOnlyCardKeys(fixed, remote)) &&
+        (repaired || hasLocalOnlyAnimeContent(fixed, remote)) &&
         !wouldWipeRemoteCards(fixed, remote);
 
       if (shouldUpload) {
@@ -470,9 +480,14 @@ export function useAnimeCloudShareSync() {
             pushed.conflict.updatedAt ?? null
           );
         } else {
+          // Base = what cloud actually acknowledged.
           rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
           if (repaired) markQtyUndoubleDone();
         }
+      } else {
+        // Critical: do NOT remember merged local-only extras as the ancestor —
+        // that makes the next pull treat them as "cloud deleted".
+        rememberBase(remote, remoteUpdatedAt);
       }
 
       readyToPush.current = canEdit.current && stateHasData(readLocalAnimeState());
@@ -480,6 +495,7 @@ export function useAnimeCloudShareSync() {
         error: null,
         isOwner: false,
         role: json.role ?? null,
+        isShared: true,
         lastSyncedAt: Date.now(),
       });
       return;
@@ -500,14 +516,17 @@ export function useAnimeCloudShareSync() {
         if (repaired) {
           skipNextPush.current = true;
           applyRemoteAnimeState(fixed);
-          rememberBase(fixed, remoteUpdatedAt);
           if (canEdit.current) {
             setProgress(70);
             const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
             if (!pushed.conflict) {
               rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
               markQtyUndoubleDone();
+            } else {
+              rememberBase(remote, remoteUpdatedAt);
             }
+          } else {
+            rememberBase(remote, remoteUpdatedAt);
           }
         } else {
           rememberBase(remote, remoteUpdatedAt);
@@ -517,26 +536,31 @@ export function useAnimeCloudShareSync() {
         await pushMerged(local);
       } else {
         const merged = threeWayMergeAnimeState(base, remote, local);
-        const safeMerged =
-          wouldWipeRemoteCards(merged, remote) && stateHasData(remote) ? remote : merged;
+        const safeMerged = safeMergePreferringRemote(merged, remote, local);
         const { state: fixed, repaired } = repairDoubledQuantities(safeMerged);
         maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
         skipNextPush.current = true;
         applyRemoteAnimeState(fixed);
-        rememberBase(fixed, remoteUpdatedAt);
-        if (repaired && canEdit.current && fingerprint(fixed) !== remoteFp) {
+        const shouldUpload =
+          repaired || hasLocalOnlyAnimeContent(fixed, remote);
+        if (shouldUpload && canEdit.current && fingerprint(fixed) !== remoteFp) {
           setProgress(75);
           const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
           if (!pushed.conflict) {
             rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
-            markQtyUndoubleDone();
+            if (repaired) markQtyUndoubleDone();
+          } else {
+            rememberBase(remote, remoteUpdatedAt);
           }
+        } else {
+          rememberBase(remote, remoteUpdatedAt);
         }
       }
       setStatus("owner", {
         error: null,
         isOwner: true,
         role: json.role ?? "owner",
+        isShared: true,
         lastSyncedAt: Date.now(),
       });
     } else if (stateHasData(remote)) {
@@ -544,18 +568,22 @@ export function useAnimeCloudShareSync() {
       maybeLogRemoteDiff(local, fixed, json, { skip: opts?.skipRemoteActivity });
       skipNextPush.current = true;
       applyRemoteAnimeState(fixed);
-      rememberBase(fixed, remoteUpdatedAt);
       if (repaired && canEdit.current) {
         const pushed = await pushAnimeState(fixed, remoteUpdatedAt);
         if (!pushed.conflict) {
           rememberBase(fixed, pushed.updatedAt ?? remoteUpdatedAt);
           markQtyUndoubleDone();
+        } else {
+          rememberBase(remote, remoteUpdatedAt);
         }
+      } else {
+        rememberBase(remote, remoteUpdatedAt);
       }
       setStatus("owner", {
         error: null,
         isOwner: true,
         role: json.role ?? "owner",
+        isShared: true,
         lastSyncedAt: Date.now(),
       });
     } else {
@@ -564,6 +592,7 @@ export function useAnimeCloudShareSync() {
         error: null,
         isOwner: true,
         role: json.role ?? "owner",
+        isShared: true,
         lastSyncedAt: Date.now(),
       });
     }
@@ -572,59 +601,94 @@ export function useAnimeCloudShareSync() {
 
   const runSync = async (reason: "boot" | "poll" | "manual") => {
     if (syncing.current) return;
+    if (!isSupabaseMode) return;
 
     syncing.current = true;
     const showProgress = reason === "boot" || reason === "manual";
-    if (showProgress) {
-      setStatus("syncing", { error: null, progress: 8 });
-    }
 
     try {
       await waitForDemoHydration();
 
-      // Polls: cheap meta first — skip multi-MB download when unchanged.
-      if (reason === "poll" && lastRemoteUpdatedAt.current != null) {
-        setProgress(null);
-        const meta = await pullMeta();
-        if (meta.currentUserId) currentUserId.current = meta.currentUserId;
-        canEdit.current = meta.role !== "viewer";
-        isSharedMember.current = meta.isOwner === false;
-        const remoteUpdatedAt = meta.updatedAt ?? null;
+      // Always check whether the workspace is shared before any full pull/push.
+      const meta = await pullMeta();
+      if (meta.currentUserId) currentUserId.current = meta.currentUserId;
+      canEdit.current = meta.role !== "viewer";
+      isSharedMember.current = meta.isOwner === false;
+      const shared = meta.isShared === true;
+      sharingActive.current = shared;
 
-        if (remoteUpdatedAt && remoteUpdatedAt === lastRemoteUpdatedAt.current) {
-          const local = readLocalAnimeState();
-          setStatus(
-            isSharedMember.current
-              ? stateHasData(local)
-                ? "shared"
-                : "empty"
-              : stateHasData(local)
-                ? "owner"
-                : "empty",
-            {
-              error: null,
-              isOwner: meta.isOwner ?? !isSharedMember.current,
-              role: meta.role ?? null,
-              lastSyncedAt: Date.now(),
-              progress: null,
-            }
-          );
-          return;
-        }
-        // Remote changed — fall through to full pull with visible progress.
-        setStatus("syncing", { error: null, progress: 25 });
+      if (!shared) {
+        readyToPush.current = false;
+        setStatus("idle", {
+          error: null,
+          isOwner: meta.isOwner ?? true,
+          role: meta.role ?? "owner",
+          isShared: false,
+          lastSyncedAt: Date.now(),
+          progress: null,
+        });
+        return;
+      }
+
+      if (showProgress) {
+        setStatus("syncing", { error: null, progress: 8, isShared: true });
+      }
+
+      const remoteUpdatedAt = meta.updatedAt ?? null;
+
+      // Polls: skip multi-MB download when revision unchanged.
+      if (
+        reason === "poll" &&
+        lastRemoteUpdatedAt.current != null &&
+        remoteUpdatedAt &&
+        remoteUpdatedAt === lastRemoteUpdatedAt.current
+      ) {
+        const local = readLocalAnimeState();
+        setStatus(
+          isSharedMember.current
+            ? stateHasData(local)
+              ? "shared"
+              : "empty"
+            : stateHasData(local)
+              ? "owner"
+              : "empty",
+          {
+            error: null,
+            isOwner: meta.isOwner ?? !isSharedMember.current,
+            role: meta.role ?? null,
+            isShared: true,
+            lastSyncedAt: Date.now(),
+            progress: null,
+          }
+        );
+        readyToPush.current = canEdit.current && stateHasData(local);
+        return;
+      }
+
+      if (showProgress || reason === "poll") {
+        setStatus("syncing", { error: null, progress: 25, isShared: true });
       }
 
       if (showProgress || reason === "poll") setProgress(35);
       const json = await pullSnapshot();
+      if (json.isShared === false || !json.state) {
+        sharingActive.current = false;
+        readyToPush.current = false;
+        setStatus("idle", {
+          error: null,
+          isOwner: json.isOwner ?? meta.isOwner ?? true,
+          role: json.role ?? meta.role ?? "owner",
+          isShared: false,
+          lastSyncedAt: Date.now(),
+          progress: null,
+        });
+        return;
+      }
       if (showProgress || reason === "poll") setProgress(60);
       await applyPulledSnapshot(json, {
         skipRemoteActivity: reason === "boot",
       });
       setProgress(100);
-      if (reason === "manual") {
-        // Toast is fired from the page when progress hits 100.
-      }
       setTimeout(() => {
         setProgress(null);
       }, 800);
@@ -640,10 +704,28 @@ export function useAnimeCloudShareSync() {
   };
 
   useEffect(() => {
-    if (configLoading || !isSupabaseMode) return;
+    if (configLoading) return;
+
+    if (!isSupabaseMode) {
+      sharingActive.current = false;
+      readyToPush.current = false;
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
+      setStatus("idle", {
+        error: null,
+        isOwner: null,
+        role: null,
+        isShared: null,
+        progress: null,
+      });
+      return;
+    }
+
     void runSync("boot");
 
-    // Everyone polls meta; full pull only when updatedAt changes.
+    // Cheap meta poll — full pull only when shared and updatedAt changes.
     pollTimer.current = setInterval(() => {
       void runSync("poll");
     }, 20_000);
@@ -661,7 +743,7 @@ export function useAnimeCloudShareSync() {
   }, [requestSync, isSupabaseMode]);
 
   useEffect(() => {
-    if (!isSupabaseMode || !readyToPush.current) return;
+    if (!isSupabaseMode || !sharingActive.current || !readyToPush.current) return;
     if (!canEdit.current) return;
     if (skipNextPush.current) {
       skipNextPush.current = false;
@@ -676,6 +758,7 @@ export function useAnimeCloudShareSync() {
 
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(() => {
+      if (!sharingActive.current) return;
       void pushMerged(next).catch((err) => {
         setStatus("error", {
           error: err instanceof Error ? err.message : "Failed to push anime share",

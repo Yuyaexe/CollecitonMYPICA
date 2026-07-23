@@ -276,6 +276,115 @@ export function wouldWipeRemoteCards(
   return false;
 }
 
+export function animeSeriesSyncKey(series: AnimeSeries): string {
+  const slug = series.slug.trim().toLowerCase();
+  if (slug) return `slug:${slug}`;
+  return `name:${series.name.trim().toLowerCase()}`;
+}
+
+export function animeCharacterSyncKey(
+  character: AnimeCharacter,
+  seriesById: Map<string, AnimeSeries>
+): string {
+  const series = seriesById.get(character.seriesId);
+  const seriesPart = series
+    ? animeSeriesSyncKey(series)
+    : `id:${character.seriesId}`;
+  return `${seriesPart}::${character.name.trim().toLowerCase()}`;
+}
+
+/**
+ * Re-attach local-only series / characters / cards onto a remote snapshot.
+ * Used when we fall back to "prefer remote" so local-only characters are not wiped.
+ */
+export function unionLocalOnlyAnimeOnto(
+  remoteInput: AnimeWorkspaceSnapshotState,
+  localInput: AnimeWorkspaceSnapshotState
+): AnimeWorkspaceSnapshotState {
+  const remote = normalizeAnimeSnapshot(remoteInput);
+  const local = alignAnimeStateToCanonical(normalizeAnimeSnapshot(localInput), remote);
+
+  const remoteSeriesKeys = new Set(remote.animeSeries.map(animeSeriesSyncKey));
+  const animeSeries = dedupeById([
+    ...remote.animeSeries,
+    ...local.animeSeries.filter((s) => !remoteSeriesKeys.has(animeSeriesSyncKey(s))),
+  ]);
+  const seriesById = new Map(animeSeries.map((s) => [s.id, s] as const));
+
+  const remoteCharKeys = new Set(
+    remote.animeCharacters.map((c) =>
+      animeCharacterSyncKey(c, new Map(remote.animeSeries.map((s) => [s.id, s] as const)))
+    )
+  );
+  const animeCharacters = dedupeById([
+    ...remote.animeCharacters,
+    ...local.animeCharacters.filter((c) => {
+      if (!seriesById.has(c.seriesId)) return false;
+      return !remoteCharKeys.has(animeCharacterSyncKey(c, seriesById));
+    }),
+  ]);
+  const characterIds = new Set(animeCharacters.map((c) => c.id));
+
+  const remoteCardKeys = new Set(remote.animeCharacterCards.map((c) => animeCardSyncKey(c)));
+  const animeCharacterCards = dedupeAnimeCards([
+    ...remote.animeCharacterCards,
+    ...local.animeCharacterCards.filter(
+      (c) => characterIds.has(c.characterId) && !remoteCardKeys.has(animeCardSyncKey(c))
+    ),
+  ]);
+
+  const animeBinderLayoutByCharacter: Record<string, (string | null)[]> = {
+    ...remote.animeBinderLayoutByCharacter,
+  };
+  for (const [characterId, layout] of Object.entries(local.animeBinderLayoutByCharacter)) {
+    if (!characterIds.has(characterId)) continue;
+    if (!animeBinderLayoutByCharacter[characterId]?.length) {
+      animeBinderLayoutByCharacter[characterId] = layout;
+    }
+  }
+
+  return {
+    animeSeries,
+    animeCharacters,
+    animeCharacterCards,
+    animeBinderLayoutByCharacter,
+    animeCardTombstones: mergeTombstoneLists(
+      remote.animeCardTombstones,
+      local.animeCardTombstones
+    ),
+  };
+}
+
+/** True when local has series, characters, or cards the remote snapshot lacks. */
+export function hasLocalOnlyAnimeContent(
+  localInput: AnimeWorkspaceSnapshotState,
+  remoteInput: AnimeWorkspaceSnapshotState
+): boolean {
+  const remote = normalizeAnimeSnapshot(remoteInput);
+  const local = alignAnimeStateToCanonical(normalizeAnimeSnapshot(localInput), remote);
+
+  const remoteSeriesKeys = new Set(remote.animeSeries.map(animeSeriesSyncKey));
+  if (local.animeSeries.some((s) => !remoteSeriesKeys.has(animeSeriesSyncKey(s)))) {
+    return true;
+  }
+
+  const remoteSeriesById = new Map(remote.animeSeries.map((s) => [s.id, s] as const));
+  const localSeriesById = new Map(local.animeSeries.map((s) => [s.id, s] as const));
+  const remoteCharKeys = new Set(
+    remote.animeCharacters.map((c) => animeCharacterSyncKey(c, remoteSeriesById))
+  );
+  if (
+    local.animeCharacters.some(
+      (c) => !remoteCharKeys.has(animeCharacterSyncKey(c, localSeriesById))
+    )
+  ) {
+    return true;
+  }
+
+  const remoteCardKeys = new Set(remote.animeCharacterCards.map((c) => animeCardSyncKey(c)));
+  return local.animeCharacterCards.some((c) => !remoteCardKeys.has(animeCardSyncKey(c)));
+}
+
 /** Classic 3-way presence for entities keyed by id. */
 function threeWayEntities<T extends { id: string }>(
   base: T[],

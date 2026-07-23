@@ -360,6 +360,9 @@ export const extraMessages = {
     "share.clearAll": "None",
     "anime.syncShared": "Shared with you",
     "anime.syncOwner": "Cloud sync on",
+    "anime.syncPrivate": "Private (not shared)",
+    "anime.syncNotShared":
+      "Anime sync is off until you share with someone (or accept an invite).",
     "anime.syncing": "Syncing anime…",
     "anime.syncEmptyShared":
       "Invite accepted, but the shared anime snapshot is still empty. Ask the owner to open Anime Collection once (or re-invite with Anime checked).",
@@ -730,6 +733,9 @@ export const extraMessages = {
     "share.clearAll": "Nenhuma",
     "anime.syncShared": "Compartilhada com você",
     "anime.syncOwner": "Sync na nuvem ativo",
+    "anime.syncPrivate": "Privada (sem compartilhar)",
+    "anime.syncNotShared":
+      "O sync da anime só liga quando você compartilha com alguém (ou aceita um convite).",
     "anime.syncing": "Sincronizando anime…",
     "anime.syncEmptyShared":
       "Convite aceito, mas o snapshot compartilhado ainda está vazio. Peça ao dono para abrir a Coleção Anime uma vez (ou reenviar o convite com Anime marcado).",

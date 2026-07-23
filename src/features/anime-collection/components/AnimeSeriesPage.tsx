@@ -48,6 +48,7 @@ export function AnimeSeriesPage() {
   const syncStatus = useAnimeShareSyncStore((s) => s.status);
   const syncError = useAnimeShareSyncStore((s) => s.error);
   const isOwner = useAnimeShareSyncStore((s) => s.isOwner);
+  const isShared = useAnimeShareSyncStore((s) => s.isShared);
   const syncProgress = useAnimeShareSyncStore((s) => s.progress);
   const triggerSync = useAnimeShareSyncStore((s) => s.triggerSync);
   const awaitingManualSync = useRef(false);
@@ -66,10 +67,13 @@ export function AnimeSeriesPage() {
     if (syncProgress === 100) {
       awaitingManualSync.current = false;
       toast.success(t("anime.syncComplete"));
+    } else if (syncStatus === "idle" && isShared === false) {
+      awaitingManualSync.current = false;
+      toast.message(t("anime.syncNotShared"));
     } else if (syncStatus === "error") {
       awaitingManualSync.current = false;
     }
-  }, [syncProgress, syncStatus, t]);
+  }, [syncProgress, syncStatus, isShared, t]);
 
   const handleCreate = () => {
     const trimmed = newName.trim();
@@ -132,21 +136,21 @@ export function AnimeSeriesPage() {
   );
 
   const syncBadge =
-    isSupabaseMode && syncStatus === "shared" ? (
+    isSupabaseMode && isShared && syncStatus === "shared" ? (
       <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
         {t("anime.syncShared")}
       </span>
-    ) : isSupabaseMode && syncStatus === "owner" ? (
+    ) : isSupabaseMode && isShared && syncStatus === "owner" ? (
       <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
         {t("anime.syncOwner")}
       </span>
-    ) : isSupabaseMode && syncStatus === "syncing" ? (
+    ) : isSupabaseMode && isShared && syncStatus === "syncing" ? (
       <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
         {t("anime.syncing")}
       </span>
     ) : null;
 
-  const showSyncBar = isSupabaseMode && syncProgress != null;
+  const showSyncBar = isSupabaseMode && isShared === true && syncProgress != null;
 
   return (
     <>
@@ -159,7 +163,7 @@ export function AnimeSeriesPage() {
           {syncBadge}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {isSupabaseMode && (
+          {isSupabaseMode && isShared && (
             <Button
               variant="ghost"
               size="sm"
@@ -232,13 +236,17 @@ export function AnimeSeriesPage() {
                 : t("anime.noSeriesDescription")
             }
             actionLabel={
-              isSupabaseMode ? t("anime.syncRefresh") : t("anime.addSeries")
+              isSupabaseMode && isShared
+                ? t("anime.syncRefresh")
+                : t("anime.addSeries")
             }
             onAction={
-              isSupabaseMode ? handlePullShared : () => setCreateOpen(true)
+              isSupabaseMode && isShared
+                ? handlePullShared
+                : () => setCreateOpen(true)
             }
           />
-          {isSupabaseMode && isOwner !== false && (
+          {isSupabaseMode && isShared && isOwner !== false && (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => setCreateOpen(true)}>
                 {t("anime.addSeries")}
