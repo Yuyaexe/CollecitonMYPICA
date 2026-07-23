@@ -136,15 +136,15 @@ export function AnimeSeriesPage() {
   );
 
   const syncBadge =
-    isSupabaseMode && isShared && syncStatus === "shared" ? (
+    isSupabaseMode && isShared === true && syncStatus === "shared" ? (
       <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
         {t("anime.syncShared")}
       </span>
-    ) : isSupabaseMode && isShared && syncStatus === "owner" ? (
+    ) : isSupabaseMode && isShared === true && syncStatus === "owner" ? (
       <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
         {t("anime.syncOwner")}
       </span>
-    ) : isSupabaseMode && isShared && syncStatus === "syncing" ? (
+    ) : isSupabaseMode && isShared === true && syncStatus === "syncing" ? (
       <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
         {t("anime.syncing")}
       </span>
@@ -162,11 +162,12 @@ export function AnimeSeriesPage() {
           />
           {syncBadge}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {isSupabaseMode && isShared && (
+        <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+          {isSupabaseMode && isShared === true && (
             <Button
               variant="ghost"
               size="sm"
+              className="min-h-9"
               onClick={handlePullShared}
               disabled={syncStatus === "syncing"}
               title={t("anime.syncRefresh")}
@@ -180,11 +181,11 @@ export function AnimeSeriesPage() {
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0"
+            className="min-h-9 shrink-0"
             onClick={() => setShareOpen(true)}
           >
             <Share2 className="h-4 w-4" />
-            {t("share.menuShare")}
+            <span className="max-w-[9rem] truncate sm:max-w-none">{t("share.menuShare")}</span>
           </Button>
         </div>
       </div>
@@ -215,10 +216,10 @@ export function AnimeSeriesPage() {
         </div>
       )}
 
-      {isSupabaseMode && syncStatus === "error" && syncError && (
+      {isSupabaseMode && isShared && syncStatus === "error" && syncError && (
         <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <p className="font-medium">{t("anime.syncError")}</p>
-          <p className="mt-1 text-destructive/90">{syncError}</p>
+          <p className="mt-1 break-words text-destructive/90">{syncError}</p>
           {syncError.toLowerCase().includes("migration") && (
             <p className="mt-1 text-xs">{t("anime.syncMigrationHint")}</p>
           )}
@@ -236,17 +237,17 @@ export function AnimeSeriesPage() {
                 : t("anime.noSeriesDescription")
             }
             actionLabel={
-              isSupabaseMode && isShared
+              isSupabaseMode && isShared === true
                 ? t("anime.syncRefresh")
                 : t("anime.addSeries")
             }
             onAction={
-              isSupabaseMode && isShared
+              isSupabaseMode && isShared === true
                 ? handlePullShared
                 : () => setCreateOpen(true)
             }
           />
-          {isSupabaseMode && isShared && isOwner !== false && (
+          {isSupabaseMode && isShared === true && isOwner !== false && (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => setCreateOpen(true)}>
                 {t("anime.addSeries")}

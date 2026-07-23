@@ -640,7 +640,11 @@ export default function SettingsPage() {
 
         title={t("settings.restoreTitle")}
 
-        description={t("settings.restoreDescription")}
+        description={t(
+          isSupabaseMode
+            ? "settings.restoreDescriptionCloud"
+            : "settings.restoreDescriptionLocal"
+        )}
 
         footer={
 

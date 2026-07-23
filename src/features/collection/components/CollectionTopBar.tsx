@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Plus, Upload, Download, LayoutGrid, X, History, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { MobileFilters } from "@/features/collection/components/MobileFilters";
 import { CollectionViewSwitcher } from "@/features/collection/components/CollectionViewSwitcher";
@@ -35,6 +36,7 @@ export function CollectionTopBar() {
   const [shareOpen, setShareOpen] = useState(false);
   const [qtyBannerDismissed, setQtyBannerDismissed] = useState(false);
   const [qtyFixing, setQtyFixing] = useState(false);
+  const [qtyFixConfirm, setQtyFixConfirm] = useState<"halve" | "one" | null>(null);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
@@ -76,11 +78,7 @@ export function CollectionTopBar() {
   const showQtyBanner = looksDoubled && !qtyBannerDismissed;
 
   const runQtyFix = async (mode: "halve" | "one") => {
-    const confirmKey =
-      mode === "halve"
-        ? "collection.halveQuantitiesConfirm"
-        : "collection.setAllQtyToOneConfirm";
-    if (!confirm(t(confirmKey))) return;
+    setQtyFixConfirm(null);
     setQtyFixing(true);
     try {
       const changed =
@@ -200,7 +198,7 @@ export function CollectionTopBar() {
                 size="sm"
                 className="h-7"
                 disabled={qtyFixing}
-                onClick={() => void runQtyFix("halve")}
+                onClick={() => setQtyFixConfirm("halve")}
               >
                 {t("collection.halveQuantities")}
               </Button>
@@ -209,7 +207,7 @@ export function CollectionTopBar() {
                 variant="outline"
                 className="h-7"
                 disabled={qtyFixing}
-                onClick={() => void runQtyFix("one")}
+                onClick={() => setQtyFixConfirm("one")}
               >
                 {t("collection.setAllQtyToOne")}
               </Button>
@@ -259,6 +257,41 @@ export function CollectionTopBar() {
         onOpenChange={setShareOpen}
         preselectedCollectionId={activeCollectionId}
       />
+
+      <Modal
+        open={qtyFixConfirm != null}
+        onOpenChange={(open) => {
+          if (!open) setQtyFixConfirm(null);
+        }}
+        title={
+          qtyFixConfirm === "halve"
+            ? t("collection.halveQuantities")
+            : t("collection.setAllQtyToOne")
+        }
+        description={
+          qtyFixConfirm === "halve"
+            ? t("collection.halveQuantitiesConfirm")
+            : t("collection.setAllQtyToOneConfirm")
+        }
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setQtyFixConfirm(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={qtyFixing || qtyFixConfirm == null}
+              onClick={() => {
+                if (qtyFixConfirm) void runQtyFix(qtyFixConfirm);
+              }}
+            >
+              {t("common.confirm")}
+            </Button>
+          </>
+        }
+      >
+        <div />
+      </Modal>
     </>
   );
 }

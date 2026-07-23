@@ -44,13 +44,15 @@ export const messages = {
     "settings.restoreBackup": "Restore backup",
     "settings.restoring": "Restoring...",
     "settings.restoreTitle": "Restore backup?",
-    "settings.restoreDescription":
+    "settings.restoreDescriptionLocal":
       "Your collection and Anime Collection will be replaced by the file data. This cannot be undone.",
+    "settings.restoreDescriptionCloud":
+      "TCG cards from the file are merged into your cloud collections (quantities are added together by matching collection name). Your local Anime Collection in this browser is replaced by the file. This cannot be undone.",
     "settings.restore": "Restore",
     "settings.backupSaved": "Backup saved ({cards} cards, {collections} collections, {anime} anime cards)",
     "settings.backupFailed": "Failed to create backup",
     "settings.restoreSuccessCloud":
-      "Restored: {cards} cards in {collections} collections, {anime} anime cards",
+      "Merged into cloud: {cards} cards across {collections} collections; anime replaced locally ({anime} anime cards)",
     "settings.restoreSuccessLocal":
       "Restored: {cards} cards in {collections} collections, {anime} anime cards",
     "settings.restoreAnimeSuccess":
@@ -338,14 +340,16 @@ export const messages = {
     "settings.restoreBackup": "Restaurar backup",
     "settings.restoring": "Restaurando...",
     "settings.restoreTitle": "Restaurar backup?",
-    "settings.restoreDescription":
+    "settings.restoreDescriptionLocal":
       "A coleção e a Anime Collection serão substituídas pelos dados do arquivo. Esta ação não pode ser desfeita.",
+    "settings.restoreDescriptionCloud":
+      "As cartas TCG do arquivo são mescladas nas suas coleções na nuvem (as quantidades somam-se, por nome de coleção). A Anime Collection local neste navegador é substituída pelo arquivo. Esta ação não pode ser desfeita.",
     "settings.restore": "Restaurar",
     "settings.backupSaved":
       "Backup salvo ({cards} cartas, {collections} coleções, {anime} cartas anime)",
     "settings.backupFailed": "Falha ao criar backup",
     "settings.restoreSuccessCloud":
-      "Restaurado: {cards} cartas em {collections} coleções, {anime} cartas anime",
+      "Mesclado na nuvem: {cards} cartas em {collections} coleções; anime substituída localmente ({anime} cartas anime)",
     "settings.restoreSuccessLocal":
       "Restaurado: {cards} cartas em {collections} coleções, {anime} cartas anime",
     "settings.restoreAnimeSuccess":
