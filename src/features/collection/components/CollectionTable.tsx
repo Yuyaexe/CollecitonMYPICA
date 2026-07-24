@@ -14,7 +14,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CollectionRow } from "@/components/shared/CollectionRow";
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useDragReorder, dragHandleProps } from "@/hooks/useDragReorder";
-import { useAppData } from "@/hooks/useAppData";
 import { useCollectionView } from "@/features/collection/context/collection-view-context";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +23,6 @@ export function CollectionTable() {
   const t = useT();
   const data = useCollectionView();
   const parentRef = useRef<HTMLDivElement>(null);
-  const { deleteOwnedCards } = useAppData();
 
   const selectedIds = useCollectionUIStore((s) => s.selectedIds);
   const toggleSelect = useCollectionUIStore((s) => s.toggleSelect);
@@ -152,7 +150,7 @@ export function CollectionTable() {
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     className="text-destructive"
-                    onClick={() => deleteOwnedCards([item.id])}
+                    onClick={() => handleRemove(item.id)}
                   >
                     {t("common.delete")}
                   </ContextMenuItem>

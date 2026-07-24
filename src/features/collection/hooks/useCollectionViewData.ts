@@ -36,7 +36,6 @@ export function useCollectionViewData(): CollectionViewData {
   const {
     ownedCards,
     activeCollectionId,
-    deleteOwnedCards,
     updateOwnedCard,
     isLoading,
     isError,
@@ -47,6 +46,7 @@ export function useCollectionViewData(): CollectionViewData {
   const sortDir = useCollectionUIStore((s) => s.sortDir);
   const focusedRowIndex = useCollectionUIStore((s) => s.focusedRowIndex);
   const setFocusedRowIndex = useCollectionUIStore((s) => s.setFocusedRowIndex);
+  const requestDeleteCard = useCollectionUIStore((s) => s.requestDeleteCard);
 
   const savedOrder = useDataUiStore(
     (s) => (activeCollectionId ? s.cardOrderByCollection[activeCollectionId] : undefined) ?? EMPTY_ORDER
@@ -100,19 +100,19 @@ export function useCollectionViewData(): CollectionViewData {
   const handleQuantityChange = useCallback(
     (id: string, quantity: number) => {
       if (quantity < 1) {
-        void deleteOwnedCards([id]);
+        requestDeleteCard(id);
         return;
       }
       void updateOwnedCard(id, { quantity });
     },
-    [updateOwnedCard, deleteOwnedCards]
+    [updateOwnedCard, requestDeleteCard]
   );
 
   const handleRemove = useCallback(
     (id: string) => {
-      void deleteOwnedCards([id]);
+      requestDeleteCard(id);
     },
-    [deleteOwnedCards]
+    [requestDeleteCard]
   );
 
   const reorderCard = useCallback(

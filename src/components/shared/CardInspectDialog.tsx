@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Loader2 } from "lucide-react";
 import {
@@ -8,6 +8,8 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Modal } from "@/components/shared/Modal";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
 import { MOBILE_DIALOG_SHEET } from "@/lib/ui/mobile-dialog";
@@ -99,6 +101,14 @@ export function CardInspectDialog({
   const updateOwnedCard = onUpdate ?? defaultUpdate;
   const deleteOwnedCards = onDelete ?? defaultDelete;
   const marketplaceRef = useRef<HTMLDivElement>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const confirmDelete = () => {
+    if (!card) return;
+    void deleteOwnedCards([card.id]);
+    setDeleteConfirmOpen(false);
+    onOpenChange(false);
+  };
 
   const { data: cardDetailData } = useQuery({
     queryKey: ["card-detail", card?.id, card?.card.name, card?.card.externalId, card?.card.gameSlug],
@@ -196,6 +206,7 @@ export function CardInspectDialog({
     ygoPasscode != null ? buildYgoImageUrl(ygoPasscode, "full") : null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         lang={locale === "pt-BR" ? "pt-BR" : "en"}
@@ -280,8 +291,7 @@ export function CardInspectDialog({
                   value={card.quantity}
                   onChange={(quantity) => {
                     if (quantity < 1) {
-                      void deleteOwnedCards([card.id]);
-                      onOpenChange(false);
+                      setDeleteConfirmOpen(true);
                       return;
                     }
                     updateOwnedCard(card.id, { quantity });
@@ -321,5 +331,25 @@ export function CardInspectDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <Modal
+      open={deleteConfirmOpen}
+      onOpenChange={setDeleteConfirmOpen}
+      title={t("inspect.deleteTitle")}
+      description={t("inspect.deleteDescription", { name: card.card.name })}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="destructive" onClick={confirmDelete}>
+            {t("common.delete")}
+          </Button>
+        </>
+      }
+    >
+      <span className="sr-only">{t("inspect.deleteTitle")}</span>
+    </Modal>
+    </>
   );
 }

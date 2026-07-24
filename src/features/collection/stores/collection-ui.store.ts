@@ -13,6 +13,7 @@ interface CollectionUIState {
   binderGridLayout: BinderGridLayout;
   detailCardId: string | null;
   inspectTab: "details" | "marketplace";
+  pendingDeleteCardId: string | null;
   quickAddOpen: boolean;
   importOpen: boolean;
   focusedRowIndex: number;
@@ -34,6 +35,8 @@ interface CollectionUIState {
   setBinderGridLayout: (layout: BinderGridLayout) => void;
   openCardInspect: (id: string, tab?: "details" | "marketplace") => void;
   closeCardInspect: () => void;
+  requestDeleteCard: (id: string) => void;
+  clearPendingDeleteCard: () => void;
   setQuickAddOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
   setFocusedRowIndex: (index: number) => void;
@@ -48,6 +51,7 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   binderGridLayout: "4x3",
   detailCardId: null,
   inspectTab: "details",
+  pendingDeleteCardId: null,
   quickAddOpen: false,
   importOpen: false,
   focusedRowIndex: 0,
@@ -121,6 +125,8 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   setBinderGridLayout: (layout) => set({ binderGridLayout: layout }),
   openCardInspect: (id, tab = "details") => set({ detailCardId: id, inspectTab: tab }),
   closeCardInspect: () => set({ detailCardId: null }),
+  requestDeleteCard: (id) => set({ pendingDeleteCardId: id }),
+  clearPendingDeleteCard: () => set({ pendingDeleteCardId: null }),
   setQuickAddOpen: (open) => set({ quickAddOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setFocusedRowIndex: (index) => set({ focusedRowIndex: index }),

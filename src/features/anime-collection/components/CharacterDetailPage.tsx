@@ -22,6 +22,7 @@ import { ImportModal } from "@/features/import/components/ImportModal";
 import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { useAnimeCollection } from "@/features/anime-collection/hooks/useAnimeCollection";
 import { useAnimeCharacterUIStore } from "@/features/anime-collection/stores/anime-character-ui.store";
+import { useAnimeShareSyncStore } from "@/features/anime-collection/stores/anime-share-sync.store";
 import {
   animeCharacterCardToOwned,
   ownedUpdatesToAnimeCharacter,
@@ -80,6 +81,8 @@ export function CharacterDetailPage({
   const clearSelection = useAnimeCharacterUIStore((s) => s.clearSelection);
   const draggedCardIds = useAnimeCharacterUIStore((s) => s.draggedCardIds);
   const setDraggedCardIds = useAnimeCharacterUIStore((s) => s.setDraggedCardIds);
+  const triggerSync = useAnimeShareSyncStore((s) => s.triggerSync);
+  const isShared = useAnimeShareSyncStore((s) => s.isShared);
 
   const series = getSeriesBySlug(seriesSlug);
   const character = getCharacterById(characterId);
@@ -167,6 +170,7 @@ export function CharacterDetailPage({
   const [importOpen, setImportOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [setAllToOneOpen, setSetAllToOneOpen] = useState(false);
+  const [pendingDeleteCardId, setPendingDeleteCardId] = useState<string | null>(null);
   const [inspectCardId, setInspectCardId] = useState<string | null>(null);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [sortValue, setSortValue] = useState("name:asc");
@@ -349,8 +353,33 @@ export function CharacterDetailPage({
   };
 
   const handleRemoveCard = (cardId: string) => {
-    removeAnimeCharacterCard(cardId);
+    setPendingDeleteCardId(cardId);
+  };
+
+  const handleQuantityChange = (cardId: string, quantity: number) => {
+    if (quantity < 1) {
+      setPendingDeleteCardId(cardId);
+      return;
+    }
+    updateAnimeCharacterCardQuantity(cardId, quantity);
+  };
+
+  const pendingDeleteCard = pendingDeleteCardId
+    ? characterCards.find((c) => c.id === pendingDeleteCardId) ?? null
+    : null;
+
+  const confirmRemoveCard = () => {
+    if (!pendingDeleteCardId) return;
+    removeAnimeCharacterCard(pendingDeleteCardId);
     toast.success(t("anime.cardRemoved"));
+    if (inspectCardId === pendingDeleteCardId) setInspectCardId(null);
+    if (isShared) triggerSync();
+    setPendingDeleteCardId(null);
+  };
+
+  const removeCardsAndSync = (ids: string[]) => {
+    ids.forEach((id) => removeAnimeCharacterCard(id));
+    if (ids.length > 0 && isShared) triggerSync();
   };
 
   return (
@@ -531,7 +560,7 @@ export function CharacterDetailPage({
             cards={visibleCards}
             binderSlotLayout={displayBinderLayout}
             onRemove={handleRemoveCard}
-            onQuantityChange={updateAnimeCharacterCardQuantity}
+            onQuantityChange={handleQuantityChange}
             onOpenCard={(item) => setInspectCardId(item.id)}
             onReorder={(draggedId, targetId) => {
               if (deckFilters.size > 0) return;
@@ -581,7 +610,7 @@ export function CharacterDetailPage({
           transferAnimeCharacterCards(character.id, targetId, cardIds)
         }
         onDelete={(ids) => {
-          ids.forEach((id) => removeAnimeCharacterCard(id));
+          removeCardsAndSync(ids);
         }}
       />
 
@@ -594,7 +623,7 @@ export function CharacterDetailPage({
         currency={profile.currency}
         onUpdate={(id, updates) => updateAnimeCharacterCard(id, ownedUpdatesToAnimeCharacter(updates))}
         onDelete={(ids) => {
-          ids.forEach((id) => removeAnimeCharacterCard(id));
+          removeCardsAndSync(ids);
           setInspectCardId(null);
         }}
       />
@@ -705,6 +734,29 @@ export function CharacterDetailPage({
         }
       >
         <span className="sr-only">{t("anime.setAllToOneConfirm")}</span>
+      </Modal>
+
+      <Modal
+        open={pendingDeleteCardId != null && pendingDeleteCard != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteCardId(null);
+        }}
+        title={t("anime.deleteCardTitle")}
+        description={t("anime.deleteCardDescription", {
+          name: pendingDeleteCard?.card.name ?? "",
+        })}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingDeleteCardId(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={confirmRemoveCard}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      >
+        <span className="sr-only">{t("anime.deleteCardTitle")}</span>
       </Modal>
     </>
       </AnimeYugiohPasscodeSync>

@@ -14,7 +14,10 @@ import {
 import { useCollectionUIStore } from "@/features/collection/stores/collection-ui.store";
 import { useAppData } from "@/hooks/useAppData";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { Modal } from "@/components/shared/Modal";
+import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/context";
+import { toast } from "sonner";
 
 const QuickAddModal = dynamic(
   () =>
@@ -28,17 +31,32 @@ const CardInspectDialog = dynamic(
 );
 
 function CollectionPageBody() {
+  const t = useT();
   const inspectCardId = useCollectionUIStore((s) => s.detailCardId);
   const inspectTab = useCollectionUIStore((s) => s.inspectTab);
   const closeCardInspect = useCollectionUIStore((s) => s.closeCardInspect);
+  const pendingDeleteCardId = useCollectionUIStore((s) => s.pendingDeleteCardId);
+  const clearPendingDeleteCard = useCollectionUIStore((s) => s.clearPendingDeleteCard);
   const quickAddOpen = useCollectionUIStore((s) => s.quickAddOpen);
   const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
 
-  const { profile, ownedCards } = useAppData();
+  const { profile, ownedCards, deleteOwnedCards } = useAppData();
 
   const inspectCard = inspectCardId
     ? (ownedCards.find((oc) => oc.id === inspectCardId) ?? null)
     : null;
+
+  const pendingDeleteCard = pendingDeleteCardId
+    ? (ownedCards.find((oc) => oc.id === pendingDeleteCardId) ?? null)
+    : null;
+
+  const confirmDeleteCard = async () => {
+    if (!pendingDeleteCardId) return;
+    await deleteOwnedCards([pendingDeleteCardId]);
+    toast.success(t("collection.cardRemoved"));
+    if (inspectCardId === pendingDeleteCardId) closeCardInspect();
+    clearPendingDeleteCard();
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -64,6 +82,28 @@ function CollectionPageBody() {
           currency={profile.currency}
         />
       )}
+      <Modal
+        open={pendingDeleteCardId != null && pendingDeleteCard != null}
+        onOpenChange={(open) => {
+          if (!open) clearPendingDeleteCard();
+        }}
+        title={t("collection.deleteCardTitle")}
+        description={t("collection.deleteCardDescription", {
+          name: pendingDeleteCard?.card.name ?? "",
+        })}
+        footer={
+          <>
+            <Button variant="outline" onClick={clearPendingDeleteCard}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDeleteCard()}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      >
+        <span className="sr-only">{t("collection.deleteCardTitle")}</span>
+      </Modal>
     </div>
   );
 }

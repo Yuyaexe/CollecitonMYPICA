@@ -116,6 +116,10 @@ export const messages = {
     "collection.bulkDeleting": "Deleting...",
     "collection.bulkDeleted": "{count} card(s) removed",
     "collection.bulkDeleteFailed": "Failed to delete cards",
+    "collection.deleteCardTitle": "Delete this card?",
+    "collection.deleteCardDescription":
+      'Remove "{name}" from your collection? This cannot be undone.',
+    "collection.cardRemoved": "Card removed",
     "collection.noActiveCollection": "Create or select a collection before adding cards.",
     "collection.qtyDoubledBanner":
       "Quantities look doubled on this collection (most cards show 2×).",
@@ -413,6 +417,10 @@ export const messages = {
     "collection.bulkDeleting": "Excluindo...",
     "collection.bulkDeleted": "{count} carta(s) removida(s)",
     "collection.bulkDeleteFailed": "Falha ao excluir cartas",
+    "collection.deleteCardTitle": "Excluir esta carta?",
+    "collection.deleteCardDescription":
+      'Remover "{name}" da sua coleção? Esta ação não pode ser desfeita.',
+    "collection.cardRemoved": "Carta removida",
     "collection.noActiveCollection": "Crie ou selecione uma coleção antes de adicionar cartas.",
     "collection.qtyDoubledBanner":
       "As quantidades parecem dobradas nesta coleção (a maioria das cartas está em 2×).",

@@ -51,6 +51,9 @@ export const extraMessages = {
     "inspect.condition": "Condition",
     "inspect.language": "Language",
     "inspect.quantity": "Quantity",
+    "inspect.deleteTitle": "Delete this card?",
+    "inspect.deleteDescription":
+      'Remove "{name}"? This confirmed delete cannot be undone.',
     "inspect.notes": "Notes",
     "inspect.details": "Details",
 
@@ -165,6 +168,9 @@ export const extraMessages = {
     "anime.characterRenamed": "Character renamed",
     "anime.characterDeleted": "Character deleted",
     "anime.cardRemoved": "Card removed",
+    "anime.deleteCardTitle": "Delete this card?",
+    "anime.deleteCardDescription":
+      'Remove "{name}" from this character? Confirmed deletes sync to the cloud so the card should not come back on Pull.',
     "anime.builtinNoDelete": "Built-in characters cannot be deleted.",
     "anime.cardsSection": "Cards",
     "anime.noCardsLinked": "No cards linked to this character yet",
@@ -259,7 +265,8 @@ export const extraMessages = {
     "anime.cardsMovedMerged": "Moved {moved} · merged {merged} into {name}",
     "anime.dropOnCharacter": "Drop to move {count} cards here",
     "anime.bulkDeleteTitle": "Delete selected cards?",
-    "anime.bulkDeleteDescription": "Remove {count} selected cards from this character. This cannot be undone.",
+    "anime.bulkDeleteDescription":
+      "Remove {count} selected cards from this character? Confirmed deletes sync to the cloud so they should not come back on Pull.",
     "anime.bulkDeleted": "Removed {count} cards",
     "anime.searchCharacter": "Search characters…",
     "anime.noOtherCharacters": "No other characters in this series.",
@@ -429,6 +436,9 @@ export const extraMessages = {
     "inspect.condition": "Condição",
     "inspect.language": "Idioma",
     "inspect.quantity": "Quantidade",
+    "inspect.deleteTitle": "Excluir esta carta?",
+    "inspect.deleteDescription":
+      'Remover "{name}"? Esta exclusão confirmada não pode ser desfeita.',
     "inspect.notes": "Notas",
     "inspect.details": "Detalhes",
 
@@ -543,6 +553,9 @@ export const extraMessages = {
     "anime.characterRenamed": "Personagem renomeado",
     "anime.characterDeleted": "Personagem excluído",
     "anime.cardRemoved": "Carta removida",
+    "anime.deleteCardTitle": "Excluir esta carta?",
+    "anime.deleteCardDescription":
+      'Remover "{name}" deste personagem? Exclusões confirmadas sincronizam com a nuvem para a carta não voltar no Pull.',
     "anime.builtinNoDelete": "Personagens integrados não podem ser excluídos.",
     "anime.cardsSection": "Cartas",
     "anime.noCardsLinked": "Nenhuma carta vinculada a este personagem",
@@ -637,7 +650,8 @@ export const extraMessages = {
     "anime.cardsMovedMerged": "Movidas {moved} · mescladas {merged} em {name}",
     "anime.dropOnCharacter": "Solte para mover {count} cartas aqui",
     "anime.bulkDeleteTitle": "Excluir cartas selecionadas?",
-    "anime.bulkDeleteDescription": "Remover {count} cartas selecionadas deste personagem. Esta ação não pode ser desfeita.",
+    "anime.bulkDeleteDescription":
+      "Remover {count} cartas selecionadas deste personagem? Exclusões confirmadas sincronizam com a nuvem para não voltarem no Pull.",
     "anime.bulkDeleted": "Removidas {count} cartas",
     "anime.searchCharacter": "Buscar personagens…",
     "anime.noOtherCharacters": "Não há outros personagens nesta série.",

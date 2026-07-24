@@ -209,7 +209,19 @@ Smoke automático (merge):
 npx tsx scripts/smoke-anime-share-merge.ts
 ```
 
-**Lighthouse (auditoria de performance):** relatórios atuais em `docs/audit-artifacts/lighthouse-*.report.{html,json}` (gerados contra `localhost` login + collection). Screenshots/`knip-raw.txt` na mesma pasta são histórico opcional.
+**Lighthouse (auditoria de performance):** relatórios em `docs/audit-artifacts/lighthouse-*.report.{html,json}`.
+
+Última medição **produção local** (`next build` + `next start`, modo local sem redirect de auth):
+
+| Página | Perf | A11y | Best Practices | SEO |
+|--------|------|------|----------------|-----|
+| `/login` | 98 | 91 | 100 | 100 |
+| `/collection` | 76 | 87 | 100 | 100 |
+
+Nota: em `next dev` os scores de Performance caem muito (~70) — isso é normal. Com Supabase ligado, `/collection` redireciona para `/login` sem sessão, por isso a medição da collection foi em build local-mode.
+
+Screenshots/`knip-raw.txt` na mesma pasta são histórico opcional.
+
 
 ---
 
