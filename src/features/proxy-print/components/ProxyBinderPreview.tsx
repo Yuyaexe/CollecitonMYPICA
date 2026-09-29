@@ -1,8 +1,9 @@
 "use client";
 
 import { memo, useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, ImagePlus, Layers } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, ImagePlus, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,13 @@ import {
 } from "@/lib/proxy-print/types";
 import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
+import { isTrustedImageUrl } from "@/lib/cache/trusted-image-hosts";
+import { PokemonSearchPanel } from "@/features/catalog/components/PokemonSearchPanel";
+import { pokemonPrintImage, pokemonPrintLabel } from "@/features/catalog/services/pokemon-search";
+import { useAppData } from "@/hooks/useAppData";
+import { passcodeFromYgoImageUrl } from "@/lib/yugioh/lookup";
+import { DEMO_GAMES, type DemoOwnedCard } from "@/lib/demo/types";
+import { GAME_LABELS } from "@/lib/proxy-print/types";
 
 export type SlotUpdate = {
   imageUrl: string;
@@ -59,6 +67,56 @@ function cycleVariant(slot: ProxyPrintSlot): SlotUpdate | null {
   return variantFields(next);
 }
 
+function proxySlotToOwnedCard(slot: ProxyPrintSlot): DemoOwnedCard {
+  const selectedVariant =
+    slot.variants.find((variant) => variant.key === slot.selectedVariantKey) ?? null;
+  const [setLineName, setLineCode] = (slot.setLine ?? "").split(" · ");
+  const yugiohPasscode =
+    slot.game === "yugioh"
+      ? passcodeFromYgoImageUrl(slot.imageUrl) ??
+        (/^\d+$/.test(slot.entryKey) ? slot.entryKey : null)
+      : null;
+  const pokemonExternalId =
+    slot.game === "pokemon" && slot.selectedVariantKey?.startsWith("pokemon:")
+      ? slot.selectedVariantKey.slice("pokemon:".length)
+      : null;
+  const externalId =
+    yugiohPasscode ??
+    pokemonExternalId ??
+    (slot.game === "digimon" || slot.game === "onepiece" || slot.game === "dragonball"
+      ? slot.entryKey
+      : null);
+  const game = DEMO_GAMES.find((item) => item.slug === slot.game);
+  const previewId = `proxy-preview:${slot.slotId}`;
+
+  return {
+    id: previewId,
+    collectionId: "proxy-preview",
+    cardId: previewId,
+    card: {
+      id: previewId,
+      gameId: game?.id ?? `proxy-${slot.game}`,
+      gameSlug: slot.game,
+      gameName: game?.name ?? GAME_LABELS[slot.game],
+      externalId,
+      name: slot.name,
+      setCode: selectedVariant?.setCode ?? setLineCode ?? null,
+      setName: selectedVariant?.setName ?? setLineName ?? null,
+      collectorNumber: null,
+      rarity: slot.rarity,
+      imageUrl: slot.imageUrl,
+      marketPrice: null,
+    },
+    quantity: 1,
+    condition: "NM",
+    language: "EN",
+    isFoil: false,
+    purchasePrice: null,
+    notes: null,
+    tagIds: [],
+  };
+}
+
 const BinderThumb = memo(function BinderThumb({
   src,
   alt,
@@ -70,10 +128,12 @@ const BinderThumb = memo(function BinderThumb({
     src ? previewImageSrc(src) : null
   );
   const [failed, setFailed] = useState(false);
+  const [triedDirectFallback, setTriedDirectFallback] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
+    setTriedDirectFallback(false);
     setResolvedSrc(src ? previewImageSrc(src) : null);
 
     void resolvePreviewImageSrc(src).then((next) => {
@@ -100,8 +160,20 @@ const BinderThumb = memo(function BinderThumb({
       alt={alt}
       loading="lazy"
       decoding="async"
-      className="absolute inset-0 h-full w-full object-contain p-0.5"
-      onError={() => setFailed(true)}
+      className="pointer-events-none absolute inset-0 h-full w-full object-contain p-0.5"
+      onError={() => {
+        if (
+          !triedDirectFallback &&
+          src &&
+          isTrustedImageUrl(src) &&
+          resolvedSrc?.startsWith("/api/proxy-image?")
+        ) {
+          setTriedDirectFallback(true);
+          setResolvedSrc(src);
+          return;
+        }
+        setFailed(true);
+      }}
     />
   );
 });
@@ -110,10 +182,12 @@ const BinderSlot = memo(function BinderSlot({
   slot,
   onEdit,
   onCycle,
+  onPreview,
 }: {
   slot: ProxyPrintSlot;
   onEdit: () => void;
   onCycle: () => void;
+  onPreview: () => void;
 }) {
   const t = useT();
   const hasVariants = slot.variants.length > 1;
@@ -129,8 +203,8 @@ const BinderSlot = memo(function BinderSlot({
         <button
           type="button"
           className="absolute inset-0 z-0 cursor-pointer"
-          onClick={onCycle}
-          aria-label={hasVariants ? t("proxyPrint.cycleVariant") : slot.name}
+          onClick={slot.game === "pokemon" ? onEdit : onCycle}
+          aria-label={slot.game === "pokemon" ? t("pokemonSearch.choosePrint") : hasVariants ? t("proxyPrint.cycleVariant") : slot.name}
           title={slot.setLine ?? slot.name}
         />
         <BinderThumb src={slot.imageUrl} alt={slot.name} />
@@ -140,6 +214,20 @@ const BinderSlot = memo(function BinderSlot({
               <Layers className="inline h-2.5 w-2.5" />
             </span>
           ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="pointer-events-auto h-5 w-5 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview();
+            }}
+            aria-label={`Preview ${slot.name}`}
+            title={`Preview ${slot.name}`}
+          >
+            <Eye className="h-3 w-3" />
+          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -182,11 +270,13 @@ function BinderPage({
   side,
   onSlotEdit,
   onSlotCycle,
+  onSlotPreview,
 }: {
   pageSlots: (ProxyPrintSlot | null)[];
   side: "left" | "right";
   onSlotEdit: (slot: ProxyPrintSlot) => void;
   onSlotCycle: (slot: ProxyPrintSlot) => void;
+  onSlotPreview: (slot: ProxyPrintSlot) => void;
 }) {
   return (
     <div
@@ -215,6 +305,7 @@ function BinderPage({
               slot={slot}
               onEdit={() => onSlotEdit(slot)}
               onCycle={() => onSlotCycle(slot)}
+              onPreview={() => onSlotPreview(slot)}
             />
           );
         })}
@@ -230,11 +321,15 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
   onSlotUpdate,
 }: ProxyBinderPreviewProps) {
   const t = useT();
+  const { profile } = useAppData();
   const [editSlotId, setEditSlotId] = useState<string | null>(null);
+  const [previewSlotId, setPreviewSlotId] = useState<string | null>(null);
   const [urlDraft, setUrlDraft] = useState("");
   const [draftVariantKey, setDraftVariantKey] = useState<string | null>(null);
 
   const editSlot = slots.find((s) => s.slotId === editSlotId) ?? null;
+  const previewSlot = slots.find((s) => s.slotId === previewSlotId) ?? null;
+  const previewOwnedCard = previewSlot ? proxySlotToOwnedCard(previewSlot) : null;
 
   const emitSlotUpdate = useCallback(
     (slot: ProxyPrintSlot, update: SlotUpdate) => {
@@ -357,6 +452,7 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
             side="left"
             onSlotEdit={openEdit}
             onSlotCycle={handleSlotCycle}
+            onSlotPreview={(slot) => setPreviewSlotId(slot.slotId)}
           />
           <div
             className="relative h-2 w-full shrink-0 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 md:h-auto md:w-3 md:bg-gradient-to-b lg:w-4"
@@ -367,6 +463,7 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
             side="right"
             onSlotEdit={openEdit}
             onSlotCycle={handleSlotCycle}
+            onSlotPreview={(slot) => setPreviewSlotId(slot.slotId)}
           />
         </div>
       </div>
@@ -402,12 +499,24 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
       )}
 
       <Dialog open={Boolean(editSlot)} onOpenChange={(open) => !open && closeEdit()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={editSlot?.game === "pokemon" ? "sm:max-w-5xl max-h-[94dvh] overflow-y-auto" : "sm:max-w-md"}>
           <DialogHeader>
-            <DialogTitle>{t("proxyPrint.customImageTitle")}</DialogTitle>
+            <DialogTitle>{t(editSlot?.game === "pokemon" ? "pokemonSearch.choosePrint" : "proxyPrint.customImageTitle")}</DialogTitle>
             <DialogDescription>{activeVariantLabel}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {editSlot?.game === "pokemon" && <PokemonSearchPanel key={editSlot.slotId} initialQuery={editSlot.name}
+              onSelect={(card) => {
+                const imageUrl = pokemonPrintImage(card);
+                if (!imageUrl) return;
+                setDraftVariantKey(`pokemon:${card.externalId}`);
+                setUrlDraft(imageUrl);
+                emitSlotUpdate(editSlot, {
+                  imageUrl, selectedVariantKey: `pokemon:${card.externalId}`, rarity: card.rarity,
+                  setLine: pokemonPrintLabel(card), variantLabel: `${card.name} — ${pokemonPrintLabel(card)}`,
+                });
+                closeEdit();
+              }} />}
             {editSlot && editSlot.variants.length > 1 ? (
               <div className="space-y-2">
                 <Label>{t("proxyPrint.pickVariant")}</Label>
@@ -470,6 +579,16 @@ export const ProxyBinderPreview = memo(function ProxyBinderPreview({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CardInspectDialog
+        card={previewOwnedCard}
+        open={previewOwnedCard != null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewSlotId(null);
+        }}
+        currency={profile.currency}
+        readOnly
+      />
     </div>
   );
 });

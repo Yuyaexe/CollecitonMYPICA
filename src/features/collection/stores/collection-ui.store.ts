@@ -14,7 +14,6 @@ interface CollectionUIState {
   detailCardId: string | null;
   inspectTab: "details" | "marketplace";
   pendingDeleteCardId: string | null;
-  quickAddOpen: boolean;
   importOpen: boolean;
   focusedRowIndex: number;
   lastSelectedIndex: number;
@@ -37,7 +36,6 @@ interface CollectionUIState {
   closeCardInspect: () => void;
   requestDeleteCard: (id: string) => void;
   clearPendingDeleteCard: () => void;
-  setQuickAddOpen: (open: boolean) => void;
   setImportOpen: (open: boolean) => void;
   setFocusedRowIndex: (index: number) => void;
 }
@@ -52,7 +50,6 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   detailCardId: null,
   inspectTab: "details",
   pendingDeleteCardId: null,
-  quickAddOpen: false,
   importOpen: false,
   focusedRowIndex: 0,
   lastSelectedIndex: 0,
@@ -127,7 +124,6 @@ export const useCollectionUIStore = create<CollectionUIState>((set, get) => ({
   closeCardInspect: () => set({ detailCardId: null }),
   requestDeleteCard: (id) => set({ pendingDeleteCardId: id }),
   clearPendingDeleteCard: () => set({ pendingDeleteCardId: null }),
-  setQuickAddOpen: (open) => set({ quickAddOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setFocusedRowIndex: (index) => set({ focusedRowIndex: index }),
 }));

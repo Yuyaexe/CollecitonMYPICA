@@ -2,7 +2,7 @@
 
 ## Versão local
 
-- Versão: `0.2.18`.
+- Versão: `0.2.19`.
 - Uso principal: programa Windows.
 - Uso secundário: navegador local.
 - Armazenamento principal: IndexedDB local.
@@ -26,6 +26,7 @@
 - O antigo `src/lib/demo/store.ts` monolítico foi dividido em módulos de Activity, coleção, Anime, helpers, tipos e migrações; o arquivo principal agora só monta o store.
 - O índice de cartas compradas é reutilizado entre overlays da mesma resposta, evitando reconstrução repetida.
 - O cache de imagens usa leituras `readonly`, agrupa atualizações de recência e reduz a frequência de prune; resoluções simultâneas do mesmo passcode são deduplicadas.
+- A busca Pokémon usa a Pokémon TCG API como fonte primária e TCGdex como fallback. Após falha transitória/timeout da fonte primária, um circuit breaker curto usa TCGdex diretamente para evitar repetir a espera; o fallback usa paginação nativa de 48 cartas.
 - O fluxo atual foi validado com lint, TypeScript, build, Electron desktop e teste manual.
 
 ## Última validação registrada da main
@@ -37,13 +38,13 @@
 - `npm run build` — aprovado.
 - `npm run desktop:dev` — aprovado com Electron 44.4.5.
 - `npm audit` — 0 vulnerabilidades.
-- Aplicativo instalado atualizado para 0.2.18 preservando o mesmo perfil de dados.
+- Último aplicativo instalado validado: 0.2.19, preservando o mesmo perfil de dados.
 
 ## Instalador
 
-O instalador mais recente fica em `releases/0.2.18/DeckVault-Setup-0.2.18.exe`.
+O último instalador gerado fica em `releases/build/DeckVault-Setup-0.2.19.exe`.
 
-SHA-256: `857CF57C6C608AFBEF8BDB74E74A19BA7002B01AC326DE94AFE0A238951B45B3`.
+SHA-256: `170911E6C7659A4091091F74EAA6490B54298BFA2DF676B1E06489A929DAE727`.
 
 O instalador ainda não possui assinatura digital com certificado de publicação.
 

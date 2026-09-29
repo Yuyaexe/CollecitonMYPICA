@@ -59,13 +59,16 @@ function mapYgoCard(card: YgoCard, preferredSetCode?: string | null): CardSearch
       level: card.level,
       sets: card.card_sets,
       prices: card.card_prices,
+      konamiId: card.misc_info?.[0]?.konami_id ?? null,
     },
   };
 }
 
 async function fetchYgoCards(params: string): Promise<YgoCard[]> {
   try {
-    const res = await fetch(`${API}/cardinfo.php?${params}`, {
+    const searchParams = new URLSearchParams(params);
+    searchParams.set("misc", "yes");
+    const res = await fetch(`${API}/cardinfo.php?${searchParams.toString()}`, {
       headers: HEADERS,
       signal: AbortSignal.timeout(YGO_FETCH_TIMEOUT_MS),
       // Cache successful catalog hits across Quick Add searches.
@@ -198,7 +201,8 @@ export const yugiohAdapter: YugiohCardApiAdapter = {
 
   async getById(externalId: string): Promise<CardDetail | null> {
     try {
-      const res = await fetch(`${API}/cardinfo.php?id=${externalId}`, {
+      const params = new URLSearchParams({ id: externalId, misc: "yes" });
+      const res = await fetch(`${API}/cardinfo.php?${params.toString()}`, {
         headers: HEADERS,
         signal: AbortSignal.timeout(YGO_FETCH_TIMEOUT_MS),
         next: { revalidate: 600 },

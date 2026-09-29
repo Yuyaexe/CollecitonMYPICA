@@ -22,7 +22,7 @@ const eslintConfig = [
       "react-hooks/incompatible-library": "off",
     },
   },
-  globalIgnores([".next/**", "node_modules/**", "release/**", "release-*/**", "releases/**"]),
+  globalIgnores([".next/**", "node_modules/**", "local/**", "release/**", "release-*/**", "releases/**"]),
 ];
 
 export default eslintConfig;

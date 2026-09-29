@@ -6,8 +6,10 @@ import { buildYgoImageUrl } from "@/lib/yugioh/urls";
 import { isYugiohPasscodeId } from "@/lib/yugioh/passcode";
 import type { CardSearchResult } from "@/features/catalog/services/card-api/types";
 import { enforceCatalogRateLimit } from "@/lib/api/enforce-rate-limit";
+import { searchPokemonPage } from "@/features/catalog/services/card-api/pokemon.adapter";
 
 const SEARCH_RESULT_LIMIT = 24;
+const YUGIOH_SEARCH_RESULT_LIMIT = 80;
 
 export async function GET(request: NextRequest) {
   const limited = enforceCatalogRateLimit(request, "cards-search");
@@ -22,7 +24,8 @@ export async function GET(request: NextRequest) {
   const setId = searchParams.get("set")?.trim() || undefined;
   const quickSearch = searchParams.get("quick") === "1";
 
-  if (!query.trim() && !(game === "pokemon" && setId)) {
+  const number = searchParams.get("number")?.trim();
+  if (!query.trim() && !(game === "pokemon" && (setId || number))) {
     return NextResponse.json({ results: [] });
   }
 
@@ -34,6 +37,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (game === "pokemon") {
+      const result = await searchPokemonPage(query, {
+        setId, number, page: Number(searchParams.get("page") ?? 1),
+        order: searchParams.get("order") ?? "newest", signal: request.signal,
+      });
+      return NextResponse.json({ ...result, results: serializeSearchResultsForResponse(result.results) });
+    }
     const adapter = getCardAdapter(game);
     if (!adapter) {
       return NextResponse.json({ error: "Unknown game" }, { status: 400 });
@@ -41,12 +51,12 @@ export async function GET(request: NextRequest) {
 
     let results: CardSearchResult[] = await adapter.search(
       query,
-      game === "yugioh" ? { locale } : game === "pokemon" ? { setId } : undefined
+      game === "yugioh" ? { locale } : undefined
     );
 
     results = dedupeSearchResults(rankSearchResults(query, results), game).slice(
       0,
-      SEARCH_RESULT_LIMIT
+      game === "yugioh" ? YUGIOH_SEARCH_RESULT_LIMIT : SEARCH_RESULT_LIMIT
     );
 
     if (game === "yugioh") {

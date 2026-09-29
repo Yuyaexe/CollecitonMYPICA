@@ -8,7 +8,7 @@ Manage your **Yu-Gi-Oh!**, **Pokémon**, and **Digimon** cards in one place — 
 
 ## Get started (2 minutes)
 
-**Programa instalado:** use o instalador mais recente em `releases/<versão>/`.
+**Programa instalado:** use o instalador mais recente gerado em `releases/build/`.
 
 **Navegador local:** double-click `DeckVault.bat`
 
@@ -43,7 +43,7 @@ For local development, `CARDTRADER_API_TOKEN` can be set in the server environme
 | Game | Catalog & images | Marketplace |
 |------|------------------|-------------|
 | Yu-Gi-Oh! | [YGOPRODeck](https://ygoprodeck.com/) | TCGPlayer, Liga, MyP, CardTrader (links only) |
-| Pokémon | Pokémon TCG API | TCGPlayer, Cardmarket, CardTrader |
+| Pokémon | Pokémon TCG API, com fallback TCGdex | TCGPlayer, Cardmarket, CardTrader |
 | Digimon | DigimonCard.io API | TCGPlayer, Cardmarket, CardTrader |
 
 CardTrader is **not** used for search or live prices — only product/search URLs in the Mercado section.
@@ -71,7 +71,7 @@ npm run desktop:dev       # open the desktop app locally
 npm run desktop:build     # generate the Windows installer
 ```
 
-The installer is generated in `release/`. The previous Tauri commands
+The installer is generated in `releases/build/`. The previous Tauri commands
 (`npm run tauri:dev` and `npm run tauri:build`) remain available for contributors
 who have Rust installed.
 

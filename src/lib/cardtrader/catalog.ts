@@ -148,7 +148,8 @@ export function buildCardTraderManaSearchUrl(
   const ids = [...new Set(blueprintIds.filter((id) => Number.isFinite(id) && id > 0))];
   const cardName = normalizeCardTraderCardName(name);
   if (ids.length === 0) {
-    return buildCardTraderSlugUrl({ name: cardName });
+    const q = encodeURIComponent(cardName);
+    return `https://www.cardtrader.com/en/manasearch_results?q=${q}&page=${page}`;
   }
   const q = encodeURIComponent(cardName);
   const idsParam = encodeURIComponent(encodeCardTraderManaSearchIds(ids));
@@ -308,6 +309,9 @@ export function resolveCardTraderProductUrl(params: {
     })
   ) {
     blueprintId = null;
+  }
+  if (params.gameSlug === "yugioh" && blueprintId != null) {
+    return buildCardTraderManaSearchUrl(params.name, []);
   }
   if (blueprintId != null) {
     return buildCardTraderManaSearchUrl(params.name, [blueprintId]);

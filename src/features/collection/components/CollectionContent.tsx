@@ -48,7 +48,6 @@ export function CollectionContent() {
   const data = useCollectionView();
   const viewMode = useCollectionUIStore((s) => s.viewMode);
   const filters = useCollectionUIStore((s) => s.filters);
-  const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const effectiveView =
@@ -99,20 +98,18 @@ export function CollectionContent() {
         icon={Layers}
         title={t("collection.emptyTitle")}
         description={t("collection.emptyDescription")}
-        actionLabel={t("collection.quickAdd")}
-        onAction={() => setQuickAddOpen(true)}
       />
     );
   }
 
   switch (effectiveView) {
     case "grid":
-      return <CollectionGridView />;
+      return <div className="min-h-0 min-w-0 w-full flex-1"><CollectionGridView /></div>;
     case "compact":
-      return <CollectionCompactView />;
+      return <div className="min-h-0 min-w-0 w-full flex-1"><CollectionCompactView /></div>;
     case "binder":
-      return <CollectionBinderView />;
+      return <div className="min-h-0 min-w-0 w-full flex-1"><CollectionBinderView /></div>;
     default:
-      return <CollectionTable />;
+      return <div className="min-h-0 min-w-0 w-full flex-1"><CollectionTable /></div>;
   }
 }

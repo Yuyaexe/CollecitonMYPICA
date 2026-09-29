@@ -11,10 +11,7 @@ export function slugifyCardName(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function buildYgoProDeckUrl(name: string, externalId?: string | null): string {
-  if (externalId && name) {
-    return `https://ygoprodeck.com/card/${slugifyCardName(name)}-${externalId}`;
-  }
+export function buildYgoProDeckUrl(name: string): string {
   return `https://ygoprodeck.com/card-database/?search=${encodeURIComponent(name)}`;
 }
 

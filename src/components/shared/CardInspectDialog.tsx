@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { resolveCardDisplayImage } from "@/lib/cards/preview-image";
 import { useYugiohPasscodeForDisplay } from "@/hooks/useYugiohPasscodeForDisplay";
 import { useYugiohCardImageRepair } from "@/hooks/useYugiohCardImageRepair";
-import { buildYgoImageUrl } from "@/lib/yugioh/urls";
+import { buildYgoImageUrl, buildYgoProDeckUrl } from "@/lib/yugioh/urls";
 import { resolveCardTraderProductUrl } from "@/lib/cardtrader";
 import { fetchCardTraderManaSearchUrl } from "@/features/market/hooks/useCardTraderPrices";
 import { fetchYugiohOwnedCardDetail } from "@/lib/yugioh/lookup";
@@ -48,6 +48,7 @@ interface CardInspectDialogProps {
   currency: Currency;
   onUpdate?: (id: string, updates: OwnedCardUpdates) => void;
   onDelete?: (ids: string[]) => void;
+  readOnly?: boolean;
 }
 
 interface CardDetailResponse {
@@ -96,6 +97,7 @@ export function CardInspectDialog({
   currency: _currency,
   onUpdate,
   onDelete,
+  readOnly = false,
 }: CardInspectDialogProps) {
   const t = useT();
   const locale = useLocale();
@@ -138,6 +140,7 @@ export function CardInspectDialog({
   const { data: cardTraderProductUrl } = useQuery({
     queryKey: [
       "cardtrader-url",
+      "blueprint-search-v2",
       card?.id,
       card?.card.cardTraderBlueprintId,
       card?.card.externalId,
@@ -146,6 +149,25 @@ export function CardInspectDialog({
     ],
     queryFn: () => fetchCardTraderManaSearchUrl(card!),
     enabled: open && !!card,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const { data: ygoProDeckProductUrl } = useQuery({
+    queryKey: [
+      "ygoprodeck-url",
+      card?.card.name,
+      card?.card.externalId,
+    ],
+    queryFn: async () => {
+      if (!card) return null;
+      const params = new URLSearchParams({ name: card.card.name });
+      if (card.card.externalId) params.set("externalId", card.card.externalId);
+      const response = await fetch(`/api/cards/yugioh/url?${params.toString()}`);
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { url?: string };
+      return payload.url ?? null;
+    },
+    enabled: open && !!card && card.card.gameSlug === "yugioh",
     staleTime: 24 * 60 * 60 * 1000,
   });
 
@@ -162,7 +184,7 @@ export function CardInspectDialog({
   );
 
   useYugiohCardImageRepair(
-    card?.id,
+    readOnly ? undefined : card?.id,
     card?.card ?? { gameSlug: "yugioh", externalId: null, imageUrl: null, rarity: null },
     ygoPasscode ?? null
   );
@@ -201,6 +223,10 @@ export function CardInspectDialog({
 
   const listings = buildMarketplaceListings(card.card, {
     cardTraderUrl: cardTraderProductUrl ?? cardTraderFallbackUrl,
+    ygoProDeckUrl:
+      card.card.gameSlug === "yugioh"
+        ? ygoProDeckProductUrl ?? buildYgoProDeckUrl(card.card.name)
+        : undefined,
   });
 
   const ygoImageLoading = card.card.gameSlug === "yugioh" && ygoPasscode === undefined;
@@ -318,43 +344,61 @@ export function CardInspectDialog({
             <div className="min-w-0 w-full max-w-full space-y-4 border-t border-border/60 pt-4">
               <div className="space-y-2">
                 <Label>{t("inspect.quantity")}</Label>
-                <QuantityStepper
-                  value={card.quantity}
-                  onChange={(quantity) => {
-                    if (quantity < 1) {
-                      setDeleteConfirmOpen(true);
-                      return;
-                    }
-                    updateOwnedCard(card.id, { quantity });
-                  }}
-                />
+                {readOnly ? (
+                  <div className="inline-flex h-9 min-w-20 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium tabular-nums">
+                    {card.quantity}
+                  </div>
+                ) : (
+                  <QuantityStepper
+                    value={card.quantity}
+                    onChange={(quantity) => {
+                      if (quantity < 1) {
+                        setDeleteConfirmOpen(true);
+                        return;
+                      }
+                      updateOwnedCard(card.id, { quantity });
+                    }}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">{t("inspect.condition")}</Label>
-                  <ResponsiveSelect
-                    preferNative
-                    value={card.condition}
-                    onValueChange={(v) =>
-                      updateOwnedCard(card.id, { condition: v as typeof card.condition })
-                    }
-                    options={CARD_CONDITIONS.map((c) => ({
-                      value: c,
-                      label: CONDITION_LABELS[c],
-                    }))}
-                  />
+                  {readOnly ? (
+                    <div className="flex min-h-10 items-center rounded-md border border-input bg-background px-3 text-sm">
+                      {CONDITION_LABELS[card.condition]}
+                    </div>
+                  ) : (
+                    <ResponsiveSelect
+                      preferNative
+                      value={card.condition}
+                      onValueChange={(v) =>
+                        updateOwnedCard(card.id, { condition: v as typeof card.condition })
+                      }
+                      options={CARD_CONDITIONS.map((c) => ({
+                        value: c,
+                        label: CONDITION_LABELS[c],
+                      }))}
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">{t("inspect.language")}</Label>
-                  <ResponsiveSelect
-                    preferNative
-                    value={card.language}
-                    onValueChange={(v) =>
-                      updateOwnedCard(card.id, { language: v as typeof card.language })
-                    }
-                    options={CARD_LANGUAGES.map((l) => ({ value: l, label: l }))}
-                  />
+                  {readOnly ? (
+                    <div className="flex min-h-10 items-center rounded-md border border-input bg-background px-3 text-sm">
+                      {card.language}
+                    </div>
+                  ) : (
+                    <ResponsiveSelect
+                      preferNative
+                      value={card.language}
+                      onValueChange={(v) =>
+                        updateOwnedCard(card.id, { language: v as typeof card.language })
+                      }
+                      options={CARD_LANGUAGES.map((l) => ({ value: l, label: l }))}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -364,7 +408,7 @@ export function CardInspectDialog({
     </Dialog>
 
     <Modal
-      open={deleteConfirmOpen}
+      open={!readOnly && deleteConfirmOpen}
       onOpenChange={setDeleteConfirmOpen}
       title={t("inspect.deleteTitle")}
       description={t("inspect.deleteDescription", { name: card.card.name })}

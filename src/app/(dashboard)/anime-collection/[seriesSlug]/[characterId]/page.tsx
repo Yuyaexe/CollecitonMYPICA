@@ -11,7 +11,7 @@ export default function AnimeCharacterDetailPage({
   const { seriesSlug, characterId } = use(params);
 
   return (
-    <div className="flex-1 overflow-auto px-4 py-6 sm:p-8">
+    <div className="flex min-h-0 flex-1 overflow-hidden">
       <CharacterDetailPage seriesSlug={seriesSlug} characterId={characterId} />
     </div>
   );

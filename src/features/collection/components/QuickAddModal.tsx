@@ -3,16 +3,23 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Loader2, SlidersHorizontal } from "lucide-react";
-import { Modal } from "@/components/shared/Modal";
+import { Eye, Loader2, Plus, SlidersHorizontal } from "lucide-react";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { CardImage } from "@/components/shared/CardImage";
 import { PurchasedCardOverlay } from "@/components/shared/PurchasedCardOverlay";
+import { CardInspectDialog } from "@/components/shared/CardInspectDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResponsiveSelect } from "@/components/ui/responsive-select";
-import { MOBILE_DIALOG_FULL } from "@/lib/ui/mobile-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAppData } from "@/hooks/useAppData";
+import { useDataUiStore } from "@/lib/data/ui-store";
 import { NO_ACTIVE_COLLECTION } from "@/lib/data/collection-requirements";
 import { isQuickAddSupported } from "@/features/catalog/services/card-api";
 import { QUICK_ADD_GAMES, getQuickAddGame, type QuickAddGameSlug } from "@/features/collection/utils/quick-add-games";
@@ -36,11 +43,13 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n/context";
 import { QuickAddVariantPicker } from "@/features/collection/components/QuickAddVariantPicker";
+import { PokemonSearchPanel } from "@/features/catalog/components/PokemonSearchPanel";
 import {
   EMPTY_YGO_ADVANCED_FILTERS,
   hasActiveYgoAdvancedFilters,
   type YugiohAdvancedSearchFilters,
 } from "@/lib/yugioh/advanced-search";
+import type { DemoOwnedCard } from "@/lib/demo/types";
 
 function searchResultKey(result: CardSearchResult): string {
   return `${result.externalId}-${result.name}`;
@@ -71,6 +80,8 @@ interface QuickAddModalProps {
   title?: string;
   defaultGameSlug?: QuickAddGameSlug;
   closeOnAdd?: boolean;
+  persistent?: boolean;
+  embedded?: boolean;
 }
 
 const SEARCH_DEBOUNCE_MS = 120;
@@ -87,6 +98,8 @@ export function QuickAddModal({
   title,
   defaultGameSlug,
   closeOnAdd = true,
+  persistent = false,
+  embedded = false,
 }: QuickAddModalProps) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -98,7 +111,6 @@ export function QuickAddModal({
   const [selectedGameSlug, setSelectedGameSlug] = useState<QuickAddGameSlug>(
     defaultGameSlug ?? QUICK_ADD_GAMES[0]?.slug ?? "yugioh"
   );
-  const [selectedPokemonSet, setSelectedPokemonSet] = useState("all");
   const [searchLocale, setSearchLocale] = useState<CatalogSearchLocale>("en");
   const [searchErrorDetail, setSearchErrorDetail] = useState<string | null>(null);
   const [ygoSearchMode, setYgoSearchMode] = useState<"simple" | "advanced">("simple");
@@ -107,35 +119,95 @@ export function QuickAddModal({
   const [advancedSearchNonce, setAdvancedSearchNonce] = useState(0);
   const [mobileAdvancedTab, setMobileAdvancedTab] = useState<"filters" | "results">("filters");
   const [adding, setAdding] = useState(false);
+  const [previewCard, setPreviewCard] = useState<CardSearchResult | null>(null);
+  const [resizingSidebar, setResizingSidebar] = useState(false);
+  const resizeWidthRef = useRef<number | null>(null);
   const searchPanelRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { addCardFromSearch, profile } = useAppData();
+  const quickAddSidebarWidth = useDataUiStore((s) => s.quickAddSidebarWidth);
+  const setQuickAddSidebarWidth = useDataUiStore((s) => s.setQuickAddSidebarWidth);
+  const setQuickAddSidebarOpen = useDataUiStore((s) => s.setQuickAddSidebarOpen);
   const game = getQuickAddGame(selectedGameSlug);
+  const quickAddGridClass = game.slug === "yugioh" ? "grid-cols-4" : "grid-cols-3";
+  const previewOwnedCard = useMemo<DemoOwnedCard | null>(() => {
+    if (!previewCard) return null;
+    const previewId = `quick-add-preview:${searchResultKey(previewCard)}`;
+    const type =
+      typeof previewCard.metadata?.type === "string" ? previewCard.metadata.type : null;
+    return {
+      id: previewId,
+      collectionId: "quick-add-preview",
+      cardId: previewId,
+      card: {
+        id: previewId,
+        gameId: game.id,
+        gameSlug: game.slug,
+        gameName: game.name,
+        externalId: previewCard.externalId,
+        name: previewCard.name,
+        setCode: previewCard.setCode,
+        setName: previewCard.setName,
+        collectorNumber: previewCard.collectorNumber,
+        rarity: previewCard.rarity,
+        imageUrl: previewCard.imageUrl,
+        marketPrice: previewCard.price,
+        type,
+      },
+      quantity: 1,
+      condition: "NM",
+      language: searchLocale === "pt" ? "PT" : "EN",
+      isFoil: false,
+      purchasePrice: null,
+      notes: null,
+      tagIds: [],
+    };
+  }, [game.id, game.name, game.slug, previewCard, searchLocale]);
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--quick-add-sidebar-width",
+      `${quickAddSidebarWidth}px`
+    );
+  }, [quickAddSidebarWidth]);
 
-  const { data: pokemonSets = [], isLoading: pokemonSetsLoading } = useQuery<
-    Array<{ id: string; name: string; series: string | null; printedTotal: number | null }>
-  >({
-    queryKey: ["pokemon-sets"],
-    queryFn: async () => {
-      const response = await fetch("/api/cards/pokemon/sets");
-      if (!response.ok) throw new Error("Failed to load Pokemon collections");
-      const json = (await response.json()) as { sets?: Array<{ id: string; name: string; series: string | null; printedTotal: number | null }> };
-      return json.sets ?? [];
-    },
-    enabled: open && game.slug === "pokemon",
-    staleTime: 60 * 60 * 1000,
-  });
+  useEffect(() => {
+    if (!resizingSidebar) return;
 
-  const pokemonSetOptions = useMemo(
-    () => [
-      { value: "all", label: t("quickAdd.allCollections") },
-      ...pokemonSets.map((set) => ({
-        value: set.id,
-        label: `${set.name}${set.printedTotal ? ` (${set.printedTotal})` : ""}`,
-      })),
-    ],
-    [pokemonSets, t]
-  );
+    const onPointerMove = (event: PointerEvent) => {
+      const maxWidth = Math.min(760, Math.max(340, window.innerWidth - 420));
+      const nextWidth = Math.min(maxWidth, Math.max(340, window.innerWidth - event.clientX));
+      resizeWidthRef.current = nextWidth;
+      document.documentElement.style.setProperty(
+        "--quick-add-sidebar-width",
+        `${Math.round(nextWidth)}px`
+      );
+    };
+
+    const finishResize = () => {
+      setResizingSidebar(false);
+      if (resizeWidthRef.current != null) {
+        setQuickAddSidebarWidth(resizeWidthRef.current);
+        resizeWidthRef.current = null;
+      }
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+
+    document.body.style.setProperty("cursor", "col-resize");
+    document.body.style.setProperty("user-select", "none");
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", finishResize, { once: true });
+    window.addEventListener("pointercancel", finishResize, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", finishResize);
+      window.removeEventListener("pointercancel", finishResize);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, [resizingSidebar, setQuickAddSidebarWidth]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -177,7 +249,6 @@ export function QuickAddModal({
     setPreviewKey(null);
     setLastSelectedKey(null);
     setYgoSearchMode("simple");
-    setSelectedPokemonSet("all");
     setYgoAdvancedFilters(EMPTY_YGO_ADVANCED_FILTERS);
     setAdvancedSearchNonce(0);
     setMobileAdvancedTab("filters");
@@ -251,13 +322,13 @@ export function QuickAddModal({
   });
 
   const { data, isLoading, isError, isFetching, error } = useQuery<CardSearchResult[]>({
-    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, searchLocale, selectedPokemonSet],
+    queryKey: ["card-search", debouncedQuery, game.slug, profile.currency, searchLocale],
     queryFn: async ({ signal }) => {
       setSearchErrorDetail(null);
       const localeParam =
         game.slug === "yugioh" && searchLocale === "pt" ? "&locale=pt" : "";
       const res = await fetch(
-        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}&quick=1${localeParam}${game.slug === "pokemon" && selectedPokemonSet !== "all" ? `&set=${encodeURIComponent(selectedPokemonSet)}` : ""}`,
+        `/api/cards/search?q=${encodeURIComponent(debouncedQuery)}&game=${game.slug}&currency=${profile.currency}&quick=1${localeParam}`,
         { signal }
       );
       const json = (await res.json()) as {
@@ -277,7 +348,7 @@ export function QuickAddModal({
     },
     enabled:
       ygoSearchMode === "simple" &&
-      (debouncedQuery.length >= 2 || (game.slug === "pokemon" && selectedPokemonSet !== "all")) &&
+      open && game.slug !== "pokemon" && debouncedQuery.length >= 2 &&
       isQuickAddSupported(game.slug),
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -295,7 +366,7 @@ export function QuickAddModal({
   const searchQueryError = isAdvancedMode ? advancedQueryError : error;
   const hasSearchQuery = isAdvancedMode
     ? advancedSearchNonce > 0 && hasActiveYgoAdvancedFilters(ygoAdvancedFilters)
-    : debouncedQuery.length >= 2 || (game.slug === "pokemon" && selectedPokemonSet !== "all");
+    : debouncedQuery.length >= 2;
 
   const showInitialLoader =
     searchLoading && hasSearchQuery && searchResults.length === 0;
@@ -428,6 +499,10 @@ export function QuickAddModal({
 
   const handleCardClick = (result: CardSearchResult) => {
     setLastSelectedKey(searchResultKey(result));
+    if (game.slug === "yugioh") {
+      void handleAdd(result);
+      return;
+    }
 
     const siblings =
       searchResults.filter(
@@ -445,9 +520,6 @@ export function QuickAddModal({
         ...result,
         metadata: { ...result.metadata, digimonPrints: [result, ...siblings] },
       };
-    } else if (game.slug === "yugioh" && siblings.length > 0) {
-      cardForVariants = mergeYugiohSearchResults(result, siblings);
-      relatedPrints = siblings;
     }
 
     const prints = getSearchResultVariants(cardForVariants, game.slug, relatedPrints);
@@ -468,39 +540,77 @@ export function QuickAddModal({
     });
   };
 
-  return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={
-        pendingCard
-          ? t("quickAdd.choosePrint")
-          : isAdvancedMode
-            ? t("quickAdd.advancedTitle")
-            : (title ?? t("quickAdd.title"))
-      }
-      description={
-        pendingCard
-          ? t("quickAdd.choosePrintDescription", { name: pendingCard.name })
-          : isAdvancedMode
-            ? t("quickAdd.advancedDescription", { game: game.name })
-            : t("quickAdd.searchDescription", { game: game.name })
-      }
-      className={cn(
-        pendingCard
-          ? "sm:max-w-4xl max-sm:max-h-[96dvh] max-sm:overflow-y-auto"
-          : isAdvancedMode
-            ? cn(
-                "flex h-[min(92vh,900px)] max-h-[92dvh] min-h-0 flex-col gap-0 overflow-hidden sm:max-w-6xl",
-                MOBILE_DIALOG_FULL
-              )
-            : "sm:max-w-3xl max-sm:max-h-[96dvh] max-sm:overflow-y-auto"
-      )}
-    >
+  const panelTitle = pendingCard
+    ? t("quickAdd.choosePrint")
+    : isAdvancedMode
+      ? t("quickAdd.advancedTitle")
+      : (title ?? t("quickAdd.title"));
+  const panelDescription = pendingCard
+    ? t("quickAdd.choosePrintDescription", { name: pendingCard.name })
+    : isAdvancedMode
+      ? t("quickAdd.advancedDescription", { game: game.name })
+      : t("quickAdd.searchDescription", { game: game.name });
+
+  const panel = (
+    <>
+        {!isMobile && persistent && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("quickAdd.sidebarWidth")}
+            tabIndex={0}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              resizeWidthRef.current = quickAddSidebarWidth;
+              setResizingSidebar(true);
+            }}
+            onDoubleClick={() => setQuickAddSidebarOpen(false)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              event.preventDefault();
+              const delta = event.key === "ArrowLeft" ? 20 : -20;
+              setQuickAddSidebarWidth(quickAddSidebarWidth + delta);
+            }}
+            className={cn(
+              "group absolute inset-y-0 -left-1 z-[60] w-2 cursor-col-resize touch-none outline-none",
+              "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-border",
+              "hover:after:w-0.5 hover:after:bg-primary/70 focus-visible:after:w-0.5 focus-visible:after:bg-primary",
+              resizingSidebar && "after:w-0.5 after:bg-primary"
+            )}
+          >
+            <span className="absolute left-1/2 top-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/20 opacity-0 transition-opacity group-hover:opacity-100" />
+          </div>
+        )}
+        <SheetHeader className={cn(
+          "shrink-0 border-b border-border/60 px-4 py-4",
+          !persistent && "pr-12"
+        )}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {embedded ? (
+                <>
+                  <h2 className="truncate text-lg font-semibold text-foreground">{panelTitle}</h2>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{panelDescription}</p>
+                </>
+              ) : (
+                <>
+                  <SheetTitle className="truncate">{panelTitle}</SheetTitle>
+                  <SheetDescription className="mt-1 line-clamp-2">{panelDescription}</SheetDescription>
+                </>
+              )}
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
       <div
         className={cn(
-          "flex flex-col",
-          !pendingCard && isAdvancedMode ? "min-h-0 flex-1 gap-4" : "space-y-4"
+          "flex h-full flex-col",
+          !pendingCard && isAdvancedMode
+            ? "min-h-0 flex-1 gap-3"
+            : !pendingCard && game.slug === "pokemon"
+              ? "min-h-0 gap-3"
+            : "space-y-4"
         )}
       >
         {pendingCard && (
@@ -528,7 +638,11 @@ export function QuickAddModal({
           ref={searchPanelRef}
           className={cn(
             pendingCard && "hidden",
-            isAdvancedMode ? "flex min-h-0 flex-1 flex-col gap-4" : "contents"
+            isAdvancedMode
+              ? "flex min-h-0 flex-1 flex-col gap-3"
+              : game.slug === "pokemon"
+                ? "flex min-h-0 flex-col gap-3"
+              : "contents"
           )}
           aria-hidden={pendingCard ? true : undefined}
         >
@@ -542,7 +656,6 @@ export function QuickAddModal({
                   const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
                   if (next) {
                     setSelectedGameSlug(next.slug);
-                    if (next.slug !== "pokemon") setSelectedPokemonSet("all");
                   }
                 }}
                 options={GAME_SELECT_OPTIONS}
@@ -683,62 +796,66 @@ export function QuickAddModal({
                     )}
 
                     {hasSearchQuery && searchResults.length > 0 && (
-                      <div
-                        className={cn(
-                          "grid grid-cols-3 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5",
-                          showRefetchIndicator && "opacity-80"
-                        )}
-                      >
+                      <div className={cn("grid gap-3", quickAddGridClass, showRefetchIndicator && "opacity-80")}>
                         {searchResults.map((result) => {
                           const key = searchResultKey(result);
                           const isLastSelected = lastSelectedKey === key;
                           return (
-                          <button
-                            key={key}
-                            type="button"
-                            data-quick-add-card={key}
-                            onClick={() => handleCardClick(result)}
-                            className={cn(
-                              "group flex flex-col rounded-lg p-1 text-left transition-all hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                              isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
-                            )}
-                            title={result.name}
-                          >
-                            <div
-                              className={cn(
-                                "relative aspect-[59/86] w-full overflow-hidden rounded-lg bg-muted/80 shadow-sm ring-1 transition-all group-hover:ring-primary/40",
-                                isLastSelected ? "ring-2 ring-primary" : "ring-border/40"
-                              )}
-                            >
-                              <CardImage
-                                src={result.imageUrl}
-                                alt={result.name}
-                                fill
-                                sizes="120px"
-                                className="object-contain"
-                                fallbackSrc={
-                                  /^\d{7,10}$/.test(result.externalId)
-                                    ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
-                                    : null
-                                }
-                              />
-                              <PurchasedCardOverlay
-                                card={{
-                                  name: result.name,
-                                  setName: result.setName,
-                                  imageUrl: result.imageUrl,
-                                  externalId: result.externalId,
-                                  gameSlug: game.slug,
-                                }}
-                              />
-                              <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/25 group-hover:opacity-100">
-                                <Plus className="h-5 w-5 text-white drop-shadow-md" />
-                              </span>
+                            <div key={key} data-quick-add-card={key} className="group relative">
+                              <button
+                                type="button"
+                                onClick={() => handleCardClick(result)}
+                                className={cn(
+                                  "flex w-full flex-col rounded-lg p-1 text-left transition-all hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                  isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
+                                )}
+                                title={result.name}
+                              >
+                                <div
+                                  className={cn(
+                                    "relative aspect-[59/86] w-full overflow-hidden rounded-lg bg-muted/80 shadow-sm ring-1 transition-all group-hover:ring-primary/40",
+                                    isLastSelected ? "ring-2 ring-primary" : "ring-border/40"
+                                  )}
+                                >
+                                  <CardImage
+                                    src={result.imageUrl}
+                                    alt={result.name}
+                                    fill
+                                    sizes="120px"
+                                    className="object-contain"
+                                    fallbackSrc={
+                                      /^\d{7,10}$/.test(result.externalId)
+                                        ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
+                                        : null
+                                    }
+                                  />
+                                  <PurchasedCardOverlay
+                                    card={{
+                                      name: result.name,
+                                      setName: result.setName,
+                                      imageUrl: result.imageUrl,
+                                      externalId: result.externalId,
+                                      gameSlug: game.slug,
+                                    }}
+                                  />
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/25 group-hover:opacity-100">
+                                    <Plus className="h-5 w-5 text-white drop-shadow-md" />
+                                  </span>
+                                </div>
+                                <p className="mt-1.5 line-clamp-2 text-center text-[10px] font-medium leading-tight">
+                                  {result.name}
+                                </p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewCard(result)}
+                                className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/70 text-white opacity-0 shadow transition hover:bg-black/90 group-hover:opacity-100 focus:opacity-100"
+                                aria-label={`Preview ${result.name}`}
+                                title={`Preview ${result.name}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
                             </div>
-                            <p className="mt-1.5 line-clamp-2 text-center text-[10px] font-medium leading-tight">
-                              {result.name}
-                            </p>
-                          </button>
                           );
                         })}
                       </div>
@@ -767,9 +884,25 @@ export function QuickAddModal({
               )}
             </div>
           </>
-        ) : (
+        ) : game.slug === "pokemon" ? (
           <>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <ResponsiveSelect preferNative value={selectedGameSlug}
+              onValueChange={(slug) => {
+                const next = QUICK_ADD_GAMES.find((g) => g.slug === slug);
+                if (next) setSelectedGameSlug(next.slug);
+              }} options={GAME_SELECT_OPTIONS} triggerClassName="h-10 w-full shrink-0 sm:w-[220px]" />
+            {open && (
+              <PokemonSearchPanel
+                onSelect={(card) => void handleAdd(card)}
+                disabled={adding}
+                showPurchases
+                density="compact"
+              />
+            )}
+          </>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <ResponsiveSelect
                 preferNative
                 value={selectedGameSlug}
@@ -778,18 +911,8 @@ export function QuickAddModal({
                   if (next) setSelectedGameSlug(next.slug);
                 }}
                 options={GAME_SELECT_OPTIONS}
-                triggerClassName="h-10 w-full sm:w-[220px]"
+                triggerClassName="h-10 min-w-[150px] flex-1"
               />
-              {game.slug === "pokemon" && (
-                <ResponsiveSelect
-                  preferNative
-                  value={selectedPokemonSet}
-                  onValueChange={setSelectedPokemonSet}
-                  options={pokemonSetOptions}
-                  placeholder={pokemonSetsLoading ? t("quickAdd.loadingCollections") : undefined}
-                  triggerClassName="h-10 w-full sm:w-[240px]"
-                />
-              )}
               {game.slug === "yugioh" && (
                 <>
                   <ResponsiveSelect
@@ -801,16 +924,16 @@ export function QuickAddModal({
                       void writeSearchLocale(locale);
                     }}
                     options={SEARCH_LOCALE_OPTIONS}
-                    triggerClassName="h-10 w-full sm:w-[100px]"
+                    triggerClassName="h-10 w-[76px]"
                   />
-                  <div className="flex rounded-lg border border-border/50 bg-muted/20 p-0.5">
+                  <div className="flex shrink-0 rounded-lg border border-border/50 bg-muted/20 p-0.5">
                     {(["simple", "advanced"] as const).map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setYgoSearchMode(mode)}
                         className={cn(
-                          "flex-1 rounded-md px-3 py-2 text-xs font-medium transition-all sm:flex-none sm:py-1.5",
+                          "rounded-md px-3 py-2 text-xs font-medium transition-all",
                           ygoSearchMode === mode
                             ? "bg-background text-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
@@ -822,18 +945,20 @@ export function QuickAddModal({
                   </div>
                 </>
               )}
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                placeholder={
-                  game.slug === "yugioh" && searchLocale === "pt"
-                    ? t("quickAdd.searchPlaceholderPt", { game: game.name })
-                    : t("quickAdd.searchPlaceholder", { game: game.name })
-                }
-                enableShortcut={false}
-                className="flex-1"
-              />
             </div>
+
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder={
+                game.slug === "yugioh" && searchLocale === "pt"
+                  ? t("quickAdd.searchPlaceholderPt", { game: game.name })
+                  : t("quickAdd.searchPlaceholder", { game: game.name })
+              }
+              enableShortcut={false}
+              showIcon={false}
+              className="w-full shrink-0"
+            />
 
             {!isQuickAddSupported(game.slug) && (
               <p className="text-sm text-muted-foreground">
@@ -841,7 +966,7 @@ export function QuickAddModal({
               </p>
             )}
 
-            <ScrollArea className="h-[360px] pr-3">
+            <ScrollArea className="min-h-0 flex-1 pr-3">
               {showRefetchIndicator && (
                 <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -859,7 +984,8 @@ export function QuickAddModal({
               {hasSearchQuery && searchResults.length > 0 && (
                 <div
                   className={cn(
-                    "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6",
+                    "grid gap-3 pb-4",
+                    quickAddGridClass,
                     showRefetchIndicator && "opacity-80"
                   )}
                 >
@@ -867,44 +993,58 @@ export function QuickAddModal({
                     const key = searchResultKey(result);
                     const isLastSelected = lastSelectedKey === key;
                     return (
-                    <button
-                      key={key}
-                      type="button"
-                      data-quick-add-card={key}
-                      onClick={() => handleCardClick(result)}
-                      className={cn(
-                        "group flex flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                        isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
-                      )}
-                      title={result.name}
-                    >
-                      <div
-                        className={cn(
-                          "relative aspect-[59/86] w-full overflow-hidden rounded-md bg-muted shadow-sm ring-1 transition-transform duration-150 group-hover:scale-[1.03] group-hover:ring-primary/40",
-                          isLastSelected ? "ring-2 ring-primary scale-[1.02]" : "ring-border/50"
-                        )}
-                      >
-                        <CardImage
-                          src={result.imageUrl}
-                          alt={result.name}
-                          fill
-                          sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 120px"
-                          className="object-contain"
-                          fallbackSrc={
-                            game.slug === "yugioh" && /^\d{7,10}$/.test(result.externalId)
-                              ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
-                              : null
-                          }
-                        />
-                        <PurchasedCardOverlay card={{ ...result, gameSlug: game.slug }} />
-                        <span className="absolute inset-0 z-[2] flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/20 group-hover:opacity-100">
-                          <Plus className="h-6 w-6 text-white drop-shadow-md" />
-                        </span>
+                      <div key={key} data-quick-add-card={key} className="group relative">
+                        <button
+                          type="button"
+                          onClick={() => handleCardClick(result)}
+                          className={cn(
+                            "flex w-full flex-col rounded-lg p-1.5 text-left transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                            isLastSelected && "bg-primary/10 ring-2 ring-primary shadow-md shadow-primary/20"
+                          )}
+                          title={result.name}
+                        >
+                          <div
+                            className={cn(
+                              "relative aspect-[59/86] w-full overflow-hidden rounded-md bg-muted shadow-sm ring-1 transition-transform duration-150 group-hover:scale-[1.03] group-hover:ring-primary/40",
+                              isLastSelected ? "ring-2 ring-primary scale-[1.02]" : "ring-border/50"
+                            )}
+                          >
+                            <CardImage
+                              src={result.imageUrl}
+                              alt={result.name}
+                              fill
+                              sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 120px"
+                              className="object-contain"
+                              fallbackSrc={
+                                game.slug === "yugioh" && /^\d{7,10}$/.test(result.externalId)
+                                  ? `https://images.ygoprodeck.com/images/cards/${result.externalId}.jpg`
+                                  : null
+                              }
+                            />
+                            <PurchasedCardOverlay card={{ ...result, gameSlug: game.slug }} />
+                            <span className="absolute inset-0 z-[2] flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/20 group-hover:opacity-100">
+                              <Plus className="h-6 w-6 text-white drop-shadow-md" />
+                            </span>
+                          </div>
+                          <p className="mt-2 line-clamp-2 min-h-8 text-center text-xs font-medium leading-4 text-foreground">
+                            {result.name}
+                          </p>
+                          {game.slug === "yugioh" && result.setCode && (
+                            <p className="mt-0.5 truncate text-center text-[10px] text-muted-foreground">
+                              {result.setCode}
+                            </p>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewCard(result)}
+                          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/70 text-white opacity-0 shadow transition hover:bg-black/90 group-hover:opacity-100 focus:opacity-100"
+                          aria-label={`Preview ${result.name}`}
+                          title={`Preview ${result.name}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                       </div>
-                      <p className="mt-1.5 line-clamp-2 text-center text-[11px] font-medium leading-tight text-foreground">
-                        {result.name}
-                      </p>
-                    </button>
                     );
                   })}
                 </div>
@@ -926,10 +1066,55 @@ export function QuickAddModal({
                   <p className="py-12 text-center text-sm text-muted-foreground">{t("quickAdd.noCardsFound")}</p>
                 )}
             </ScrollArea>
-          </>
+          </div>
         )}
         </div>
       </div>
-    </Modal>
+        </div>
+      <CardInspectDialog
+        card={previewOwnedCard}
+        open={previewOwnedCard != null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPreviewCard(null);
+        }}
+        currency={profile.currency}
+        readOnly
+      />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <aside
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 flex h-[48dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-border bg-card",
+          "md:relative md:inset-auto md:z-20 md:h-full md:w-[var(--quick-add-sidebar-width,500px)] md:border-l md:border-t-0"
+        )}
+      >
+        {panel}
+      </aside>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} modal={persistent ? false : isMobile}>
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        showOverlay={!persistent && isMobile}
+        showCloseButton={!persistent}
+        overlayClassName="bg-black/20 backdrop-blur-none"
+        className={cn(
+          "flex min-h-0 flex-col gap-0 overflow-hidden p-0",
+          isMobile
+            ? persistent
+              ? "h-[48dvh] w-full max-w-none rounded-t-xl border-t"
+              : "h-[92dvh] w-full max-w-none rounded-t-xl border-t"
+            : "h-dvh max-w-none border-l"
+        )}
+        style={isMobile ? undefined : { width: "var(--quick-add-sidebar-width, 500px)" }}
+      >
+        {panel}
+      </SheetContent>
+    </Sheet>
   );
 }

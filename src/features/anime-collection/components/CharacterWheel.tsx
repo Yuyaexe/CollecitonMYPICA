@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AnimeCharacter } from "@/features/anime-collection/types";
 import { CharacterBubble } from "@/features/anime-collection/components/CharacterBubble";
@@ -38,12 +38,22 @@ export function CharacterWheel({
 
   const isDragging = draggedCardIds.length > 0;
 
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    const active = activeRef.current;
+    if (!scroller || !active) return;
+
+    const centerActive = () => {
+      const left =
+        active.offsetLeft - (scroller.clientWidth - active.offsetWidth) / 2;
+      scroller.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+    };
+
+    const frame = requestAnimationFrame(centerActive);
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, [activeCharacterId]);
 
   useEffect(() => {
@@ -57,9 +67,9 @@ export function CharacterWheel({
       ref={scrollRef}
       role="list"
       aria-label={t("anime.switchCharacter")}
-      className="mx-auto mb-6 w-full max-w-5xl overflow-x-auto px-2 pb-2 [-ms-overflow-style:none] [scrollbar-width:thin]"
+      className="mx-auto mb-6 w-full max-w-5xl overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:thin]"
     >
-      <div className="flex min-w-min items-end justify-center gap-4 px-2">
+      <div className="flex w-max min-w-full items-end justify-start gap-4 px-[50%]">
         {characters.map((character, index) => {
           const selected = character.id === activeCharacterId;
           const canDrop =
@@ -120,7 +130,8 @@ export function CharacterWheel({
                       onClick={() => {
                         if (isDragging) return;
                         router.push(
-                          `/anime-collection/${seriesSlug}/${character.id}`
+                          `/anime-collection/${seriesSlug}/${character.id}`,
+                          { scroll: false }
                         );
                       }}
                     />

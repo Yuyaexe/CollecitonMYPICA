@@ -260,10 +260,10 @@ async function resolveSimpleGameEntriesBulk(
   }
 
   const toResolve = entries.filter((e) => !isUserUploadedCustomImage(e.customImageUrl));
-  const keyToUrl = await resolveProxyImageUrls(game, toResolve);
+  const keyToUrl = await resolveProxyImageUrls(game, toResolve.filter((e) => !(game === "pokemon" && e.customImageUrl)));
 
   for (const entry of toResolve) {
-    const url = keyToUrl[entry.key];
+    const url = (game === "pokemon" ? entry.customImageUrl : null) || keyToUrl[entry.key];
     result.set(
       deckEntryResolveKey(entry),
       url

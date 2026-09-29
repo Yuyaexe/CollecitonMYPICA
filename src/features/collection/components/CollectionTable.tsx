@@ -75,8 +75,8 @@ export function CollectionTable() {
         : false;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-20 hidden items-center gap-3 border-b border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground shadow-sm md:flex">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-col">
+      <div className="sticky top-0 z-20 hidden w-full min-w-0 items-center gap-3 border-b border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground shadow-sm md:flex">
         <div className="flex shrink-0 items-center p-1">
           <Checkbox
             checked={
@@ -98,8 +98,11 @@ export function CollectionTable() {
         <span className="hidden w-10 text-center sm:block">{t("collection.table.language")}</span>
       </div>
 
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+      <div ref={parentRef} className="min-h-0 min-w-0 w-full flex-1 overflow-auto">
+        <div
+          className="w-full min-w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+        >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const item = filtered[virtualRow.index];
             return (

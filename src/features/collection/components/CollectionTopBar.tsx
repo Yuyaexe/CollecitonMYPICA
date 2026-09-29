@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { Plus, Upload, Download, LayoutGrid, X, History } from "lucide-react";
+import { Upload, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/shared/Modal";
 import { SearchBar } from "@/components/shared/SearchBar";
@@ -32,7 +31,6 @@ export function CollectionTopBar() {
   const [qtyFixConfirm, setQtyFixConfirm] = useState<"halve" | "one" | null>(null);
   const filters = useCollectionUIStore((s) => s.filters);
   const setFilters = useCollectionUIStore((s) => s.setFilters);
-  const setQuickAddOpen = useCollectionUIStore((s) => s.setQuickAddOpen);
   const setImportOpen = useCollectionUIStore((s) => s.setImportOpen);
   const collectionOrder = useDataUiStore((s) => s.collectionOrder);
 
@@ -113,26 +111,18 @@ export function CollectionTopBar() {
               ) : (
                 <span className="text-lg font-semibold text-muted-foreground">{t("common.loading")}</span>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                <Link href="/collections" aria-label={t("collection.manageCollections")}>
-                  <LayoutGrid className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                <Link href="/activity?scope=all" aria-label={t("activity.openLog")}>
-                  <History className="h-4 w-4" />
-                </Link>
-              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:gap-6">
               <div>
                 <p className="text-xs text-muted-foreground">{t("collection.totalCards")}</p>
-                <p className="font-semibold tabular-nums">{formatNumber(stats.totalCards)}</p>
+                <p className="text-lg font-bold leading-none tabular-nums">
+                  {formatNumber(stats.totalCards)}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">{t("collection.sets")}</p>
-                <p className="font-semibold tabular-nums">{stats.uniqueSets}</p>
+                <p className="text-lg font-bold leading-none tabular-nums">{stats.uniqueSets}</p>
               </div>
             </div>
           </div>
@@ -145,10 +135,6 @@ export function CollectionTopBar() {
               onChange={(v) => setFilters({ search: v })}
               className="col-span-2 w-full min-w-0 sm:col-span-1 sm:w-48 md:w-64"
             />
-            <Button size="sm" onClick={() => setQuickAddOpen(true)}>
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("collection.add")}</span>
-            </Button>
             <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">{t("collection.import")}</span>

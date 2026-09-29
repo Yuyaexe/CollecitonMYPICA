@@ -109,7 +109,10 @@ export function getSearchResultVariants(
             buildYgoImageUrl(externalId, imageSize) ??
             matchedPrint.imageUrl ??
             result.imageUrl,
-          ygoProDeckUrl: buildYgoProDeckUrl(result.name, externalId),
+          // The public API `konami_id` is not the numeric suffix used by
+          // YGOPRODeck card-page slugs. Keep variants on the safe search URL;
+          // CardInspectDialog resolves the canonical `pretty_url` asynchronously.
+          ygoProDeckUrl: buildYgoProDeckUrl(result.name),
         };
       });
     }
@@ -130,7 +133,7 @@ export function getSearchResultVariants(
       imageUrl: result.imageUrl,
       ygoProDeckUrl:
         gameSlug === "yugioh"
-          ? buildYgoProDeckUrl(result.name, result.externalId)
+          ? buildYgoProDeckUrl(result.name)
           : "#",
     },
   ];

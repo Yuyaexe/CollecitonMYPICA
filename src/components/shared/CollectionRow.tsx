@@ -56,7 +56,7 @@ export const CollectionRow = memo(function CollectionRow({
       tabIndex={0}
       style={style}
       className={cn(
-        "group flex cursor-pointer items-center gap-3 border-b border-border/40 px-4 py-2 transition-colors duration-100 hover:bg-muted/40",
+        "group flex w-full min-w-0 cursor-pointer items-center gap-3 border-b border-border/40 px-4 py-2 transition-colors duration-100 hover:bg-muted/40",
         selected && "border-l-2 border-l-primary bg-primary/[0.07]",
         !selected && "border-l-2 border-l-transparent",
         focused && "ring-1 ring-inset ring-primary/25",

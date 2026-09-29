@@ -21,8 +21,7 @@ export interface MarketplaceOptions {
 }
 
 function tcgPlayerSearchUrl(card: DemoOwnedCard["card"]): string {
-  const setPart = card.setName ? ` ${card.setName}` : "";
-  const searchQuery = encodeURIComponent(`${card.name}${setPart}`.trim());
+  const searchQuery = encodeURIComponent(card.name.trim());
   const paths: Record<string, string> = {
     yugioh: "yugioh",
     pokemon: "pokemon",
@@ -63,6 +62,13 @@ export function buildMarketplaceListings(
           currency: "USD",
           url: tcgPlayerSearchUrl(card),
           primary: true,
+        },
+        {
+          source: "YGOPRODeck",
+          name: "YGOPRODeck",
+          price: null,
+          currency: "USD",
+          url: options?.ygoProDeckUrl ?? buildYgoProDeckUrl(card.name),
         },
         {
           source: "LigaYugioh",

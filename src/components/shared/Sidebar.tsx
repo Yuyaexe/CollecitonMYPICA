@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
@@ -10,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAppProfile } from "@/hooks/useAppProfile";
 import { appNavItems } from "@/lib/navigation";
 import { useT } from "@/lib/i18n/context";
+import { useDataUiStore } from "@/lib/data/ui-store";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -20,14 +22,88 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { profile } = useAppProfile();
   const t = useT();
+  const appSidebarWidth = useDataUiStore((s) => s.appSidebarWidth);
+  const setAppSidebarWidth = useDataUiStore((s) => s.setAppSidebarWidth);
+  const [displayWidth, setDisplayWidth] = useState(appSidebarWidth);
+  const [resizing, setResizing] = useState(false);
+  const resizeWidthRef = useRef(appSidebarWidth);
+  const asideRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!resizing) {
+      setDisplayWidth(appSidebarWidth);
+      resizeWidthRef.current = appSidebarWidth;
+    }
+  }, [appSidebarWidth, resizing]);
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      const left = asideRef.current?.getBoundingClientRect().left ?? 0;
+      const nextWidth = Math.min(360, Math.max(180, event.clientX - left));
+      resizeWidthRef.current = nextWidth;
+      setDisplayWidth(nextWidth);
+    };
+
+    const finishResize = () => {
+      setResizing(false);
+      setAppSidebarWidth(resizeWidthRef.current);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+
+    document.body.style.setProperty("cursor", "col-resize");
+    document.body.style.setProperty("user-select", "none");
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", finishResize, { once: true });
+    window.addEventListener("pointercancel", finishResize, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", finishResize);
+      window.removeEventListener("pointercancel", finishResize);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, [resizing, setAppSidebarWidth]);
 
   return (
     <aside
+      ref={asideRef}
       className={cn(
-        "flex h-full flex-col border-r border-border bg-card transition-all duration-150",
-        collapsed ? "w-[68px]" : "w-60"
+        "relative flex h-full shrink-0 flex-col border-r border-border bg-card",
+        !resizing && "transition-[width] duration-150"
       )}
+      style={{ width: collapsed ? 68 : displayWidth }}
     >
+      {!collapsed && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize navigation sidebar"
+          tabIndex={0}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            resizeWidthRef.current = displayWidth;
+            setResizing(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const delta = event.key === "ArrowRight" ? 20 : -20;
+            setAppSidebarWidth(appSidebarWidth + delta);
+          }}
+          className={cn(
+            "group absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize touch-none outline-none",
+            "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-border",
+            "hover:after:w-0.5 hover:after:bg-primary/70 focus-visible:after:w-0.5 focus-visible:after:bg-primary",
+            resizing && "after:w-0.5 after:bg-primary"
+          )}
+        >
+          <span className="absolute left-1/2 top-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/20 opacity-0 transition-opacity group-hover:opacity-100" />
+        </div>
+      )}
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
           <Sparkles className="h-4 w-4 text-primary-foreground" />

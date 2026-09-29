@@ -11,6 +11,7 @@ interface SearchBarProps {
   placeholder?: string;
   className?: string;
   enableShortcut?: boolean;
+  showIcon?: boolean;
 }
 
 export function SearchBar({
@@ -19,6 +20,7 @@ export function SearchBar({
   placeholder = "Search cards...",
   className,
   enableShortcut = true,
+  showIcon = true,
 }: SearchBarProps) {
   const [focused, setFocused] = useState(false);
 
@@ -36,7 +38,9 @@ export function SearchBar({
 
   return (
     <div className={cn("relative", className)}>
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {showIcon && (
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      )}
       <Input
         id="deckvault-search"
         value={value}
@@ -45,7 +49,11 @@ export function SearchBar({
         onBlur={() => setFocused(false)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className={cn("pl-9 transition-all duration-150", focused && "ring-2 ring-ring")}
+        className={cn(
+          "transition-all duration-150",
+          showIcon ? "pl-9" : "pl-3",
+          focused && "ring-2 ring-ring"
+        )}
       />
       {enableShortcut && (
         <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground sm:inline-block">

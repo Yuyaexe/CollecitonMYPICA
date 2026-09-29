@@ -11,6 +11,8 @@ export const TRUSTED_IMAGE_HOST_SUFFIXES = [
   "dbs-cardgame.com",
   "pokemontcg.io",
   "pokemoncard.io",
+  "scrydex.com",
+  "tcgdex.net",
   "digitaloceanspaces.com",
   "cardtrader.com",
   "product-images.cardtrader.com",
@@ -25,6 +27,8 @@ export const TRUSTED_IMAGE_HOST_SUFFIXES = [
 export const TRUSTED_IMAGE_REMOTE_HOSTNAMES = [
   "images.ygoprodeck.com",
   "images.pokemontcg.io",
+  "images.scrydex.com",
+  "assets.tcgdex.net",
   "images.digimoncard.io",
   "digimoncard.io",
   "world.digimoncard.com",

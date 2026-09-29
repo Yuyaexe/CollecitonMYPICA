@@ -58,9 +58,9 @@ export function CharacterBubble({
     <motion.button
       type="button"
       initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: selected && isWheel ? 1.08 : 1 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.2, delay: reduceMotion ? 0 : index * 0.03 }}
-      whileHover={reduceMotion ? undefined : { scale: selected && isWheel ? 1.1 : 1.04, y: isWheel ? 0 : -2 }}
+      whileHover={reduceMotion ? undefined : { scale: isWheel ? 1.03 : 1.04, y: isWheel ? 0 : -2 }}
       whileTap={reduceMotion ? undefined : { scale: 0.98 }}
       onClick={onClick}
       className={cn(

@@ -74,6 +74,7 @@ export interface YgoRawCard {
   card_sets?: { set_name: string; set_code: string; set_rarity: string; set_rarity_code: string; set_price: string }[];
   card_prices?: { tcgplayer_price: string; cardmarket_price: string; ebay_price: string }[];
   card_images?: { image_url: string; image_url_small: string }[];
+  misc_info?: { konami_id?: number }[];
 }
 
 function formatStatFilter(min: number | null, max: number | null): string | null {

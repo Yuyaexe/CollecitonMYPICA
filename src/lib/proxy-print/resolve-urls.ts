@@ -1,3 +1,5 @@
+import { searchPokemonPage } from "@/features/catalog/services/card-api/pokemon.adapter";
+import { pokemonPrintImage } from "@/features/catalog/services/pokemon-search";
 import type { DeckEntry, ProxyGame } from "@/lib/proxy-print/types";
 import { uniqueKeysPreserveOrder } from "@/lib/proxy-print/parse-deck";
 
@@ -9,8 +11,6 @@ const DIGIMON_IMG_HD = (id: string) =>
 const DIGIMON_IMG_OFFICIAL = (id: string) =>
   `https://world.digimoncard.com/images/cardlist/card/${id.toUpperCase()}.png`;
 const ONEPIECE_CDN = "https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece";
-const POKEMON_TCG = "https://api.pokemontcg.io/v2/cards";
-const LIMITLESS_POKEMON = "https://limitlesstcg.com/cards";
 
 const BATCH_SIZE = 80;
 
@@ -199,65 +199,18 @@ async function resolveDigimon(entries: DeckEntry[]): Promise<Record<string, stri
   return keyToUrl;
 }
 
-function pokemonQueries(key: string): string[] {
-  const parts = key.split(/\s+/);
-  const queries: string[] = [];
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1)!)) {
-    const number = parts.at(-1)!;
-    const setCode = parts.at(-2)!;
-    const name = parts.slice(0, -2).join(" ");
-    queries.push(`name:"${name}" set.ptcgoCode:${setCode} number:${number}`);
-    queries.push(`name:"${name}" number:${number}`);
-  }
-  queries.push(`name:"${key}"*`);
-  if (parts[0]) queries.push(`name:"${parts[0]}"*`);
-  return [...new Set(queries)];
-}
-
-async function limitlessPokemonSearch(query: string): Promise<string[]> {
-  try {
-    const url = `${LIMITLESS_POKEMON}?q=${encodeURIComponent(query)}&display=grid`;
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-    if (!res.ok) return [];
-    const html = await res.text();
-    const matches = html.match(
-      /https:\/\/limitlesstcg\.nyc3(?:\.cdn)?\.digitaloceanspaces\.com\/[^\s"'<>]+/gi
-    );
-    return matches ? [...new Set(matches)].slice(0, 12) : [];
-  } catch {
-    return [];
-  }
-}
-
 async function resolvePokemon(entries: DeckEntry[]): Promise<Record<string, string>> {
   const keyToUrl: Record<string, string> = {};
   for (const key of uniqueKeysPreserveOrder(entries)) {
-
-    const limitless = await limitlessPokemonSearch(key);
-    if (limitless[0]) {
-      keyToUrl[key] = limitless[0];
-      continue;
-    }
-
-    for (const q of pokemonQueries(key)) {
-      try {
-        const params = new URLSearchParams({
-          q,
-          pageSize: "8",
-          orderBy: "-set.releaseDate",
-        });
-        const payload = await fetchJson<{ data?: { images?: { large?: string; small?: string } }[] }>(
-          `${POKEMON_TCG}?${params}`
-        );
-        const card = payload.data?.[0];
-        const img = card?.images?.large ?? card?.images?.small;
-        if (img) {
-          keyToUrl[key] = img;
-          break;
-        }
-      } catch {
-        /* try next query */
-      }
+    // An explicit print must not fall back to a different expansion or first HTML image.
+    try {
+      const page = await searchPokemonPage(key, { exact: true });
+      const card = page.results[0];
+      const image = card ? pokemonPrintImage(card) : null;
+      if (image) keyToUrl[key] = image;
+    } catch {
+      // Leave this slot unresolved, keeping the rest of the deck available.
+      // The visual picker reports catalog errors and lets the user retry.
     }
   }
   return keyToUrl;

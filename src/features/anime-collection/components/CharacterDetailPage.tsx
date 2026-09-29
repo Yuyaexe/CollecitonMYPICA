@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Download, Layers, PackageOpen, Pencil, Plus, Upload } from "lucide-react";
+import { Download, Layers, PackageOpen, PanelRightOpen, Pencil, Upload } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Modal } from "@/components/shared/Modal";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
 } from "@/features/anime-collection/utils/character-card-inspect";
 import { AnimeYugiohPasscodeSync } from "@/features/anime-collection/hooks/useAnimeYugiohPasscodeSync";
 import { YugiohPasscodeProvider } from "@/features/collection/context/yugioh-passcode-context";
+import { useDataUiStore } from "@/lib/data/ui-store";
 import {
   binderSpreadCount,
   mergeBinderLayout,
@@ -173,7 +174,6 @@ export function CharacterDetailPage({
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
-  const [addCardOpen, setAddCardOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -183,6 +183,8 @@ export function CharacterDetailPage({
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [sortValue, setSortValue] = useState("name:asc");
   const lastDeckSortTypedCount = useRef(0);
+  const quickAddSidebarOpen = useDataUiStore((s) => s.quickAddSidebarOpen);
+  const setQuickAddSidebarOpen = useDataUiStore((s) => s.setQuickAddSidebarOpen);
 
   const hasQuantityAboveOne = useMemo(
     () => characterCards.some((card) => card.quantity > 1),
@@ -391,25 +393,27 @@ export function CharacterDetailPage({
   return (
     <YugiohPasscodeProvider cards={ownedForPasscodes}>
       <AnimeYugiohPasscodeSync cards={characterCards} onUpdate={updateAnimeCharacterCard}>
-    <>
-      <AnimeCollectionBreadcrumb
-        items={[
-          { label: t("anime.title"), href: "/anime-collection" },
-          { label: series.name, href: `/anime-collection/${seriesSlug}` },
-          { label: character.name },
-        ]}
-      />
+    <div className="flex h-full min-h-0 w-full">
+      <div className="min-w-0 flex-1 overflow-auto px-4 py-6 max-md:pb-[calc(48dvh+1.5rem)] sm:p-8">
+      <div className="mx-auto w-full max-w-[1440px]">
+        <AnimeCollectionBreadcrumb
+          items={[
+            { label: t("anime.title"), href: "/anime-collection" },
+            { label: series.name, href: `/anime-collection/${seriesSlug}` },
+            { label: character.name },
+          ]}
+        />
 
-      <CharacterWheel
-        characters={seriesCharacters}
-        activeCharacterId={character.id}
-        seriesSlug={seriesSlug}
-        seriesName={series.name}
-        draggedCardIds={draggedCardIds}
-        onDropCardsOnCharacter={handleDropOnCharacter}
-      />
+        <CharacterWheel
+          characters={seriesCharacters}
+          activeCharacterId={character.id}
+          seriesSlug={seriesSlug}
+          seriesName={series.name}
+          draggedCardIds={draggedCardIds}
+          onDropCardsOnCharacter={handleDropOnCharacter}
+        />
 
-      <div className="mx-auto flex max-w-lg flex-col items-center pt-4">
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center pt-4 text-center">
         <CharacterAvatar
           name={character.name}
           imageUrl={character.imageUrl}
@@ -504,10 +508,6 @@ export function CharacterDetailPage({
               <Download className="mr-1.5 h-4 w-4" />
               {t("anime.exportCharacterDeck")}
             </Button>
-            <Button onClick={() => setAddCardOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              {t("anime.addCard")}
-            </Button>
           </div>
         </div>
 
@@ -550,8 +550,6 @@ export function CharacterDetailPage({
               icon={Layers}
               title={t("anime.noCardsTitle")}
               description={t("anime.noCardsDescription")}
-              actionLabel={t("anime.addCard")}
-              onAction={() => setAddCardOpen(true)}
             />
           </div>
         ) : visibleCards.length === 0 ? (
@@ -590,6 +588,7 @@ export function CharacterDetailPage({
             onSpreadIndexChange={setSpreadIndex}
           />
         )}
+      </div>
       </div>
 
       <AnimeCharacterBulkActionsBar
@@ -652,22 +651,39 @@ export function CharacterDetailPage({
         onImportDeck={handleImportDeck}
       />
 
-      <QuickAddModal
-        open={addCardOpen}
-        onOpenChange={setAddCardOpen}
-        title={t("anime.addCard")}
-        defaultGameSlug="yugioh"
-        closeOnAdd={false}
-        onAdd={(result, game) => {
-          addAnimeCharacterCardFromSearch(
-            character.id,
-            result,
-            game.id,
-            game.slug,
-            game.name
-          );
-        }}
-      />
+      </div>
+      {quickAddSidebarOpen ? (
+        <QuickAddModal
+          open
+          onOpenChange={() => {}}
+          title={t("anime.addCard")}
+          defaultGameSlug="yugioh"
+          closeOnAdd={false}
+          persistent
+          embedded
+          onAdd={(result, game) => {
+            addAnimeCharacterCardFromSearch(
+              character.id,
+              result,
+              game.id,
+              game.slug,
+              game.name
+            );
+          }}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setQuickAddSidebarOpen(true)}
+          className="fixed right-2 top-1/2 z-30 h-10 w-8 -translate-y-1/2 rounded-r-none border-r-0 bg-card shadow-lg"
+          aria-label={t("anime.addCard")}
+          title={t("anime.addCard")}
+        >
+          <PanelRightOpen className="h-4 w-4" />
+        </Button>
+      )}
 
       <EditCharacterPhotoModal
         open={photoOpen}
@@ -764,7 +780,7 @@ export function CharacterDetailPage({
       >
         <span className="sr-only">{t("anime.deleteCardTitle")}</span>
       </Modal>
-    </>
+    </div>
       </AnimeYugiohPasscodeSync>
     </YugiohPasscodeProvider>
   );

@@ -8,6 +8,7 @@ import {
   ProxyBinderPreview,
   type SlotUpdate,
 } from "@/features/proxy-print/components/ProxyBinderPreview";
+import { QuickAddModal } from "@/features/collection/components/QuickAddModal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { detectGameFromText } from "@/lib/proxy-print/detect-game";
@@ -33,7 +34,9 @@ import {
   type ProxyGame,
   type ProxyPrintSlot,
 } from "@/lib/proxy-print/types";
+import { pokemonPrintImage } from "@/features/catalog/services/pokemon-search";
 import { useLocale, useT } from "@/lib/i18n/context";
+import { useDataUiStore } from "@/lib/data/ui-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -83,6 +86,8 @@ export function ProxyPrintPanel() {
 
   const [slots, setSlots] = useState<ProxyPrintSlot[]>([]);
   const [spreadIndex, setSpreadIndex] = useState(0);
+  const quickAddSidebarOpen = useDataUiStore((s) => s.quickAddSidebarOpen);
+  const setQuickAddSidebarOpen = useDataUiStore((s) => s.setQuickAddSidebarOpen);
 
   const hasPreview = slots.length > 0;
   const isMixedDeck = useMemo(() => hasMixedGameSections(deckText), [deckText]);
@@ -154,6 +159,12 @@ export function ProxyPrintPanel() {
       });
 
       if (!sourceQuery || !update.imageUrl) return;
+
+      // Pokemon print picks must survive rebuilding the preview and reusing the deck list.
+      if (update.selectedVariantKey?.startsWith("pokemon:")) {
+        setDeckText((text) => deckLineWithVariantImage(text, sourceQuery, update.imageUrl));
+        return;
+      }
 
       // Only persist true uploads in the deck list. Writing catalog print URLs
       // collapses the slot to a single "custom" variant on the next resolve.
@@ -419,8 +430,45 @@ export function ProxyPrintPanel() {
 
   const handleCancel = () => abortRef.current?.abort();
 
+  const handleQuickAddProxy = useCallback(
+    async (
+      result: import("@/features/catalog/services/card-api/types").CardSearchResult,
+      game: { slug: string }
+    ) => {
+      if (game.slug !== "yugioh" && game.slug !== "pokemon" && game.slug !== "digimon") {
+        toast.error("This game is not supported by Proxy Print.");
+        return;
+      }
+
+      const proxyGame = game.slug as ProxyGame;
+      const cardRef =
+        proxyGame === "yugioh"
+          ? (/^\d{7,10}$/.test(result.externalId) ? result.externalId : result.name)
+          : proxyGame === "digimon"
+            ? result.collectorNumber ?? result.externalId ?? result.name
+            : result.name;
+
+      const pokemonImage =
+        proxyGame === "pokemon" ? pokemonPrintImage(result) : null;
+      const nextLine =
+        proxyGame === "pokemon" && pokemonImage
+          ? `#${proxyGame}\n1 ${cardRef} | ${pokemonImage}`
+          : `#${proxyGame}\n1 ${cardRef}`;
+      setDeckText((current) => {
+        const trimmed = current.trimEnd();
+        return trimmed ? `${trimmed}\n${nextLine}` : nextLine;
+      });
+      setInputMode("paste");
+      setFileName(null);
+      variantOverridesRef.current.clear();
+      setCardSize(DEFAULT_CARD_SIZE_FOR_GAME[proxyGame]);
+    },
+    []
+  );
+
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
       <LoadingOverlay
         active={pdfBusy}
         fullscreen
@@ -431,7 +479,20 @@ export function ProxyPrintPanel() {
       />
 
       <div className="shrink-0 overflow-auto px-4 py-6 sm:px-8 sm:pb-4">
-        <PageHeader title={t("proxyPrint.title")} description={t("proxyPrint.description")} />
+        <div className="flex items-start justify-between gap-4">
+          <PageHeader title={t("proxyPrint.title")} description={t("proxyPrint.description")} />
+          {!quickAddSidebarOpen && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickAddSidebarOpen(true)}
+              className="shrink-0"
+            >
+              Add card
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-4 pb-6 lg:flex-row lg:overflow-hidden lg:px-8 lg:pb-8">
@@ -636,6 +697,20 @@ export function ProxyPrintPanel() {
           )}
         </div>
       </div>
+      </div>
+
+      {quickAddSidebarOpen && (
+        <QuickAddModal
+          open
+          onOpenChange={() => {}}
+          title="Add card"
+          defaultGameSlug="yugioh"
+          closeOnAdd={false}
+          persistent
+          embedded
+          onAdd={handleQuickAddProxy}
+        />
+      )}
     </div>
   );
 }

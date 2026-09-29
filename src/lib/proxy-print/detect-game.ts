@@ -1,4 +1,5 @@
 import type { ProxyGame } from "@/lib/proxy-print/types";
+import { INLINE_IMAGE_URL } from "@/lib/proxy-print/preview-image";
 
 const YGO_PASSCODE_LINE = /^\d{8}$/;
 const YGO_SECTION = /^(?:#main|#extra|!side|#side)\b/i;
@@ -48,7 +49,8 @@ export function detectGameFromText(text: string): ProxyGame | null {
   let genericNameLines = 0;
 
   for (const raw of normalized.split("\n")) {
-    const line = raw.trim().replace(/\t/g, " ");
+    const line = raw.trim().replace(/\t/g, " ")
+      .replace(new RegExp(`\\s+(?:\\||@)\\s*${INLINE_IMAGE_URL.source}\\s*$`, "i"), "");
     if (!line || isHeaderLine(line)) continue;
     cardLines += 1;
 
